@@ -1,0 +1,152 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_state_view.dart';
+import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/responsive_page.dart';
+import '../../../shared/preview_data.dart';
+
+class AttendancePage extends ConsumerWidget {
+  const AttendancePage({this.showMineOnly = false, super.key});
+
+  final bool showMineOnly;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(previewDataProvider);
+    final records = showMineOnly
+        ? data.attendance
+              .where((record) => record.employeeId == 'employee-1')
+              .toList()
+        : data.attendance;
+    final currentEmployee = data.employees.first;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(showMineOnly ? 'Absensi Saya' : 'Absensi Karyawan'),
+      ),
+      body: ResponsivePage(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: ListView(
+          children: [
+            if (showMineOnly) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Absensi Foto',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Mode preview mensimulasikan foto. Kamera asli akan aktif saat integrasi storage.',
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _confirmAttendance(
+                                context,
+                                ref,
+                                currentEmployee,
+                                isCheckOut: false,
+                              ),
+                              icon: const Icon(Icons.login),
+                              label: const Text('Masuk'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _confirmAttendance(
+                                context,
+                                ref,
+                                currentEmployee,
+                                isCheckOut: true,
+                              ),
+                              icon: const Icon(Icons.logout),
+                              label: const Text('Keluar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (records.isEmpty)
+              const AppStateView.empty(
+                title: 'Absensi belum ada',
+                message: 'Record absensi akan tampil setelah absen masuk.',
+              )
+            else
+              for (final record in records) ...[
+                Card(
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.fact_check_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    title: Text(record.employeeName),
+                    subtitle: Text(
+                      '${record.date.toIndonesianDate()}\nMasuk ${record.checkInAt.toIndonesianTime()} - Keluar ${record.checkOutAt?.toIndonesianTime() ?? '-'}',
+                    ),
+                    isThreeLine: true,
+                    trailing: Text(
+                      record.status,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmAttendance(
+    BuildContext context,
+    WidgetRef ref,
+    PreviewEmployee employee, {
+    required bool isCheckOut,
+  }) async {
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: isCheckOut ? 'Absen keluar?' : 'Absen masuk?',
+      message:
+          'Preview akan menyimpan timestamp server lokal dan foto simulasi untuk ${employee.name}.',
+      confirmLabel: isCheckOut ? 'Keluar' : 'Masuk',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    try {
+      ref
+          .read(previewDataProvider.notifier)
+          .addAttendance(
+            employeeId: employee.id,
+            employeeName: employee.name,
+            isCheckOut: isCheckOut,
+          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Absen ${isCheckOut ? 'keluar' : 'masuk'} tersimpan.'),
+        ),
+      );
+    } on StateError catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
