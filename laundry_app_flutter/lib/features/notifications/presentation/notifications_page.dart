@@ -13,7 +13,9 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(previewDataProvider).notifications;
+    final notifications = ref.watch(
+      previewDataProvider.select((state) => state.notifications),
+    );
 
     return Scaffold(
       appBar: AppBar(

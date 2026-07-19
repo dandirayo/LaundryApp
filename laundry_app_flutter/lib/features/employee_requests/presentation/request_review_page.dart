@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -21,8 +22,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(previewDataProvider);
-    final requests = data.requests.where((request) {
+    final allRequests = ref.watch(
+      previewDataProvider.select((state) => state.requests),
+    );
+    final requests = allRequests.where((request) {
       return _statusFilter == null || request.status == _statusFilter;
     }).toList();
 
@@ -32,25 +35,28 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(
           children: [
-            SizedBox(
-              height: 42,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  ChoiceChip(
-                    label: const Text('Semua'),
-                    selected: _statusFilter == null,
-                    onSelected: (_) => setState(() => _statusFilter = null),
-                  ),
-                  const SizedBox(width: 8),
-                  for (final status in PreviewRequestStatus.values) ...[
-                    ChoiceChip(
-                      label: Text(status.label),
-                      selected: _statusFilter == status,
-                      onSelected: (_) => setState(() => _statusFilter = status),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: const Text('Semua'),
+                      selected: _statusFilter == null,
+                      onSelected: (_) => setState(() => _statusFilter = null),
                     ),
-                    const SizedBox(width: 8),
-                  ],
+                  ),
+                  for (final status in PreviewRequestStatus.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(status.label),
+                        selected: _statusFilter == status,
+                        onSelected: (_) =>
+                            setState(() => _statusFilter = status),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -184,51 +190,40 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-        ),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: controller,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: requireNote ? 'Catatan wajib' : 'Catatan opsional',
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: controller,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: requireNote ? 'Catatan wajib' : 'Catatan opsional',
-                ),
-                validator: (value) {
-                  if (requireNote && (value ?? '').trim().isEmpty) {
-                    return 'Catatan wajib diisi.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) {
-                    return;
-                  }
-                  Navigator.of(context).pop(controller.text.trim());
-                },
-                icon: const Icon(Icons.check),
-                label: const Text('Lanjut'),
-              ),
-            ],
-          ),
+              validator: (value) {
+                if (requireNote && (value ?? '').trim().isEmpty) {
+                  return 'Catatan wajib diisi.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                Navigator.of(context).pop(controller.text.trim());
+              },
+              icon: const Icon(Icons.check),
+              label: const Text('Lanjut'),
+            ),
+          ],
         ),
       ),
     );
@@ -240,37 +235,34 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     var method = 'Tunai';
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Metode Pembayaran',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: method,
-                items: const [
-                  DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
-                  DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
-                  DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
-                ],
-                onChanged: (value) =>
-                    setModalState(() => method = value ?? method),
-                decoration: const InputDecoration(labelText: 'Metode'),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(method),
-                icon: const Icon(Icons.point_of_sale),
-                label: const Text('Pilih Metode'),
-              ),
-            ],
-          ),
+        builder: (context, setModalState) => AppBottomSheetBody(
+          children: [
+            const Text(
+              'Metode Pembayaran',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: method,
+              items: const [
+                DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
+                DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
+                DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
+              ],
+              onChanged: (value) =>
+                  setModalState(() => method = value ?? method),
+              decoration: const InputDecoration(labelText: 'Metode'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(method),
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text('Pilih Metode'),
+            ),
+          ],
         ),
       ),
     );

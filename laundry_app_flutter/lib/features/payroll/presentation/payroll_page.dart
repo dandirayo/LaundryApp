@@ -6,6 +6,7 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -15,7 +16,16 @@ class PayrollPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (
+          requests: state.requests,
+          employees: state.employees,
+          cashTransactions: state.cashTransactions,
+          weeklySalaryAmount: state.weeklySalaryAmount,
+        ),
+      ),
+    );
     final incentiveRequests = data.requests
         .where(
           (request) =>
@@ -53,7 +63,11 @@ class PayrollPage extends ConsumerWidget {
                 employee: employee,
                 amount: data.weeklySalaryAmount,
                 periodStart: periodStart,
-                isPaid: _isSalaryPaid(data, employee.id, periodStart),
+                isPaid: _isSalaryPaid(
+                  data.cashTransactions,
+                  employee.id,
+                  periodStart,
+                ),
                 onPay: () => _paySalary(context, ref, employee),
               ),
               const SizedBox(height: 10),
@@ -97,12 +111,12 @@ class PayrollPage extends ConsumerWidget {
   }
 
   bool _isSalaryPaid(
-    PreviewDataState data,
+    List<PreviewCashTransaction> cashTransactions,
     String employeeId,
     DateTime periodStart,
   ) {
     final referenceId = _payrollReference(employeeId, periodStart);
-    return data.cashTransactions.any(
+    return cashTransactions.any(
       (cash) =>
           cash.referenceType == 'PAYROLL' && cash.referenceId == referenceId,
     );
@@ -145,37 +159,34 @@ class PayrollPage extends ConsumerWidget {
     var method = 'Tunai';
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Metode Pembayaran',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: method,
-                items: const [
-                  DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
-                  DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
-                  DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
-                ],
-                onChanged: (value) =>
-                    setModalState(() => method = value ?? method),
-                decoration: const InputDecoration(labelText: 'Metode'),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(method),
-                icon: const Icon(Icons.point_of_sale),
-                label: const Text('Pilih Metode'),
-              ),
-            ],
-          ),
+        builder: (context, setModalState) => AppBottomSheetBody(
+          children: [
+            const Text(
+              'Metode Pembayaran',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: method,
+              items: const [
+                DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
+                DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
+                DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
+              ],
+              onChanged: (value) =>
+                  setModalState(() => method = value ?? method),
+              decoration: const InputDecoration(labelText: 'Metode'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(method),
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text('Pilih Metode'),
+            ),
+          ],
         ),
       ),
     );

@@ -1,6 +1,6 @@
 # Project Status
 
-Tanggal update: 18 Juli 2026
+Tanggal update: 19 Juli 2026
 
 ## Status Saat Ini
 
@@ -10,6 +10,13 @@ Tanggal update: 18 Juli 2026
 
 ## Perubahan Terbaru
 
+- Fase offline-stability dimulai dengan `docs/OFFLINE_UI_AUDIT.md`.
+- Empty state dibuat scroll-safe untuk layar pendek dan text scale besar.
+- Halaman Pesanan Karyawan diperbaiki agar daftar kosong tidak overflow dan FAB tidak bertabrakan dengan tombol empty state.
+- Bottom sheet form utama memakai wrapper `AppBottomSheetBody` dengan `SafeArea`, scroll, dan padding keyboard.
+- Banner "Mode online siap" dihapus selama tahap offline-first.
+- Beberapa halaman daftar memakai `provider.select(...)` untuk mengurangi rebuild dari `previewDataProvider`.
+- Test layout ditambahkan untuk layar 320x568 dengan text scale 1.5.
 - Fix crash pembayaran dengan menutup bottom sheet lebih dulu sebelum update provider.
 - Pembayaran pesanan otomatis memperbarui status tagihan dan masuk Buku Kas.
 - Owner mendapat halaman Review Request untuk menyetujui, menolak, membayar, dan menyelesaikan request karyawan.
@@ -22,12 +29,14 @@ Tanggal update: 18 Juli 2026
 
 - `dart format lib test`: lulus.
 - `flutter analyze`: No issues found.
-- `flutter test`: 4 test lulus.
+- `flutter test`: 6 test lulus.
 - `flutter build apk --debug`: berhasil.
 - APK: `build/app/outputs/flutter-apk/app-debug.apk`
+- Smoke test emulator: belum dijalankan karena tidak ada device ADB yang tersambung saat verifikasi.
 
 ## Belum Selesai
 
+- Drift database offline permanen dan repository per fitur.
 - Supabase migration, seed, RLS, dan koneksi production.
 - Supabase Realtime, Storage foto, Drift offline queue, dan FCM.
 - Printer Bluetooth thermal production.

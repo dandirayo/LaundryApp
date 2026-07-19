@@ -13,7 +13,9 @@ class CashbookPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cash = ref.watch(previewDataProvider).cashTransactions;
+    final cash = ref.watch(
+      previewDataProvider.select((state) => state.cashTransactions),
+    );
     final income = cash
         .where((entry) => entry.type == 'IN')
         .fold<int>(0, (sum, entry) => sum + entry.amount);

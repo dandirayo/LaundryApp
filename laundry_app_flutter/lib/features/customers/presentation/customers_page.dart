@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -18,7 +19,11 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (customers: state.customers, orders: state.orders),
+      ),
+    );
     final customers = data.customers.where((customer) {
       final text = '${customer.name} ${customer.phone} ${customer.address}'
           .toLowerCase();
@@ -36,13 +41,15 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCustomerDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Pelanggan'),
-      ),
+      floatingActionButton: customers.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _showCustomerDialog(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Pelanggan'),
+            ),
       body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, customers.isEmpty ? 24 : 96),
         child: Column(
           children: [
             TextField(
@@ -65,6 +72,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                   : RefreshIndicator(
                       onRefresh: () async {},
                       child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 24),
                         itemCount: customers.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
@@ -130,76 +138,68 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-          ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Tambah Pelanggan',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nama'),
-                  validator: (value) =>
-                      (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Nomor telepon'),
-                  validator: (value) => (value ?? '').trim().length < 8
-                      ? 'Nomor telepon belum valid.'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Alamat'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: noteController,
-                  decoration: const InputDecoration(labelText: 'Catatan'),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    if (!formKey.currentState!.validate()) {
-                      return;
-                    }
-                    try {
-                      ref
-                          .read(previewDataProvider.notifier)
-                          .addCustomer(
-                            name: nameController.text,
-                            phone: phoneController.text,
-                            address: addressController.text,
-                            note: noteController.text,
-                          );
-                      Navigator.of(context).pop();
-                      _showSnack('Pelanggan berhasil ditambahkan.');
-                    } on StateError catch (error) {
-                      _showSnack(error.message);
-                    }
-                  },
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Simpan'),
-                ),
-              ],
-            ),
+        return Form(
+          key: formKey,
+          child: AppBottomSheetBody(
+            children: [
+              Text(
+                'Tambah Pelanggan',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nama'),
+                validator: (value) =>
+                    (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Nomor telepon'),
+                validator: (value) => (value ?? '').trim().length < 8
+                    ? 'Nomor telepon belum valid.'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Alamat'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Catatan'),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  if (!formKey.currentState!.validate()) {
+                    return;
+                  }
+                  try {
+                    ref
+                        .read(previewDataProvider.notifier)
+                        .addCustomer(
+                          name: nameController.text,
+                          phone: phoneController.text,
+                          address: addressController.text,
+                          note: noteController.text,
+                        );
+                    Navigator.of(context).pop();
+                    _showSnack('Pelanggan berhasil ditambahkan.');
+                  } on StateError catch (error) {
+                    _showSnack(error.message);
+                  }
+                },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Simpan'),
+              ),
+            ],
           ),
         );
       },

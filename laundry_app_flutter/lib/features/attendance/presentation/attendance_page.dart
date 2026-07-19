@@ -15,7 +15,11 @@ class AttendancePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (attendance: state.attendance, employees: state.employees),
+      ),
+    );
     final records = showMineOnly
         ? data.attendance
               .where((record) => record.employeeId == 'employee-1')

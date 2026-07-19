@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -21,7 +22,9 @@ class ServicesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final services = ref.watch(previewDataProvider).services;
+    final services = ref.watch(
+      previewDataProvider.select((state) => state.services),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -34,13 +37,15 @@ class ServicesPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showServiceDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Layanan'),
-      ),
+      floatingActionButton: services.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _showServiceDialog(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('Layanan'),
+            ),
       body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, services.isEmpty ? 24 : 96),
         child: services.isEmpty
             ? AppStateView.empty(
                 title: 'Layanan belum ada',
@@ -50,6 +55,7 @@ class ServicesPage extends ConsumerWidget {
                 onAction: () => _showServiceDialog(context, ref),
               )
             : ListView.separated(
+                padding: const EdgeInsets.only(bottom: 24),
                 itemCount: services.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
@@ -126,116 +132,106 @@ class ServicesPage extends ConsumerWidget {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-              ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Tambah Layanan',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+            return Form(
+              key: formKey,
+              child: AppBottomSheetBody(
+                children: [
+                  Text(
+                    'Tambah Layanan',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama layanan',
+                    ),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? 'Nama layanan wajib diisi.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
+                    items: [
+                      for (final item in _categories)
+                        DropdownMenuItem(value: item, child: Text(item)),
+                    ],
+                    onChanged: (value) =>
+                        setModalState(() => category = value ?? category),
+                    decoration: const InputDecoration(labelText: 'Kategori'),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: priceController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Harga'),
+                          validator: (value) =>
+                              (int.tryParse(value ?? '') ?? 0) <= 0
+                              ? 'Harga wajib lebih dari nol.'
+                              : null,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nama layanan',
-                      ),
-                      validator: (value) => (value ?? '').trim().isEmpty
-                          ? 'Nama layanan wajib diisi.'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: category,
-                      items: [
-                        for (final item in _categories)
-                          DropdownMenuItem(value: item, child: Text(item)),
-                      ],
-                      onChanged: (value) =>
-                          setModalState(() => category = value ?? category),
-                      decoration: const InputDecoration(labelText: 'Kategori'),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: priceController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Harga',
-                            ),
-                            validator: (value) =>
-                                (int.tryParse(value ?? '') ?? 0) <= 0
-                                ? 'Harga wajib lebih dari nol.'
-                                : null,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: unitController,
+                          decoration: const InputDecoration(
+                            labelText: 'Satuan',
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: unitController,
-                            decoration: const InputDecoration(
-                              labelText: 'Satuan',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: hoursController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Estimasi selesai (jam)',
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: hoursController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Estimasi selesai (jam)',
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Express'),
-                      value: isExpress,
-                      onChanged: (value) =>
-                          setModalState(() => isExpress = value),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () {
-                        if (!formKey.currentState!.validate()) {
-                          return;
-                        }
-                        ref
-                            .read(previewDataProvider.notifier)
-                            .addService(
-                              name: nameController.text,
-                              category: category,
-                              unit: unitController.text.trim().isEmpty
-                                  ? 'kg'
-                                  : unitController.text.trim(),
-                              price: int.parse(priceController.text),
-                              estimatedHours:
-                                  int.tryParse(hoursController.text) ?? 48,
-                              isExpress: isExpress,
-                            );
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Layanan berhasil ditambahkan.'),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text('Simpan'),
-                    ),
-                  ],
-                ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Express'),
+                    value: isExpress,
+                    onChanged: (value) =>
+                        setModalState(() => isExpress = value),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (!formKey.currentState!.validate()) {
+                        return;
+                      }
+                      ref
+                          .read(previewDataProvider.notifier)
+                          .addService(
+                            name: nameController.text,
+                            category: category,
+                            unit: unitController.text.trim().isEmpty
+                                ? 'kg'
+                                : unitController.text.trim(),
+                            price: int.parse(priceController.text),
+                            estimatedHours:
+                                int.tryParse(hoursController.text) ?? 48,
+                            isExpress: isExpress,
+                          );
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Layanan berhasil ditambahkan.'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Simpan'),
+                  ),
+                ],
               ),
             );
           },

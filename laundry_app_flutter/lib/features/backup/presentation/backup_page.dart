@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 
@@ -10,7 +11,20 @@ class BackupPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (
+          customers: state.customers,
+          services: state.services,
+          orders: state.orders,
+          payments: state.payments,
+          cashTransactions: state.cashTransactions,
+          inventory: state.inventory,
+          employees: state.employees,
+          lastBackupAt: state.lastBackupAt,
+        ),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Backup Data')),
@@ -52,30 +66,27 @@ class BackupPage extends ConsumerWidget {
   Future<void> _showExportSheet(BuildContext context, WidgetRef ref) async {
     final format = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Pilih Format Export',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(context).pop('JSON'),
-              icon: const Icon(Icons.data_object),
-              label: const Text('JSON'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).pop('CSV'),
-              icon: const Icon(Icons.table_chart_outlined),
-              label: const Text('CSV'),
-            ),
-          ],
-        ),
+      builder: (context) => AppBottomSheetBody(
+        children: [
+          const Text(
+            'Pilih Format Export',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop('JSON'),
+            icon: const Icon(Icons.data_object),
+            label: const Text('JSON'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).pop('CSV'),
+            icon: const Icon(Icons.table_chart_outlined),
+            label: const Text('CSV'),
+          ),
+        ],
       ),
     );
     if (format == null || !context.mounted) {

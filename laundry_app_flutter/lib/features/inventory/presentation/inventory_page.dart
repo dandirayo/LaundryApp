@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -12,7 +13,12 @@ class InventoryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) =>
+            (inventory: state.inventory, movements: state.inventoryMovements),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -25,13 +31,20 @@ class InventoryPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showItemSheet(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Barang'),
-      ),
+      floatingActionButton: data.inventory.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _showItemSheet(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('Barang'),
+            ),
       body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          data.inventory.isEmpty ? 24 : 96,
+        ),
         child: data.inventory.isEmpty
             ? AppStateView.empty(
                 title: 'Stok belum ada',
@@ -41,6 +54,7 @@ class InventoryPage extends ConsumerWidget {
                 onAction: () => _showItemSheet(context, ref),
               )
             : ListView(
+                padding: const EdgeInsets.only(bottom: 24),
                 children: [
                   for (final item in data.inventory) ...[
                     Card(
@@ -84,7 +98,7 @@ class InventoryPage extends ConsumerWidget {
                                     isAdd: true,
                                   ),
                                   icon: const Icon(Icons.add),
-                                  label: const Text('Plus'),
+                                  label: const Text('Stok Masuk'),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: () => _showAdjustSheet(
@@ -94,7 +108,7 @@ class InventoryPage extends ConsumerWidget {
                                     isAdd: false,
                                   ),
                                   icon: const Icon(Icons.remove),
-                                  label: const Text('Minus'),
+                                  label: const Text('Stok Keluar'),
                                 ),
                               ],
                             ),
@@ -104,7 +118,7 @@ class InventoryPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                   ],
-                  if (data.inventoryMovements.isNotEmpty) ...[
+                  if (data.movements.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
                       'Riwayat Stok',
@@ -113,7 +127,7 @@ class InventoryPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    for (final movement in data.inventoryMovements.take(8))
+                    for (final movement in data.movements.take(8))
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.history),
@@ -141,90 +155,88 @@ class InventoryPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-        ),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Tambah Barang',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Nama barang'),
-                validator: (value) =>
-                    (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: stock,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Stok awal'),
-                    ),
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(
+          children: [
+            const Text(
+              'Tambah Barang',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Nama barang'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: stock,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Stok awal'),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: unit,
-                      decoration: const InputDecoration(labelText: 'Satuan'),
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: unit,
+                    decoration: const InputDecoration(labelText: 'Satuan'),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: minStock,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Stok minimum'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: price,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Harga beli'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: note,
-                decoration: const InputDecoration(labelText: 'Catatan'),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) {
-                    return;
-                  }
-                  ref
-                      .read(previewDataProvider.notifier)
-                      .addInventoryItem(
-                        name: name.text,
-                        stock: double.tryParse(stock.text) ?? 0,
-                        unit: unit.text,
-                        minStock: double.tryParse(minStock.text) ?? 0,
-                        purchasePrice: int.tryParse(price.text) ?? 0,
-                        note: note.text,
-                      );
-                  Navigator.of(context).pop();
-                },
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Simpan'),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: minStock,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Stok minimum'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Harga beli'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: note,
+              decoration: const InputDecoration(labelText: 'Catatan'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                ref
+                    .read(previewDataProvider.notifier)
+                    .addInventoryItem(
+                      name: name.text,
+                      stock: double.tryParse(stock.text) ?? 0,
+                      unit: unit.text,
+                      minStock: double.tryParse(minStock.text) ?? 0,
+                      purchasePrice: int.tryParse(price.text) ?? 0,
+                      note: note.text,
+                    );
+                Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Simpan'),
+            ),
+          ],
         ),
       ),
     );
+    name.dispose();
+    stock.dispose();
+    unit.dispose();
+    minStock.dispose();
+    price.dispose();
+    note.dispose();
   }
 
   Future<void> _showAdjustSheet(
@@ -240,68 +252,59 @@ class InventoryPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-        ),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${isAdd ? 'Plus' : 'Minus'} Stok ${item.name}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: quantity,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Jumlah (${item.unit})'),
-                validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0
-                    ? 'Jumlah wajib lebih dari nol.'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: note,
-                decoration: const InputDecoration(labelText: 'Catatan'),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) {
-                    return;
-                  }
-                  try {
-                    ref
-                        .read(previewDataProvider.notifier)
-                        .adjustStock(
-                          itemId: item.id,
-                          quantity: double.parse(quantity.text),
-                          type: isAdd ? 'IN' : 'OUT',
-                          note: note.text,
-                        );
-                    Navigator.of(context).pop();
-                  } on StateError catch (error) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(error.message)));
-                  }
-                },
-                icon: Icon(isAdd ? Icons.add : Icons.remove),
-                label: const Text('Simpan'),
-              ),
-            ],
-          ),
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(
+          children: [
+            Text(
+              '${isAdd ? 'Stok Masuk' : 'Stok Keluar'} ${item.name}',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: quantity,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: 'Jumlah (${item.unit})'),
+              validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0
+                  ? 'Jumlah wajib lebih dari nol.'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: note,
+              decoration: const InputDecoration(labelText: 'Catatan'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                try {
+                  ref
+                      .read(previewDataProvider.notifier)
+                      .adjustStock(
+                        itemId: item.id,
+                        quantity: double.parse(quantity.text),
+                        type: isAdd ? 'IN' : 'OUT',
+                        note: note.text,
+                      );
+                  Navigator.of(context).pop();
+                } on StateError catch (error) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error.message)));
+                }
+              },
+              icon: Icon(isAdd ? Icons.add : Icons.remove),
+              label: const Text('Simpan'),
+            ),
+          ],
         ),
       ),
     );
+    quantity.dispose();
+    note.dispose();
   }
 }
 

@@ -33,7 +33,15 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (
+          customers: state.customers,
+          services: state.services,
+          employees: state.employees,
+        ),
+      ),
+    );
     final customers = data.customers;
     final services = data.services
         .where((service) => service.isActive)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/responsive_page.dart';
 import 'auth_controller.dart';
 
@@ -82,52 +83,44 @@ class ProfilePage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-        ),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Edit Profil',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Nama'),
-                validator: (value) =>
-                    (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Nomor telepon'),
-                validator: (value) => (value ?? '').trim().length < 8
-                    ? 'Nomor telepon belum valid.'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) {
-                    return;
-                  }
-                  Navigator.of(
-                    context,
-                  ).pop(_ProfileInput(name: name.text, phone: phone.text));
-                },
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Simpan Profil'),
-              ),
-            ],
-          ),
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(
+          children: [
+            const Text(
+              'Edit Profil',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Nama'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: phone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Nomor telepon'),
+              validator: (value) => (value ?? '').trim().length < 8
+                  ? 'Nomor telepon belum valid.'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                Navigator.of(
+                  context,
+                ).pop(_ProfileInput(name: name.text, phone: phone.text));
+              },
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Simpan Profil'),
+            ),
+          ],
         ),
       ),
     );

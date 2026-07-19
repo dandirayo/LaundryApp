@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/router/app_routes.dart';
-import '../core/theme/app_colors.dart';
 import '../core/widgets/confirmation_dialog.dart';
 import '../features/auth/domain/user_role.dart';
 import '../features/auth/presentation/auth_controller.dart';
@@ -22,15 +21,7 @@ class AppShell extends ConsumerWidget {
     final selectedIndex = _selectedIndex(path, destinations);
 
     return Scaffold(
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            const _OfflineBanner(),
-            Expanded(child: child),
-          ],
-        ),
-      ),
+      body: SafeArea(top: false, child: child),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
@@ -139,42 +130,6 @@ class _ShellDestination {
   final String path;
   final IconData icon;
   final IconData selectedIcon;
-}
-
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.softMint,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.cloud_done_outlined,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Mode online siap. Cache offline akan aktif pada Phase 6.',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 Future<void> confirmAndLogout(BuildContext context, WidgetRef ref) async {

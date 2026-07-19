@@ -15,7 +15,11 @@ class OrderDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (orders: state.orders, payments: state.payments),
+      ),
+    );
     final order = data.orders
         .where((entry) => entry.id == orderId)
         .cast<PreviewOrder?>()

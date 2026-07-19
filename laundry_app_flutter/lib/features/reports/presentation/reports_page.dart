@@ -10,7 +10,15 @@ class ReportsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(previewDataProvider);
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (
+          orders: state.orders,
+          customers: state.customers,
+          cashTransactions: state.cashTransactions,
+        ),
+      ),
+    );
     final orderValue = data.orders.fold<int>(
       0,
       (sum, order) => sum + order.totalPrice,

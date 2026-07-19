@@ -6,6 +6,7 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -26,8 +27,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(previewDataProvider);
-    final orders = data.orders.where((order) {
+    final allOrders = ref.watch(
+      previewDataProvider.select((state) => state.orders),
+    );
+    final orders = allOrders.where((order) {
       final queryMatch =
           '${order.orderNumber} ${order.customerNameSnapshot} ${order.customerPhoneSnapshot}'
               .toLowerCase()
@@ -41,6 +44,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     }).toList();
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(widget.showMineOnly ? 'Pesanan Saya' : 'Pesanan'),
         actions: [
@@ -51,13 +55,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(AppRoutes.orderCreate),
-        icon: const Icon(Icons.add),
-        label: const Text('Pesanan'),
-      ),
+      floatingActionButton: orders.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.go(AppRoutes.orderCreate),
+              icon: const Icon(Icons.add),
+              label: const Text('Pesanan'),
+            ),
       body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, orders.isEmpty ? 24 : 96),
         child: Column(
           children: [
             TextField(
@@ -68,25 +74,27 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
               onChanged: (value) => setState(() => _query = value),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 42,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  ChoiceChip(
-                    label: const Text('Semua'),
-                    selected: _status == null,
-                    onSelected: (_) => setState(() => _status = null),
-                  ),
-                  const SizedBox(width: 8),
-                  for (final status in PreviewOrderStatus.values) ...[
-                    ChoiceChip(
-                      label: Text(status.label),
-                      selected: _status == status,
-                      onSelected: (_) => setState(() => _status = status),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: const Text('Semua'),
+                      selected: _status == null,
+                      onSelected: (_) => setState(() => _status = null),
                     ),
-                    const SizedBox(width: 8),
-                  ],
+                  ),
+                  for (final status in PreviewOrderStatus.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(status.label),
+                        selected: _status == status,
+                        onSelected: (_) => setState(() => _status = status),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -103,6 +111,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   : RefreshIndicator(
                       onRefresh: () async {},
                       child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 24),
                         itemCount: orders.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
@@ -138,76 +147,68 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-              ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Terima Pembayaran',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+            return Form(
+              key: formKey,
+              child: AppBottomSheetBody(
+                children: [
+                  Text(
+                    'Terima Pembayaran',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${order.orderNumber} - Sisa ${order.remainingAmount.toRupiah()}',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Nominal'),
+                    validator: (value) {
+                      final amount = int.tryParse(value ?? '') ?? 0;
+                      if (amount <= 0) {
+                        return 'Nominal tidak boleh nol.';
+                      }
+                      if (amount > order.remainingAmount) {
+                        return 'Nominal melebihi sisa tagihan.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: method,
+                    items: const [
+                      DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
+                      DropdownMenuItem(
+                        value: 'Transfer',
+                        child: Text('Transfer'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${order.orderNumber} - Sisa ${order.remainingAmount.toRupiah()}',
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Nominal'),
-                      validator: (value) {
-                        final amount = int.tryParse(value ?? '') ?? 0;
-                        if (amount <= 0) {
-                          return 'Nominal tidak boleh nol.';
-                        }
-                        if (amount > order.remainingAmount) {
-                          return 'Nominal melebihi sisa tagihan.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: method,
-                      items: const [
-                        DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
-                        DropdownMenuItem(
-                          value: 'Transfer',
-                          child: Text('Transfer'),
+                      DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
+                    ],
+                    onChanged: (value) =>
+                        setModalState(() => method = value ?? method),
+                    decoration: const InputDecoration(labelText: 'Metode'),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (!formKey.currentState!.validate()) {
+                        return;
+                      }
+                      Navigator.of(context).pop(
+                        _PaymentInput(
+                          amount: int.parse(amountController.text),
+                          method: method,
                         ),
-                        DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
-                      ],
-                      onChanged: (value) =>
-                          setModalState(() => method = value ?? method),
-                      decoration: const InputDecoration(labelText: 'Metode'),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () {
-                        if (!formKey.currentState!.validate()) {
-                          return;
-                        }
-                        Navigator.of(context).pop(
-                          _PaymentInput(
-                            amount: int.parse(amountController.text),
-                            method: method,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.point_of_sale),
-                      label: const Text('Simpan Pembayaran'),
-                    ),
-                  ],
-                ),
+                      );
+                    },
+                    icon: const Icon(Icons.point_of_sale),
+                    label: const Text('Simpan Pembayaran'),
+                  ),
+                ],
               ),
             );
           },
