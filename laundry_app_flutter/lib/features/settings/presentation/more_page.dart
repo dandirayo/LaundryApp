@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_shell.dart';
+import '../../../core/localization/app_language.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -15,96 +16,113 @@ class MorePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final role = ref.watch(authControllerProvider).value?.user?.role;
+    final strings = ref.strings;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Lainnya')),
+      appBar: AppBar(title: Text(strings.more)),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: ListView(
           children: role == UserRole.owner
-              ? _ownerSections(context, ref)
-              : _employeeSections(context, ref),
+              ? _ownerSections(context, ref, strings)
+              : _employeeSections(context, ref, strings),
         ),
       ),
     );
   }
 
-  List<Widget> _ownerSections(BuildContext context, WidgetRef ref) {
+  List<Widget> _ownerSections(
+    BuildContext context,
+    WidgetRef ref,
+    AppStrings strings,
+  ) {
     return [
       _MenuSection(
-        title: 'OPERASIONAL',
+        title: strings.operational,
         items: [
-          _MenuItem('Layanan & Harga', Icons.sell_outlined, AppRoutes.services),
           _MenuItem(
-            'Stok & Pengadaan',
+            strings.servicesAndPrices,
+            Icons.sell_outlined,
+            AppRoutes.services,
+          ),
+          _MenuItem(
+            strings.inventory,
             Icons.inventory_2_outlined,
             AppRoutes.inventory,
           ),
           _MenuItem(
-            'Jadwal Shift',
+            strings.shifts,
             Icons.calendar_month_outlined,
             AppRoutes.shifts,
           ),
         ],
       ),
       _MenuSection(
-        title: 'TIM',
+        title: strings.team,
         items: [
-          _MenuItem('Data Karyawan', Icons.badge_outlined, AppRoutes.employees),
           _MenuItem(
-            'Absensi Karyawan',
+            strings.employees,
+            Icons.badge_outlined,
+            AppRoutes.employees,
+          ),
+          _MenuItem(
+            strings.attendance,
             Icons.fact_check_outlined,
             AppRoutes.attendance,
           ),
           _MenuItem(
-            'Gaji & Insentif',
+            strings.payroll,
             Icons.account_balance_wallet_outlined,
             AppRoutes.payroll,
           ),
           _MenuItem(
-            'Review Request',
+            strings.requests,
             Icons.rule_folder_outlined,
             AppRoutes.requestReview,
           ),
         ],
       ),
       _MenuSection(
-        title: 'KEUANGAN',
+        title: strings.finance,
         items: [
-          _MenuItem('Laporan', Icons.assessment_outlined, AppRoutes.reports),
           _MenuItem(
-            'Buku Kas',
+            strings.reports,
+            Icons.assessment_outlined,
+            AppRoutes.reports,
+          ),
+          _MenuItem(
+            strings.cashbook,
             Icons.account_balance_outlined,
             AppRoutes.cashbook,
           ),
           _MenuItem(
-            'Pengeluaran',
+            strings.expenses,
             Icons.price_check_outlined,
             AppRoutes.expenses,
           ),
         ],
       ),
       _MenuSection(
-        title: 'SISTEM',
+        title: strings.system,
         items: [
           _MenuItem(
-            'Notifikasi',
+            strings.notifications,
             Icons.notifications_outlined,
             AppRoutes.notifications,
           ),
           _MenuItem('Printer', Icons.print_outlined, AppRoutes.printer),
           _MenuItem(
-            'Backup Data',
+            strings.backupData,
             Icons.cloud_upload_outlined,
             AppRoutes.backup,
           ),
           _MenuItem(
-            'Pengaturan Toko',
+            strings.shopSettings,
             Icons.settings_outlined,
             AppRoutes.shopSettings,
           ),
           _MenuItem(
-            'Keluar',
+            strings.logout,
             Icons.logout,
             null,
             color: AppColors.error,
@@ -115,35 +133,39 @@ class MorePage extends ConsumerWidget {
     ];
   }
 
-  List<Widget> _employeeSections(BuildContext context, WidgetRef ref) {
+  List<Widget> _employeeSections(
+    BuildContext context,
+    WidgetRef ref,
+    AppStrings strings,
+  ) {
     return [
       _MenuSection(
-        title: 'PEKERJAAN',
+        title: strings.work,
         items: [
           _MenuItem(
-            'Jadwal Saya',
+            strings.mySchedule,
             Icons.calendar_today_outlined,
             AppRoutes.shiftsMine,
           ),
           _MenuItem(
-            'Pesanan Saya',
+            strings.myOrders,
             Icons.receipt_long_outlined,
             AppRoutes.ordersMine,
           ),
           _MenuItem(
-            'Tambah Pelanggan',
+            strings.addCustomer,
             Icons.person_add_alt_1,
             AppRoutes.customers,
           ),
           _MenuItem(
-            'Notifikasi',
+            strings.notifications,
             Icons.notifications_outlined,
             AppRoutes.notifications,
           ),
         ],
       ),
       _MenuSection(
-        title: 'REQUEST',
+        title: strings.requests.toUpperCase(),
         items: [
           _MenuItem(
             'Request Stok',
@@ -178,12 +200,12 @@ class MorePage extends ConsumerWidget {
         ],
       ),
       _MenuSection(
-        title: 'AKUN',
+        title: strings.account,
         items: [
-          _MenuItem('Profil', Icons.person_outline, AppRoutes.profile),
-          _MenuItem('Ganti PIN', Icons.lock_reset, AppRoutes.changePin),
+          _MenuItem(strings.profile, Icons.person_outline, AppRoutes.profile),
+          _MenuItem(strings.changePin, Icons.lock_reset, AppRoutes.changePin),
           _MenuItem(
-            'Keluar',
+            strings.logout,
             Icons.logout,
             null,
             color: AppColors.error,

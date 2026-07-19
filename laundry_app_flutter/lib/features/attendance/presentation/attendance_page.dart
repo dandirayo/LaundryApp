@@ -98,18 +98,22 @@ class AttendancePage extends ConsumerWidget {
               for (final record in records) ...[
                 Card(
                   child: ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.fact_check_outlined,
-                      color: AppColors.primaryBlue,
+                      color: _statusColor(record.attendanceStatus),
                     ),
                     title: Text(record.employeeName),
                     subtitle: Text(
-                      '${record.date.toIndonesianDate()}\nMasuk ${record.checkInAt.toIndonesianTime()} - Keluar ${record.checkOutAt?.toIndonesianTime() ?? '-'}',
+                      '${record.date.toIndonesianDate()}\nShift ${record.shiftLabel.isEmpty ? '-' : record.shiftLabel} - Masuk ${record.checkInAt.toIndonesianTime()} - Keluar ${record.checkOutAt?.toIndonesianTime() ?? '-'}\n${_lateLabel(record)}',
                     ),
                     isThreeLine: true,
-                    trailing: Text(
-                      record.status,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    trailing: Chip(
+                      label: Text(record.attendanceStatus.label),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      side: BorderSide.none,
+                      backgroundColor: _statusColor(
+                        record.attendanceStatus,
+                      ).withValues(alpha: 0.16),
                     ),
                   ),
                 ),
@@ -170,5 +174,27 @@ class AttendancePage extends ConsumerWidget {
     } on StateError catch (error) {
       showAppSnackBar(error.message);
     }
+  }
+
+  Color _statusColor(PreviewAttendanceStatus status) {
+    return switch (status) {
+      PreviewAttendanceStatus.onTime => AppColors.success,
+      PreviewAttendanceStatus.late => AppColors.warning,
+      PreviewAttendanceStatus.severelyLate ||
+      PreviewAttendanceStatus.absent => AppColors.error,
+      PreviewAttendanceStatus.leave ||
+      PreviewAttendanceStatus.sick ||
+      PreviewAttendanceStatus.permission => AppColors.primaryBlue,
+    };
+  }
+
+  String _lateLabel(PreviewAttendance record) {
+    if (record.lateMinutes <= 0) {
+      return 'Tepat waktu';
+    }
+    final hours = record.lateMinutes ~/ 60;
+    final minutes = record.lateMinutes % 60;
+    final detail = hours > 0 ? '$hours jam $minutes menit' : '$minutes menit';
+    return 'Terlambat $detail';
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/localization/app_language.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -36,6 +37,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       ),
     );
     final allOrders = data.orders;
+    final strings = ref.strings;
     final orders = allOrders.where((order) {
       final queryMatch =
           '${order.orderNumber} ${order.customerNameSnapshot} ${order.customerPhoneSnapshot}'
@@ -52,10 +54,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text(widget.showMineOnly ? 'Pesanan Saya' : 'Pesanan'),
+        title: Text(widget.showMineOnly ? strings.myOrders : strings.orders),
         actions: [
           IconButton(
-            tooltip: 'Tambah pesanan',
+            tooltip: strings.addOrder,
             onPressed: () => context.go(AppRoutes.orderCreate),
             icon: const Icon(Icons.add_business_outlined),
           ),
@@ -66,16 +68,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
           : FloatingActionButton.extended(
               onPressed: () => context.go(AppRoutes.orderCreate),
               icon: const Icon(Icons.add),
-              label: const Text('Pesanan'),
+              label: Text(strings.orders),
             ),
       body: ResponsivePage(
         padding: EdgeInsets.fromLTRB(16, 8, 16, orders.isEmpty ? 24 : 96),
         child: Column(
           children: [
             TextField(
-              decoration: const InputDecoration(
-                hintText: 'Cari nomor pesanan atau pelanggan',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                hintText: strings.searchOrders,
+                prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) => setState(() => _query = value),
             ),
@@ -87,8 +89,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: const Text('Semua'),
+                      label: Text(
+                        strings.all,
+                        style: _filterChipTextStyle(_status == null),
+                      ),
                       selected: _status == null,
+                      selectedColor: AppColors.lightGold,
+                      backgroundColor: AppColors.surface,
+                      checkmarkColor: AppColors.primaryBlue,
+                      side: const BorderSide(color: AppColors.outline),
                       onSelected: (_) => setState(() => _status = null),
                     ),
                   ),
@@ -96,8 +105,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(status.label),
+                        label: Text(
+                          strings.orderStatus(status.label),
+                          style: _filterChipTextStyle(_status == status),
+                        ),
                         selected: _status == status,
+                        selectedColor: AppColors.lightGold,
+                        backgroundColor: AppColors.surface,
+                        checkmarkColor: AppColors.primaryBlue,
+                        side: const BorderSide(color: AppColors.outline),
                         onSelected: (_) => setState(() => _status = status),
                       ),
                     ),
@@ -108,10 +124,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
             Expanded(
               child: orders.isEmpty
                   ? AppStateView.empty(
-                      title: 'Pesanan belum ada',
-                      message:
-                          'Buat pesanan baru lewat aksi cepat. Data preview tersimpan selama aplikasi berjalan.',
-                      actionLabel: 'Tambah pesanan',
+                      title: strings.noOrdersTitle,
+                      message: strings.noOrdersMessage,
+                      actionLabel: strings.addOrder,
                       onAction: () => context.go(AppRoutes.orderCreate),
                     )
                   : RefreshIndicator(
@@ -129,12 +144,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                               data.employees,
                               order.assignedEmployeeId,
                             ),
+                            strings: strings,
                             onDetail: () => context.go('/orders/${order.id}'),
                             onWhatsApp: () => _sendReadyPickupWhatsApp(order),
                             onPayment: order.remainingAmount <= 0
                                 ? null
                                 : () => _showPaymentSheet(order),
-                            statusActionLabel: _statusActionLabel(order),
+                            statusActionLabel: _statusActionLabel(
+                              order,
+                              strings,
+                            ),
                             onStatus: nextStatus == null
                                 ? null
                                 : () => _confirmStatusChange(order, nextStatus),
@@ -150,6 +169,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
   }
 
   Future<void> _showPaymentSheet(PreviewOrder order) async {
+    final strings = ref.read(appLanguageProvider) == AppLanguage.en
+        ? const AppStrings(AppLanguage.en)
+        : const AppStrings(AppLanguage.id);
     final amountController = TextEditingController(
       text: order.remainingAmount.toString(),
     );
@@ -167,7 +189,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
               child: AppBottomSheetBody(
                 children: [
                   Text(
-                    'Terima Pembayaran',
+                    strings.receivePayment,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -180,14 +202,18 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   TextFormField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Nominal'),
+                    decoration: InputDecoration(labelText: strings.amount),
                     validator: (value) {
                       final amount = int.tryParse(value ?? '') ?? 0;
                       if (amount <= 0) {
-                        return 'Nominal tidak boleh nol.';
+                        return strings.isEnglish
+                            ? 'Amount cannot be zero.'
+                            : 'Nominal tidak boleh nol.';
                       }
                       if (amount > order.remainingAmount) {
-                        return 'Nominal melebihi sisa tagihan.';
+                        return strings.isEnglish
+                            ? 'Amount exceeds remaining balance.'
+                            : 'Nominal melebihi sisa tagihan.';
                       }
                       return null;
                     },
@@ -205,7 +231,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                     ],
                     onChanged: (value) =>
                         setModalState(() => method = value ?? method),
-                    decoration: const InputDecoration(labelText: 'Metode'),
+                    decoration: InputDecoration(labelText: strings.method),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -221,7 +247,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                       );
                     },
                     icon: const Icon(Icons.point_of_sale),
-                    label: const Text('Simpan Pembayaran'),
+                    label: Text(strings.savePayment),
                   ),
                 ],
               ),
@@ -250,7 +276,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       if (!mounted) {
         return;
       }
-      showAppSnackBar('Pembayaran masuk Buku Kas.');
+      showAppSnackBar(
+        ref.read(appLanguageProvider) == AppLanguage.en
+            ? const AppStrings(AppLanguage.en).paymentSaved
+            : const AppStrings(AppLanguage.id).paymentSaved,
+      );
     } on StateError catch (error) {
       if (!mounted) {
         return;
@@ -264,6 +294,21 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     PreviewOrderStatus selected,
   ) async {
     if (!mounted) {
+      return;
+    }
+    if (selected == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
+      final payNow = await showConfirmationDialog(
+        context,
+        title: 'Bayar dulu',
+        message:
+            '${order.orderNumber} masih punya sisa tagihan ${order.remainingAmount.toRupiah()}. Pesanan belum boleh ditandai diambil sebelum lunas.',
+        confirmLabel: 'Bayar Sekarang',
+        cancelLabel: 'Nanti',
+      );
+      if (!payNow || !mounted) {
+        return;
+      }
+      await _showPaymentSheet(order);
       return;
     }
     final confirmed = await showConfirmationDialog(
@@ -295,8 +340,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     }
     showAppSnackBar(
       opened
-          ? 'WhatsApp dibuka dengan template siap ambil.'
-          : 'WhatsApp tidak bisa dibuka di perangkat ini.',
+          ? (ref.read(appLanguageProvider) == AppLanguage.en
+                ? const AppStrings(AppLanguage.en).whatsappReady
+                : const AppStrings(AppLanguage.id).whatsappReady)
+          : (ref.read(appLanguageProvider) == AppLanguage.en
+                ? const AppStrings(AppLanguage.en).whatsappUnavailable
+                : const AppStrings(AppLanguage.id).whatsappUnavailable),
     );
   }
 
@@ -309,13 +358,13 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     };
   }
 
-  String? _statusActionLabel(PreviewOrder order) {
+  String? _statusActionLabel(PreviewOrder order, AppStrings strings) {
     return switch (order.orderStatus) {
-      PreviewOrderStatus.received => 'Mulai Proses',
-      PreviewOrderStatus.processing => 'Tandai Selesai',
-      PreviewOrderStatus.ready => 'Sudah Diambil',
-      PreviewOrderStatus.pickedUp => 'Sudah Selesai',
-      PreviewOrderStatus.cancelled => 'Dibatalkan',
+      PreviewOrderStatus.received => strings.startProcessing,
+      PreviewOrderStatus.processing => strings.markDone,
+      PreviewOrderStatus.ready => strings.pickedUp,
+      PreviewOrderStatus.pickedUp => strings.completed,
+      PreviewOrderStatus.cancelled => strings.cancelled,
     };
   }
 
@@ -324,7 +373,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
             .where((employee) => employee.id == employeeId)
             .map((employee) => employee.name)
             .firstOrNull ??
-        'Belum ditugaskan';
+        (ref.read(appLanguageProvider) == AppLanguage.en
+            ? const AppStrings(AppLanguage.en).unassigned
+            : const AppStrings(AppLanguage.id).unassigned);
+  }
+
+  TextStyle _filterChipTextStyle(bool selected) {
+    return TextStyle(
+      color: selected ? AppColors.primaryBlue : AppColors.secondaryText,
+      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+    );
   }
 }
 
@@ -339,6 +397,7 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
     required this.employeeName,
+    required this.strings,
     required this.onDetail,
     required this.onWhatsApp,
     required this.onStatus,
@@ -348,6 +407,7 @@ class _OrderCard extends StatelessWidget {
 
   final PreviewOrder order;
   final String employeeName;
+  final AppStrings strings;
   final VoidCallback onDetail;
   final VoidCallback onWhatsApp;
   final VoidCallback? onStatus;
@@ -373,7 +433,7 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
                 _StatusPill(
-                  label: order.orderStatus.label,
+                  label: strings.orderStatus(order.orderStatus.label),
                   color: order.orderStatus == PreviewOrderStatus.ready
                       ? AppColors.success
                       : AppColors.primaryBlue,
@@ -387,7 +447,7 @@ class _OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${order.totalQuantity.toStringAsFixed(1)} ${order.items.first.unit} - ${order.totalPrice.toRupiah()} - Sisa ${order.remainingAmount.toRupiah()}',
+              '${_itemSummary(order)} - ${order.totalPrice.toRupiah()} - Sisa ${order.remainingAmount.toRupiah()}',
               style: const TextStyle(color: AppColors.secondaryText),
             ),
             const SizedBox(height: 4),
@@ -397,7 +457,7 @@ class _OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Diproses oleh $employeeName',
+              '${strings.processedBy} $employeeName',
               style: const TextStyle(
                 color: AppColors.secondaryText,
                 fontWeight: FontWeight.w600,
@@ -416,17 +476,17 @@ class _OrderCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onDetail,
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Detail'),
+                  label: Text(strings.detail),
                 ),
                 OutlinedButton.icon(
                   onPressed: onStatus,
                   icon: Icon(_statusActionIcon(order.orderStatus)),
-                  label: Text(statusActionLabel ?? 'Status Selesai'),
+                  label: Text(statusActionLabel ?? strings.markDone),
                 ),
                 FilledButton.icon(
                   onPressed: onPayment,
                   icon: const Icon(Icons.payments_outlined),
-                  label: const Text('Bayar'),
+                  label: Text(strings.receivePayment),
                 ),
               ],
             ),
@@ -444,6 +504,16 @@ class _OrderCard extends StatelessWidget {
       PreviewOrderStatus.pickedUp => Icons.task_alt,
       PreviewOrderStatus.cancelled => Icons.block,
     };
+  }
+
+  String _itemSummary(PreviewOrder order) {
+    final units = <String, double>{};
+    for (final item in order.items) {
+      units[item.unit] = (units[item.unit] ?? 0) + item.quantity;
+    }
+    return units.entries
+        .map((entry) => '${entry.value.toStringAsFixed(1)} ${entry.key}')
+        .join(' + ');
   }
 }
 

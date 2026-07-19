@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/localization/app_language.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -21,15 +22,16 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).value?.user;
     final role = user?.role ?? UserRole.employee;
+    final strings = ref.strings;
     final today = DateTime.now();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Beranda'),
+        title: Text(strings.home),
         actions: [
           const _OperationalSummaryAction(),
           IconButton(
-            tooltip: 'Notifikasi',
+            tooltip: strings.notifications,
             onPressed: () => context.go(AppRoutes.notifications),
             icon: const Icon(Icons.notifications_none),
           ),
@@ -40,7 +42,7 @@ class DashboardPage extends ConsumerWidget {
         child: ListView(
           children: [
             Text(
-              'Halo, ${user?.name ?? 'Pengguna'}',
+              '${strings.isEnglish ? 'Hello' : 'Halo'}, ${user?.name ?? (strings.isEnglish ? 'User' : 'Pengguna')}',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: AppColors.mainText,
@@ -72,6 +74,7 @@ class _OwnerDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
+    final strings = ref.strings;
     final today = DateTime.now();
     final todayOrders = data.orders.where((order) {
       return order.receivedAt.year == today.year &&
@@ -95,50 +98,54 @@ class _OwnerDashboard extends ConsumerWidget {
         _SummaryGrid(
           cards: [
             SummaryCard(
-              label: 'Pesanan hari ini',
+              label: strings.isEnglish ? 'Orders today' : 'Pesanan hari ini',
               value: '${todayOrders.length}',
               icon: Icons.receipt_long,
               color: AppColors.primaryBlue,
               onTap: () => context.go(AppRoutes.orders),
             ),
             SummaryCard(
-              label: 'Pelanggan hari ini',
+              label: strings.isEnglish
+                  ? 'Customers today'
+                  : 'Pelanggan hari ini',
               value: '${data.customers.length}',
               icon: Icons.people,
               color: AppColors.softBlue,
               onTap: () => context.go(AppRoutes.customers),
             ),
             SummaryCard(
-              label: 'Total kilogram',
+              label: strings.isEnglish ? 'Total kilograms' : 'Total kilogram',
               value:
-                  '${todayOrders.fold<double>(0, (sum, order) => sum + order.totalQuantity).toStringAsFixed(1)} kg',
+                  '${todayOrders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
               icon: Icons.scale,
               color: AppColors.success,
               onTap: () => context.go(AppRoutes.reports),
             ),
             SummaryCard(
-              label: 'Pemasukan hari ini',
+              label: strings.isEnglish ? 'Income today' : 'Pemasukan hari ini',
               value: todayIncome.toRupiah(),
               icon: Icons.payments,
               color: AppColors.primaryNavy,
               onTap: () => context.go(AppRoutes.cashbook),
             ),
             SummaryCard(
-              label: 'Pengeluaran hari ini',
+              label: strings.isEnglish
+                  ? 'Expenses today'
+                  : 'Pengeluaran hari ini',
               value: todayOut.toRupiah(),
               icon: Icons.trending_down,
               color: AppColors.error,
               onTap: () => context.go(AppRoutes.expenses),
             ),
             SummaryCard(
-              label: 'Saldo hari ini',
+              label: strings.isEnglish ? 'Balance today' : 'Saldo hari ini',
               value: (todayIncome - todayOut).toRupiah(),
               icon: Icons.account_balance_wallet,
               color: AppColors.success,
               onTap: () => context.go(AppRoutes.cashbook),
             ),
             SummaryCard(
-              label: 'Siap diambil',
+              label: strings.isEnglish ? 'Ready for pickup' : 'Siap diambil',
               value:
                   '${data.orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
               icon: Icons.inventory_2,
@@ -146,14 +153,14 @@ class _OwnerDashboard extends ConsumerWidget {
               onTap: () => context.go(AppRoutes.orders),
             ),
             SummaryCard(
-              label: 'Stok menipis',
+              label: strings.isEnglish ? 'Low stock' : 'Stok menipis',
               value: '$lowStock',
               icon: Icons.warning_amber_outlined,
               color: AppColors.warning,
               onTap: () => context.go(AppRoutes.inventory),
             ),
             SummaryCard(
-              label: 'Request pending',
+              label: strings.isEnglish ? 'Pending requests' : 'Request pending',
               value: '$pending',
               icon: Icons.task_alt,
               color: AppColors.primaryBlue,
@@ -163,31 +170,31 @@ class _OwnerDashboard extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
         _QuickActions(
-          title: 'Aksi cepat',
+          title: strings.isEnglish ? 'Quick actions' : 'Aksi cepat',
           actions: [
-            _QuickAction('Tambah Pesanan', Icons.add, AppRoutes.orderCreate),
+            _QuickAction(strings.addOrder, Icons.add, AppRoutes.orderCreate),
             _QuickAction(
-              'Terima Pembayaran',
+              strings.receivePayment,
               Icons.point_of_sale,
               AppRoutes.orders,
             ),
             _QuickAction(
-              'Tambah Stok',
+              strings.isEnglish ? 'Add Stock' : 'Tambah Stok',
               Icons.add_box_outlined,
               AppRoutes.inventory,
             ),
             _QuickAction(
-              'Lihat Absensi',
+              strings.isEnglish ? 'View Attendance' : 'Lihat Absensi',
               Icons.fact_check,
               AppRoutes.attendance,
             ),
             _QuickAction(
-              'Lihat Buku Kas',
+              strings.isEnglish ? 'View Cashbook' : 'Lihat Buku Kas',
               Icons.account_balance,
               AppRoutes.cashbook,
             ),
             _QuickAction(
-              'Review Request',
+              strings.isEnglish ? 'Review Requests' : 'Review Request',
               Icons.rule_folder_outlined,
               AppRoutes.requestReview,
             ),

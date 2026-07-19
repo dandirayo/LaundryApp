@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -15,26 +16,34 @@ class ServicesPage extends ConsumerWidget {
 
   static const _categories = [
     'Cuci Setrika',
-    'Cuci Kering Lipat',
+    'Cuci Lipat',
     'Setrika Lipat',
+    'Pakaian',
+    'Alat Tidur',
+    'Perlengkapan Rumah',
+    'Tas',
+    'Perlengkapan Ibadah',
+    'Lainnya',
     'Sepatu',
     'Helm',
-    'Laundry Satuan',
     'Layanan Tambahan',
   ];
+
+  static const _units = ['KG', 'ITEM', 'PAIR', 'PIECE', 'SET'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final services = ref.watch(
       previewDataProvider.select((state) => state.services),
     );
+    final strings = ref.strings;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Layanan & Harga'),
+        title: Text(strings.servicesAndPrices),
         actions: [
           IconButton(
-            tooltip: 'Tambah layanan',
+            tooltip: strings.isEnglish ? 'Add service' : 'Tambah layanan',
             onPressed: () => _showServiceDialog(context, ref),
             icon: const Icon(Icons.add_card_outlined),
           ),
@@ -45,16 +54,21 @@ class ServicesPage extends ConsumerWidget {
           : FloatingActionButton.extended(
               onPressed: () => _showServiceDialog(context, ref),
               icon: const Icon(Icons.add),
-              label: const Text('Layanan'),
+              label: Text(strings.service),
             ),
       body: ResponsivePage(
         padding: EdgeInsets.fromLTRB(16, 8, 16, services.isEmpty ? 24 : 96),
         child: services.isEmpty
             ? AppStateView.empty(
-                title: 'Layanan belum ada',
-                message:
-                    'Tambahkan layanan agar flow pesanan bisa menghitung harga.',
-                actionLabel: 'Tambah layanan',
+                title: strings.isEnglish
+                    ? 'No services yet'
+                    : 'Layanan belum ada',
+                message: strings.isEnglish
+                    ? 'Add services so the order flow can calculate prices.'
+                    : 'Tambahkan layanan agar flow pesanan bisa menghitung harga.',
+                actionLabel: strings.isEnglish
+                    ? 'Add service'
+                    : 'Tambah layanan',
                 onAction: () => _showServiceDialog(context, ref),
               )
             : ListView.separated(
@@ -89,7 +103,7 @@ class ServicesPage extends ConsumerWidget {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       subtitle: Text(
-                        '${service.category} - ${service.unit} - ${service.estimatedHours} jam',
+                        '${service.breadcrumb} - ${service.unit} - ${service.estimatedHours} jam',
                       ),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -103,7 +117,9 @@ class ServicesPage extends ConsumerWidget {
                             ),
                           ),
                           Text(
-                            service.isActive ? 'Aktif' : 'Nonaktif',
+                            service.isActive
+                                ? (strings.isEnglish ? 'Active' : 'Aktif')
+                                : (strings.isEnglish ? 'Inactive' : 'Nonaktif'),
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.secondaryText,
@@ -122,10 +138,13 @@ class ServicesPage extends ConsumerWidget {
   Future<void> _showServiceDialog(BuildContext context, WidgetRef ref) async {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    final unitController = TextEditingController(text: 'kg');
     final hoursController = TextEditingController(text: '48');
     final formKey = GlobalKey<FormState>();
+    final strings = ref.read(appLanguageProvider) == AppLanguage.en
+        ? const AppStrings(AppLanguage.en)
+        : const AppStrings(AppLanguage.id);
     var category = _categories.first;
+    var unit = _units.first;
     var isExpress = false;
 
     final result = await showAppModalBottomSheet<_ServiceInput>(
@@ -140,7 +159,7 @@ class ServicesPage extends ConsumerWidget {
               child: AppBottomSheetBody(
                 children: [
                   Text(
-                    'Tambah Layanan',
+                    strings.isEnglish ? 'Add Service' : 'Tambah Layanan',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -148,11 +167,15 @@ class ServicesPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama layanan',
+                    decoration: InputDecoration(
+                      labelText: strings.isEnglish
+                          ? 'Service name'
+                          : 'Nama layanan',
                     ),
                     validator: (value) => (value ?? '').trim().isEmpty
-                        ? 'Nama layanan wajib diisi.'
+                        ? (strings.isEnglish
+                              ? 'Service name is required.'
+                              : 'Nama layanan wajib diisi.')
                         : null,
                   ),
                   const SizedBox(height: 12),
@@ -164,7 +187,9 @@ class ServicesPage extends ConsumerWidget {
                     ],
                     onChanged: (value) =>
                         setModalState(() => category = value ?? category),
-                    decoration: const InputDecoration(labelText: 'Kategori'),
+                    decoration: InputDecoration(
+                      labelText: strings.isEnglish ? 'Category' : 'Kategori',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -173,19 +198,29 @@ class ServicesPage extends ConsumerWidget {
                         child: TextFormField(
                           controller: priceController,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Harga'),
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish ? 'Price' : 'Harga',
+                          ),
                           validator: (value) =>
                               (int.tryParse(value ?? '') ?? 0) <= 0
-                              ? 'Harga wajib lebih dari nol.'
+                              ? (strings.isEnglish
+                                    ? 'Price must be greater than zero.'
+                                    : 'Harga wajib lebih dari nol.')
                               : null,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: TextFormField(
-                          controller: unitController,
-                          decoration: const InputDecoration(
-                            labelText: 'Satuan',
+                        child: DropdownButtonFormField<String>(
+                          initialValue: unit,
+                          items: [
+                            for (final item in _units)
+                              DropdownMenuItem(value: item, child: Text(item)),
+                          ],
+                          onChanged: (value) =>
+                              setModalState(() => unit = value ?? unit),
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish ? 'Unit' : 'Satuan',
                           ),
                         ),
                       ),
@@ -195,8 +230,10 @@ class ServicesPage extends ConsumerWidget {
                   TextFormField(
                     controller: hoursController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Estimasi selesai (jam)',
+                    decoration: InputDecoration(
+                      labelText: strings.isEnglish
+                          ? 'Estimated completion (hours)'
+                          : 'Estimasi selesai (jam)',
                     ),
                   ),
                   SwitchListTile(
@@ -215,9 +252,7 @@ class ServicesPage extends ConsumerWidget {
                         _ServiceInput(
                           name: nameController.text,
                           category: category,
-                          unit: unitController.text.trim().isEmpty
-                              ? 'kg'
-                              : unitController.text.trim(),
+                          unit: unit,
                           price: int.parse(priceController.text),
                           estimatedHours:
                               int.tryParse(hoursController.text) ?? 48,
@@ -226,7 +261,7 @@ class ServicesPage extends ConsumerWidget {
                       );
                     },
                     icon: const Icon(Icons.save_outlined),
-                    label: const Text('Simpan'),
+                    label: Text(strings.save),
                   ),
                 ],
               ),
@@ -237,7 +272,6 @@ class ServicesPage extends ConsumerWidget {
     );
     nameController.dispose();
     priceController.dispose();
-    unitController.dispose();
     hoursController.dispose();
 
     if (result == null || !context.mounted) {
@@ -257,7 +291,11 @@ class ServicesPage extends ConsumerWidget {
           estimatedHours: result.estimatedHours,
           isExpress: result.isExpress,
         );
-    showAppSnackBar('Layanan berhasil ditambahkan.');
+    showAppSnackBar(
+      strings.isEnglish
+          ? 'Service added successfully.'
+          : 'Layanan berhasil ditambahkan.',
+    );
   }
 }
 

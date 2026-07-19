@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/localization/app_language.dart';
 import '../core/router/app_routes.dart';
 import '../core/widgets/confirmation_dialog.dart';
 import '../features/auth/domain/user_role.dart';
@@ -16,7 +17,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authControllerProvider).value;
     final role = session?.user?.role ?? UserRole.employee;
-    final destinations = _destinationsFor(role);
+    final strings = ref.strings;
+    final destinations = _destinationsFor(role, strings);
     final path = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(path, destinations);
 
@@ -43,29 +45,29 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  List<_ShellDestination> _destinationsFor(UserRole role) {
+  List<_ShellDestination> _destinationsFor(UserRole role, AppStrings strings) {
     if (role == UserRole.owner) {
-      return const [
+      return [
         _ShellDestination(
-          label: 'Beranda',
+          label: strings.home,
           path: AppRoutes.dashboard,
           icon: Icons.home_outlined,
           selectedIcon: Icons.home,
         ),
         _ShellDestination(
-          label: 'Pesanan',
+          label: strings.orders,
           path: AppRoutes.orders,
           icon: Icons.receipt_long_outlined,
           selectedIcon: Icons.receipt_long,
         ),
         _ShellDestination(
-          label: 'Pelanggan',
+          label: strings.customers,
           path: AppRoutes.customers,
           icon: Icons.people_outline,
           selectedIcon: Icons.people,
         ),
         _ShellDestination(
-          label: 'Lainnya',
+          label: strings.more,
           path: AppRoutes.more,
           icon: Icons.grid_view_outlined,
           selectedIcon: Icons.grid_view,
@@ -73,27 +75,27 @@ class AppShell extends ConsumerWidget {
       ];
     }
 
-    return const [
+    return [
       _ShellDestination(
-        label: 'Beranda',
+        label: strings.home,
         path: AppRoutes.dashboard,
         icon: Icons.home_outlined,
         selectedIcon: Icons.home,
       ),
       _ShellDestination(
-        label: 'Pesanan',
+        label: strings.orders,
         path: AppRoutes.ordersMine,
         icon: Icons.receipt_long_outlined,
         selectedIcon: Icons.receipt_long,
       ),
       _ShellDestination(
-        label: 'Absensi',
+        label: strings.attendance,
         path: AppRoutes.attendanceMine,
         icon: Icons.fact_check_outlined,
         selectedIcon: Icons.fact_check,
       ),
       _ShellDestination(
-        label: 'Lainnya',
+        label: strings.more,
         path: AppRoutes.more,
         icon: Icons.grid_view_outlined,
         selectedIcon: Icons.grid_view,
@@ -133,12 +135,14 @@ class _ShellDestination {
 }
 
 Future<void> confirmAndLogout(BuildContext context, WidgetRef ref) async {
+  final strings = ref.read(appLanguageProvider) == AppLanguage.en
+      ? const AppStrings(AppLanguage.en)
+      : const AppStrings(AppLanguage.id);
   final confirmed = await showConfirmationDialog(
     context,
-    title: 'Keluar dari akun?',
-    message:
-        'Session, provider sensitif, cache auth, dan subscription akan dibersihkan.',
-    confirmLabel: 'Keluar',
+    title: strings.logoutTitle,
+    message: strings.logoutMessage,
+    confirmLabel: strings.logout,
     isDestructive: true,
   );
   if (confirmed && context.mounted) {

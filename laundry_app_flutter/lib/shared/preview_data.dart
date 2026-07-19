@@ -44,6 +44,20 @@ enum PreviewRequestStatus {
   final String label;
 }
 
+enum PreviewAttendanceStatus {
+  onTime('Tepat Waktu'),
+  late('Terlambat'),
+  severelyLate('Terlambat Berat'),
+  absent('Tidak Hadir'),
+  leave('Izin'),
+  sick('Sakit'),
+  permission('Izin Disetujui');
+
+  const PreviewAttendanceStatus(this.label);
+
+  final String label;
+}
+
 class PreviewDataState {
   const PreviewDataState({
     required this.customers,
@@ -59,6 +73,7 @@ class PreviewDataState {
     required this.requests,
     required this.notifications,
     required this.expenses,
+    required this.legacyMonthlySummaries,
     required this.shopName,
     required this.shopAddress,
     required this.weeklySalaryAmount,
@@ -78,6 +93,7 @@ class PreviewDataState {
   final List<PreviewEmployeeRequest> requests;
   final List<PreviewNotification> notifications;
   final List<PreviewExpense> expenses;
+  final List<PreviewLegacyMonthlySummary> legacyMonthlySummaries;
   final String shopName;
   final String shopAddress;
   final int weeklySalaryAmount;
@@ -97,6 +113,7 @@ class PreviewDataState {
     List<PreviewEmployeeRequest>? requests,
     List<PreviewNotification>? notifications,
     List<PreviewExpense>? expenses,
+    List<PreviewLegacyMonthlySummary>? legacyMonthlySummaries,
     String? shopName,
     String? shopAddress,
     int? weeklySalaryAmount,
@@ -116,6 +133,8 @@ class PreviewDataState {
       requests: requests ?? this.requests,
       notifications: notifications ?? this.notifications,
       expenses: expenses ?? this.expenses,
+      legacyMonthlySummaries:
+          legacyMonthlySummaries ?? this.legacyMonthlySummaries,
       shopName: shopName ?? this.shopName,
       shopAddress: shopAddress ?? this.shopAddress,
       weeklySalaryAmount: weeklySalaryAmount ?? this.weeklySalaryAmount,
@@ -172,6 +191,11 @@ class PreviewService {
     required this.estimatedHours,
     required this.isExpress,
     required this.isActive,
+    this.groupName = '',
+    this.categoryName = '',
+    this.itemName = '',
+    this.variantName = '',
+    this.sortOrder = 0,
   });
 
   final String id;
@@ -182,6 +206,44 @@ class PreviewService {
   final int estimatedHours;
   final bool isExpress;
   final bool isActive;
+  final String groupName;
+  final String categoryName;
+  final String itemName;
+  final String variantName;
+  final int sortOrder;
+
+  String get effectiveGroup {
+    if (groupName.isNotEmpty) {
+      return groupName;
+    }
+    if (unit.toUpperCase() == 'KG') {
+      return 'Kiloan';
+    }
+    if (category.toLowerCase().contains('sepatu')) {
+      return 'Sepatu';
+    }
+    if (category.toLowerCase().contains('helm')) {
+      return 'Helm';
+    }
+    return 'Satuan';
+  }
+
+  String get effectiveCategory =>
+      categoryName.isNotEmpty ? categoryName : category;
+
+  String get effectiveItem => itemName.isNotEmpty ? itemName : name;
+
+  String get effectiveVariant => variantName;
+
+  String get breadcrumb {
+    final parts = [
+      effectiveGroup,
+      effectiveCategory,
+      effectiveItem,
+      if (effectiveVariant.isNotEmpty) effectiveVariant,
+    ].where((part) => part.trim().isNotEmpty).toList();
+    return parts.join(' > ');
+  }
 }
 
 class PreviewOrder {
@@ -221,6 +283,15 @@ class PreviewOrder {
 
   double get totalQuantity =>
       items.fold(0, (previous, item) => previous + item.quantity);
+
+  double quantityForUnit(String unit) {
+    final normalized = unit.toUpperCase();
+    return items
+        .where((item) => item.unit.toUpperCase() == normalized)
+        .fold(0, (previous, item) => previous + item.quantity);
+  }
+
+  double get laundryWeightKg => quantityForUnit('KG');
 
   PreviewOrder copyWith({
     int? paidAmount,
@@ -406,6 +477,12 @@ class PreviewAttendance {
     required this.date,
     required this.checkInAt,
     required this.status,
+    this.attendanceStatus = PreviewAttendanceStatus.onTime,
+    this.scheduledStart,
+    this.scheduledEnd,
+    this.lateMinutes = 0,
+    this.earlyLeaveMinutes = 0,
+    this.shiftLabel = '',
     this.checkOutAt,
     this.note = '',
   });
@@ -417,12 +494,20 @@ class PreviewAttendance {
   final DateTime checkInAt;
   final DateTime? checkOutAt;
   final String status;
+  final PreviewAttendanceStatus attendanceStatus;
+  final DateTime? scheduledStart;
+  final DateTime? scheduledEnd;
+  final int lateMinutes;
+  final int earlyLeaveMinutes;
+  final String shiftLabel;
   final String note;
 
   PreviewAttendance copyWith({
     DateTime? checkOutAt,
     String? status,
+    PreviewAttendanceStatus? attendanceStatus,
     String? employeeName,
+    int? earlyLeaveMinutes,
     String? note,
   }) {
     return PreviewAttendance(
@@ -433,6 +518,12 @@ class PreviewAttendance {
       checkInAt: checkInAt,
       checkOutAt: checkOutAt ?? this.checkOutAt,
       status: status ?? this.status,
+      attendanceStatus: attendanceStatus ?? this.attendanceStatus,
+      scheduledStart: scheduledStart,
+      scheduledEnd: scheduledEnd,
+      lateMinutes: lateMinutes,
+      earlyLeaveMinutes: earlyLeaveMinutes ?? this.earlyLeaveMinutes,
+      shiftLabel: shiftLabel,
       note: note ?? this.note,
     );
   }
@@ -562,6 +653,26 @@ class PreviewExpense {
   final DateTime createdAt;
 }
 
+class PreviewLegacyMonthlySummary {
+  const PreviewLegacyMonthlySummary({
+    required this.month,
+    required this.label,
+    required this.income,
+    required this.expense,
+    required this.profit,
+    required this.openingBalance,
+    required this.closingBalance,
+  });
+
+  final DateTime month;
+  final String label;
+  final int income;
+  final int expense;
+  final int profit;
+  final int openingBalance;
+  final int closingBalance;
+}
+
 class PreviewDataController extends Notifier<PreviewDataState> {
   static const _days = [
     'Senin',
@@ -573,226 +684,566 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     'Minggu',
   ];
   static const _lateTolerance = Duration(hours: 2);
+  static final _legacyMonthlySummaries = [
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 5),
+      label: 'Mei 2025',
+      income: 4200000,
+      expense: 5330000,
+      profit: -1130000,
+      openingBalance: 0,
+      closingBalance: -1130000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 6),
+      label: 'Juni 2025',
+      income: 5700000,
+      expense: 8025000,
+      profit: -2325000,
+      openingBalance: -1130000,
+      closingBalance: -3455000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 7),
+      label: 'Juli 2025',
+      income: 8552000,
+      expense: 7540000,
+      profit: 1012000,
+      openingBalance: -3455000,
+      closingBalance: -2443000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 8),
+      label: 'Agustus 2025',
+      income: 8342000,
+      expense: 7373000,
+      profit: 969000,
+      openingBalance: -2443000,
+      closingBalance: -1474000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 9),
+      label: 'September 2025',
+      income: 13145000,
+      expense: 8780000,
+      profit: 4365000,
+      openingBalance: -1474000,
+      closingBalance: 2891000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 10),
+      label: 'Oktober 2025',
+      income: 13777500,
+      expense: 7950000,
+      profit: 5827500,
+      openingBalance: 2891000,
+      closingBalance: 8718500,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 11),
+      label: 'November 2025',
+      income: 10875000,
+      expense: 7205500,
+      profit: 3669500,
+      openingBalance: 8718500,
+      closingBalance: 12388000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2025, 12),
+      label: 'Desember 2025',
+      income: 13838000,
+      expense: 9317000,
+      profit: 4521000,
+      openingBalance: 12388000,
+      closingBalance: 16909000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2026, 1),
+      label: 'Januari 2026',
+      income: 9985500,
+      expense: 5700000,
+      profit: 4285500,
+      openingBalance: 16909000,
+      closingBalance: 21194500,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2026, 2),
+      label: 'Februari 2026',
+      income: 9985500,
+      expense: 5700000,
+      profit: 4285500,
+      openingBalance: 21194500,
+      closingBalance: 25480000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2026, 3),
+      label: 'Maret 2026',
+      income: 17921500,
+      expense: 8687500,
+      profit: 9234000,
+      openingBalance: 25480000,
+      closingBalance: 34714000,
+    ),
+    PreviewLegacyMonthlySummary(
+      month: DateTime(2026, 4),
+      label: 'April 2026',
+      income: 6257500,
+      expense: 8687500,
+      profit: -2430000,
+      openingBalance: 34714000,
+      closingBalance: 32284000,
+    ),
+  ];
   static const _defaultServices = [
     PreviewService(
       id: 'service-cs-reguler',
       name: 'Cuci Setrika Reguler',
       category: 'Cuci Setrika',
-      unit: 'kg',
+      unit: 'KG',
       price: 7000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Setrika',
+      itemName: 'Cuci Setrika',
+      variantName: 'Reguler',
+      sortOrder: 10,
     ),
     PreviewService(
       id: 'service-cs-express',
       name: 'Cuci Setrika Express',
       category: 'Cuci Setrika',
-      unit: 'kg',
+      unit: 'KG',
       price: 9000,
       estimatedHours: 24,
       isExpress: true,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Setrika',
+      itemName: 'Cuci Setrika',
+      variantName: 'Express',
+      sortOrder: 11,
     ),
     PreviewService(
       id: 'service-cs-kilat',
       name: 'Cuci Setrika Kilat',
       category: 'Cuci Setrika',
-      unit: 'kg',
+      unit: 'KG',
       price: 12000,
       estimatedHours: 8,
       isExpress: true,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Setrika',
+      itemName: 'Cuci Setrika',
+      variantName: 'Kilat',
+      sortOrder: 12,
     ),
     PreviewService(
       id: 'service-ckl-reguler',
-      name: 'Cuci Kering Lipat Reguler',
-      category: 'Cuci Kering Lipat',
-      unit: 'kg',
+      name: 'Cuci Lipat Reguler',
+      category: 'Cuci Lipat',
+      unit: 'KG',
       price: 4000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Lipat',
+      itemName: 'Cuci Lipat',
+      variantName: 'Reguler',
+      sortOrder: 20,
     ),
     PreviewService(
       id: 'service-ckl-express',
-      name: 'Cuci Kering Lipat Express',
-      category: 'Cuci Kering Lipat',
-      unit: 'kg',
+      name: 'Cuci Lipat Express',
+      category: 'Cuci Lipat',
+      unit: 'KG',
       price: 6000,
       estimatedHours: 24,
       isExpress: true,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Lipat',
+      itemName: 'Cuci Lipat',
+      variantName: 'Express',
+      sortOrder: 21,
     ),
     PreviewService(
       id: 'service-ckl-kilat',
-      name: 'Cuci Kering Lipat Kilat',
-      category: 'Cuci Kering Lipat',
-      unit: 'kg',
+      name: 'Cuci Lipat Kilat',
+      category: 'Cuci Lipat',
+      unit: 'KG',
       price: 9000,
       estimatedHours: 8,
       isExpress: true,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Cuci Lipat',
+      itemName: 'Cuci Lipat',
+      variantName: 'Kilat',
+      sortOrder: 22,
     ),
     PreviewService(
       id: 'service-sl-reguler',
       name: 'Setrika Lipat Reguler',
       category: 'Setrika Lipat',
-      unit: 'kg',
+      unit: 'KG',
       price: 5000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Setrika Lipat',
+      itemName: 'Setrika Lipat',
+      variantName: 'Reguler',
+      sortOrder: 30,
     ),
     PreviewService(
       id: 'service-sl-express',
       name: 'Setrika Lipat Express',
       category: 'Setrika Lipat',
-      unit: 'kg',
+      unit: 'KG',
       price: 7000,
       estimatedHours: 24,
       isExpress: true,
       isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Setrika Lipat',
+      itemName: 'Setrika Lipat',
+      variantName: 'Express',
+      sortOrder: 31,
     ),
     PreviewService(
       id: 'service-sl-kilat',
       name: 'Setrika Lipat Kilat',
       category: 'Setrika Lipat',
-      unit: 'kg',
+      unit: 'KG',
       price: 10000,
       estimatedHours: 8,
       isExpress: true,
       isActive: true,
-    ),
-    PreviewService(
-      id: 'service-add-noda-bandel',
-      name: 'Noda Bandel',
-      category: 'Layanan Tambahan',
-      unit: 'layanan',
-      price: 5000,
-      estimatedHours: 24,
-      isExpress: false,
-      isActive: true,
-    ),
-    PreviewService(
-      id: 'service-add-speed-satuan',
-      name: 'Speed Satuan',
-      category: 'Layanan Tambahan',
-      unit: 'layanan',
-      price: 5000,
-      estimatedHours: 24,
-      isExpress: true,
-      isActive: true,
-    ),
-    PreviewService(
-      id: 'service-add-antar-jemput',
-      name: 'Antar Jemput',
-      category: 'Layanan Tambahan',
-      unit: 'layanan',
-      price: 2000,
-      estimatedHours: 24,
-      isExpress: false,
-      isActive: true,
+      groupName: 'Kiloan',
+      categoryName: 'Setrika Lipat',
+      itemName: 'Setrika Lipat',
+      variantName: 'Kilat',
+      sortOrder: 32,
     ),
     PreviewService(
       id: 'service-satuan-kaos',
-      name: 'Kaos / Polo Shirt / Singlet',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      name: 'Kaos',
+      category: 'Pakaian',
+      unit: 'PIECE',
       price: 5000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Kaos',
+      variantName: 'Reguler',
+      sortOrder: 100,
     ),
     PreviewService(
-      id: 'service-satuan-kemeja',
-      name: 'Kemeja Pendek / Panjang',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      id: 'service-satuan-polo-shirt',
+      name: 'Polo Shirt',
+      category: 'Pakaian',
+      unit: 'PIECE',
+      price: 5000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Polo Shirt',
+      variantName: 'Reguler',
+      sortOrder: 101,
+    ),
+    PreviewService(
+      id: 'service-satuan-singlet',
+      name: 'Singlet',
+      category: 'Pakaian',
+      unit: 'PIECE',
+      price: 5000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Singlet',
+      variantName: 'Reguler',
+      sortOrder: 102,
+    ),
+    PreviewService(
+      id: 'service-satuan-kemeja-pendek',
+      name: 'Kemeja Pendek',
+      category: 'Pakaian',
+      unit: 'PIECE',
       price: 6000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Kemeja',
+      variantName: 'Pendek',
+      sortOrder: 110,
     ),
     PreviewService(
-      id: 'service-satuan-celana-panjang',
-      name: 'Celana Panjang Kain / Chino / Kulot',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      id: 'service-satuan-kemeja-panjang',
+      name: 'Kemeja Panjang',
+      category: 'Pakaian',
+      unit: 'PIECE',
+      price: 6000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Kemeja',
+      variantName: 'Panjang',
+      sortOrder: 111,
+    ),
+    PreviewService(
+      id: 'service-satuan-celana-chino',
+      name: 'Celana Chino',
+      category: 'Pakaian',
+      unit: 'PIECE',
       price: 7000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Celana',
+      variantName: 'Chino',
+      sortOrder: 120,
     ),
     PreviewService(
       id: 'service-satuan-jaket',
-      name: 'Jaket / Hoodie / Sweater',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      name: 'Jaket',
+      category: 'Pakaian',
+      unit: 'PIECE',
       price: 10000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Jaket',
+      variantName: 'Reguler',
+      sortOrder: 130,
+    ),
+    PreviewService(
+      id: 'service-satuan-hoodie',
+      name: 'Hoodie',
+      category: 'Pakaian',
+      unit: 'PIECE',
+      price: 10000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Hoodie',
+      variantName: 'Reguler',
+      sortOrder: 131,
     ),
     PreviewService(
       id: 'service-satuan-dress',
-      name: 'Dress / Rok Terusan Simple',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      name: 'Dress',
+      category: 'Pakaian',
+      unit: 'PIECE',
       price: 10000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Pakaian',
+      itemName: 'Dress',
+      variantName: 'Pendek',
+      sortOrder: 140,
     ),
     PreviewService(
       id: 'service-satuan-sprei-single',
       name: 'Sprei Single',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
       price: 10000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Sprei',
+      variantName: 'Single',
+      sortOrder: 200,
     ),
     PreviewService(
-      id: 'service-satuan-bedcover-single',
-      name: 'Bedcover Single',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
-      price: 20000,
-      estimatedHours: 72,
-      isExpress: false,
-      isActive: true,
-    ),
-    PreviewService(
-      id: 'service-satuan-bedcover-double',
-      name: 'Bedcover Double / King Size',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
-      price: 30000,
-      estimatedHours: 72,
-      isExpress: false,
-      isActive: true,
-    ),
-    PreviewService(
-      id: 'service-satuan-bantal-guling',
-      name: 'Sarung Bantal / Guling',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
-      price: 2000,
-      estimatedHours: 72,
-      isExpress: false,
-      isActive: true,
-    ),
-    PreviewService(
-      id: 'service-satuan-boneka-sedang',
-      name: 'Boneka Ukuran Sedang',
-      category: 'Laundry Satuan',
-      unit: 'pcs',
+      id: 'service-satuan-sprei-double',
+      name: 'Sprei Double',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
       price: 15000,
       estimatedHours: 72,
       isExpress: false,
       isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Sprei',
+      variantName: 'Double',
+      sortOrder: 201,
+    ),
+    PreviewService(
+      id: 'service-satuan-bedcover-single',
+      name: 'Bedcover Single',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
+      price: 20000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Bedcover',
+      variantName: 'Single',
+      sortOrder: 210,
+    ),
+    PreviewService(
+      id: 'service-satuan-bedcover-double',
+      name: 'Bedcover Double',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
+      price: 30000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Bedcover',
+      variantName: 'Double',
+      sortOrder: 211,
+    ),
+    PreviewService(
+      id: 'service-satuan-bedcover-king',
+      name: 'Bedcover King Size',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
+      price: 40000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Bedcover',
+      variantName: 'King Size',
+      sortOrder: 212,
+    ),
+    PreviewService(
+      id: 'service-satuan-sarung-bantal',
+      name: 'Sarung Bantal',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
+      price: 2000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Sarung',
+      variantName: 'Bantal',
+      sortOrder: 220,
+    ),
+    PreviewService(
+      id: 'service-satuan-sarung-guling',
+      name: 'Sarung Guling',
+      category: 'Alat Tidur',
+      unit: 'PIECE',
+      price: 3000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Alat Tidur',
+      itemName: 'Sarung',
+      variantName: 'Guling',
+      sortOrder: 221,
+    ),
+    PreviewService(
+      id: 'service-satuan-boneka-sedang',
+      name: 'Boneka Sedang',
+      category: 'Lainnya',
+      unit: 'PIECE',
+      price: 15000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Satuan',
+      categoryName: 'Lainnya',
+      itemName: 'Boneka',
+      variantName: 'Sedang',
+      sortOrder: 300,
+    ),
+    PreviewService(
+      id: 'service-sepatu-reguler',
+      name: 'Cuci Sepatu Reguler',
+      category: 'Sepatu',
+      unit: 'PAIR',
+      price: 25000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Sepatu',
+      categoryName: 'Sepatu',
+      itemName: 'Cuci Sepatu',
+      variantName: 'Reguler',
+      sortOrder: 400,
+    ),
+    PreviewService(
+      id: 'service-helm-reguler',
+      name: 'Cuci Helm Reguler',
+      category: 'Helm',
+      unit: 'ITEM',
+      price: 20000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Helm',
+      categoryName: 'Helm',
+      itemName: 'Cuci Helm',
+      variantName: 'Reguler',
+      sortOrder: 500,
+    ),
+    PreviewService(
+      id: 'service-extra-express',
+      name: 'Express',
+      category: 'Layanan Tambahan',
+      unit: 'ITEM',
+      price: 5000,
+      estimatedHours: 24,
+      isExpress: true,
+      isActive: true,
+      groupName: 'Layanan Tambahan',
+      categoryName: 'Tambahan Waktu',
+      itemName: 'Express',
+      variantName: 'Tambahan',
+      sortOrder: 600,
+    ),
+    PreviewService(
+      id: 'service-extra-noda-berat',
+      name: 'Noda Berat',
+      category: 'Layanan Tambahan',
+      unit: 'ITEM',
+      price: 5000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+      groupName: 'Layanan Tambahan',
+      categoryName: 'Treatment',
+      itemName: 'Noda Berat',
+      variantName: 'Tambahan',
+      sortOrder: 610,
     ),
   ];
 
@@ -833,43 +1284,12 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         createdAt: now,
       );
     }).toList();
-    final service = _defaultServices.first;
-    final order = _buildOrder(
-      orderIndex: 1,
-      customer: customer,
-      service: service,
-      quantity: 5,
-      paidAmount: 20000,
-      employeeId: employee1.id,
-      note: 'Pisahkan pakaian putih.',
-      createdAt: now.subtract(const Duration(hours: 2)),
-    );
-    final payment = PreviewPayment(
-      id: 'payment-1',
-      orderId: order.id,
-      amount: 20000,
-      method: 'Tunai',
-      paidAt: order.receivedAt,
-      receiverName: 'Owner Idola',
-    );
     return PreviewDataState(
       customers: [customer, ...importedCustomers],
       services: _defaultServices,
-      orders: [order],
-      payments: [payment],
-      cashTransactions: [
-        PreviewCashTransaction(
-          id: 'cash-1',
-          referenceId: payment.id,
-          referenceType: 'PAYMENT',
-          type: 'IN',
-          category: 'Pembayaran Pesanan',
-          description: 'DP ${order.orderNumber}',
-          amount: payment.amount,
-          method: payment.method,
-          createdAt: payment.paidAt,
-        ),
-      ],
+      orders: const [],
+      payments: const [],
+      cashTransactions: const [],
       inventory: const [
         PreviewInventoryItem(
           id: 'inventory-1',
@@ -930,6 +1350,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         ),
       ],
       expenses: const [],
+      legacyMonthlySummaries: _legacyMonthlySummaries,
       shopName: 'Idola Laundry',
       shopAddress: 'Jl. Contoh Operasional No. 1',
       weeklySalaryAmount: 400000,
@@ -1009,12 +1430,16 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     final service = PreviewService(
       id: _uuid.v4(),
       name: name.trim(),
-      category: category,
-      unit: unit,
+      category: category.trim(),
+      unit: unit.trim().toUpperCase(),
       price: price,
       estimatedHours: estimatedHours,
       isExpress: isExpress,
       isActive: true,
+      groupName: unit.trim().toUpperCase() == 'KG' ? 'Kiloan' : 'Satuan',
+      categoryName: category.trim(),
+      itemName: name.trim(),
+      variantName: 'Manual',
     );
     state = state.copyWith(services: [...state.services, service]);
   }
@@ -1104,7 +1529,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     final customer = state.customers.firstWhere(
       (item) => item.id == customerId,
     );
-    final servicesById = {for (final service in state.services) service.id: service};
+    final servicesById = {
+      for (final service in state.services) service.id: service,
+    };
     final orderItems = <PreviewOrderItem>[];
     var total = 0;
     var longestHours = 0;
@@ -1256,14 +1683,147 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void updateOrderStatus(String orderId, PreviewOrderStatus status) {
+    final currentOrder = state.orders.firstWhere(
+      (order) => order.id == orderId,
+    );
+    if (status == PreviewOrderStatus.pickedUp &&
+        currentOrder.remainingAmount > 0) {
+      throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
+    }
+    final nextOrder = currentOrder.copyWith(orderStatus: status);
+    final nextCash = [...state.cashTransactions];
+    final nextExpenses = [...state.expenses];
+    if (status == PreviewOrderStatus.ready) {
+      _appendShoeIncentiveIfNeeded(nextOrder, nextCash, nextExpenses);
+    }
     state = state.copyWith(
       orders: [
         for (final order in state.orders)
-          if (order.id == orderId)
-            order.copyWith(orderStatus: status)
-          else
-            order,
+          if (order.id == orderId) nextOrder else order,
       ],
+      cashTransactions: nextCash,
+      expenses: nextExpenses,
+    );
+  }
+
+  void updateOrderDetails({
+    required String orderId,
+    required PreviewOrderStatus status,
+    required String employeeId,
+    required String note,
+  }) {
+    final currentOrder = state.orders.firstWhere(
+      (order) => order.id == orderId,
+    );
+    if (status == PreviewOrderStatus.pickedUp &&
+        currentOrder.remainingAmount > 0) {
+      throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
+    }
+    final updatedOrder = currentOrder.copyWith(
+      orderStatus: status,
+      assignedEmployeeId: employeeId,
+      note: note.trim(),
+    );
+    final nextCash = [...state.cashTransactions];
+    final nextExpenses = [...state.expenses];
+    if (status == PreviewOrderStatus.ready) {
+      _appendShoeIncentiveIfNeeded(updatedOrder, nextCash, nextExpenses);
+    }
+    state = state.copyWith(
+      orders: [
+        for (final order in state.orders)
+          if (order.id == orderId) updatedOrder else order,
+      ],
+      cashTransactions: nextCash,
+      expenses: nextExpenses,
+    );
+  }
+
+  void deleteOrder(String orderId) {
+    final paymentIds = state.payments
+        .where((payment) => payment.orderId == orderId)
+        .map((payment) => payment.id)
+        .toSet();
+    final incentiveReferenceId = 'SHOE-INCENTIVE-$orderId';
+    state = state.copyWith(
+      orders: [
+        for (final order in state.orders)
+          if (order.id != orderId) order,
+      ],
+      payments: [
+        for (final payment in state.payments)
+          if (payment.orderId != orderId) payment,
+      ],
+      cashTransactions: [
+        for (final cash in state.cashTransactions)
+          if (!paymentIds.contains(cash.referenceId) &&
+              cash.referenceId != incentiveReferenceId)
+            cash,
+      ],
+      expenses: [
+        for (final expense in state.expenses)
+          if (expense.id != incentiveReferenceId) expense,
+      ],
+    );
+  }
+
+  void _appendShoeIncentiveIfNeeded(
+    PreviewOrder order,
+    List<PreviewCashTransaction> cash,
+    List<PreviewExpense> expenses,
+  ) {
+    final shoePairs = order.items
+        .where((item) {
+          final text = '${item.serviceNameSnapshot} ${item.unit}'.toLowerCase();
+          return text.contains('sepatu') || text.contains('pasang');
+        })
+        .fold<double>(0, (sum, item) => sum + item.quantity);
+    if (shoePairs <= 0) {
+      return;
+    }
+    final referenceId = 'SHOE-INCENTIVE-${order.id}';
+    final alreadyRecorded = cash.any(
+      (entry) =>
+          entry.referenceType == 'EMPLOYEE_INCENTIVE' &&
+          entry.referenceId == referenceId,
+    );
+    if (alreadyRecorded) {
+      return;
+    }
+    final employeeName =
+        state.employees
+            .where((employee) => employee.id == order.assignedEmployeeId)
+            .map((employee) => employee.name)
+            .firstOrNull ??
+        'Karyawan';
+    final amount = (shoePairs * 10000).round();
+    final description =
+        'Insentif cuci ${shoePairs.toStringAsFixed(0)} pasang sepatu untuk $employeeName, Nota ${order.orderNumber}';
+    final now = DateTime.now();
+    cash.insert(
+      0,
+      PreviewCashTransaction(
+        id: _uuid.v4(),
+        referenceId: referenceId,
+        referenceType: 'EMPLOYEE_INCENTIVE',
+        type: 'OUT',
+        category: 'Gaji dan Insentif Karyawan',
+        description: description,
+        amount: amount,
+        method: 'Tunai',
+        createdAt: now,
+      ),
+    );
+    expenses.insert(
+      0,
+      PreviewExpense(
+        id: referenceId,
+        description: description,
+        category: 'Insentif Cuci Sepatu',
+        amount: amount,
+        method: 'Tunai',
+        createdAt: now,
+      ),
     );
   }
 
@@ -1323,8 +1883,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String employeeName,
     required bool isCheckOut,
     required String photoPath,
+    DateTime? now,
   }) {
-    final today = DateTime.now();
+    final today = now ?? DateTime.now();
     final shift = _shiftFor(employeeId, today);
     final existing = state.attendance.where((entry) {
       return entry.employeeId == employeeId &&
@@ -1335,31 +1896,51 @@ class PreviewDataController extends Notifier<PreviewDataState> {
 
     if (!isCheckOut) {
       final shiftStart = _timeOnDate(today, shift.startTime);
-      final lastCheckIn = shiftStart.add(_lateTolerance);
       if (today.isBefore(shiftStart)) {
         throw StateError(
           'Absen masuk belum dibuka. Jadwal mulai ${_formatTime(shiftStart)}.',
         );
       }
-      if (today.isAfter(lastCheckIn)) {
-        throw StateError(
-          'Maksimal terlambat 2 jam. Absen masuk ditutup ${_formatTime(lastCheckIn)}.',
-        );
-      }
       if (existing.isNotEmpty) {
         throw StateError('Karyawan sudah absen masuk hari ini.');
       }
+      final shiftEnd = _timeOnDate(today, shift.endTime);
+      final lateMinutes = today.isAfter(shiftStart)
+          ? today.difference(shiftStart).inMinutes
+          : 0;
+      final attendanceStatus = lateMinutes == 0
+          ? PreviewAttendanceStatus.onTime
+          : lateMinutes <= _lateTolerance.inMinutes
+          ? PreviewAttendanceStatus.late
+          : PreviewAttendanceStatus.severelyLate;
+      final warningMessage = lateMinutes == 0
+          ? null
+          : lateMinutes <= _lateTolerance.inMinutes
+          ? '$employeeName terlambat $lateMinutes menit untuk shift ${shift.startTime}-${shift.endTime}.'
+          : '$employeeName terlambat lebih dari 2 jam untuk shift ${shift.startTime}-${shift.endTime}.';
       final attendance = PreviewAttendance(
         id: _uuid.v4(),
         employeeId: employeeId,
         employeeName: employeeName,
         date: today,
         checkInAt: today,
-        status: 'HADIR',
+        status: attendanceStatus.label,
+        attendanceStatus: attendanceStatus,
+        scheduledStart: shiftStart,
+        scheduledEnd: shiftEnd,
+        lateMinutes: lateMinutes,
+        shiftLabel: '${shift.startTime}-${shift.endTime}',
         note:
             'Foto masuk: $photoPath. Shift ${shift.startTime}-${shift.endTime}.',
       );
-      state = state.copyWith(attendance: [attendance, ...state.attendance]);
+      state = state.copyWith(
+        attendance: [attendance, ...state.attendance],
+        notifications: [
+          if (warningMessage != null)
+            _notification('Perhatian absensi', warningMessage, '/attendance'),
+          ...state.notifications,
+        ],
+      );
       return;
     }
 
@@ -1371,17 +1952,16 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       throw StateError('Karyawan sudah absen keluar hari ini.');
     }
     final shiftEnd = _timeOnDate(today, shift.endTime);
-    if (today.isBefore(shiftEnd)) {
-      throw StateError(
-        'Belum waktunya absen keluar. Jadwal selesai ${_formatTime(shiftEnd)}.',
-      );
-    }
+    final earlyLeaveMinutes = today.isBefore(shiftEnd)
+        ? shiftEnd.difference(today).inMinutes
+        : 0;
     state = state.copyWith(
       attendance: [
         for (final entry in state.attendance)
           if (entry.id == current.id)
             entry.copyWith(
               checkOutAt: today,
+              earlyLeaveMinutes: earlyLeaveMinutes,
               note: '${entry.note} Foto keluar: $photoPath.',
             )
           else

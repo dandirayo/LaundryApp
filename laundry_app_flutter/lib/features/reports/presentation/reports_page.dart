@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -23,10 +24,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Widget build(BuildContext context) {
     final data = ref.watch(
       previewDataProvider.select(
-        (state) =>
-            (orders: state.orders, cashTransactions: state.cashTransactions),
+        (state) => (
+          orders: state.orders,
+          cashTransactions: state.cashTransactions,
+          legacyMonthlySummaries: state.legacyMonthlySummaries,
+        ),
       ),
     );
+    final strings = ref.strings;
     final activeRange = _rangeFor(_period);
     final orders = data.orders
         .where((order) => _isWithinRange(order.receivedAt, activeRange))
@@ -53,16 +58,32 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         .where((entry) => entry.createdAt.isBefore(activeRange.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
     final uniqueCustomers = orders.map((order) => order.customerId).toSet();
+    final legacySummaries = data.legacyMonthlySummaries
+        .where((summary) => _isMonthWithinRange(summary.month, activeRange))
+        .toList();
+    final legacyIncome = legacySummaries.fold<int>(
+      0,
+      (sum, summary) => sum + summary.income,
+    );
+    final legacyExpense = legacySummaries.fold<int>(
+      0,
+      (sum, summary) => sum + summary.expense,
+    );
+    final legacyProfit = legacySummaries.fold<int>(
+      0,
+      (sum, summary) => sum + summary.profit,
+    );
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Laporan'),
-          bottom: const TabBar(
+          title: Text(strings.reports),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Buku Pesanan'),
-              Tab(text: 'Buku Kas'),
+              Tab(text: strings.orderBook),
+              Tab(text: strings.cashbook),
+              Tab(text: strings.oldData),
             ],
           ),
         ),
@@ -85,7 +106,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                         _Metric('Pelanggan unik', '${uniqueCustomers.length}'),
                         _Metric(
                           'Total kilogram',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.totalQuantity).toStringAsFixed(1)} kg',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
+                        ),
+                        _Metric(
+                          'Sepatu',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PAIR')).toStringAsFixed(1)} pasang',
+                        ),
+                        _Metric(
+                          'Item',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('ITEM')).toStringAsFixed(1)} item',
+                        ),
+                        _Metric(
+                          'Buah',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PIECE')).toStringAsFixed(1)} buah',
                         ),
                         _Metric('Nilai pesanan', orderValue.toRupiah()),
                         _Metric('Pembayaran diterima', paid.toRupiah()),
@@ -118,6 +151,54 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           icon: const Icon(Icons.file_download_outlined),
                           label: const Text('Export CSV/PDF'),
                         ),
+                      ],
+                    ),
+                    ListView(
+                      children: [
+                        _Metric(
+                          'Periode terbaca',
+                          legacySummaries.isEmpty
+                              ? '-'
+                              : '${legacySummaries.first.label} - ${legacySummaries.last.label}',
+                        ),
+                        _Metric('Pemasukan legacy', legacyIncome.toRupiah()),
+                        _Metric('Pengeluaran legacy', legacyExpense.toRupiah()),
+                        _Metric('Laba/Rugi legacy', legacyProfit.toRupiah()),
+                        _Metric(
+                          'Saldo akhir legacy',
+                          legacySummaries.isEmpty
+                              ? 'Rp0'
+                              : legacySummaries.last.closingBalance.toRupiah(),
+                        ),
+                        const SizedBox(height: 12),
+                        if (legacySummaries.isEmpty)
+                          const Card(
+                            child: ListTile(
+                              title: Text('Tidak ada Old Data'),
+                              subtitle: Text(
+                                'Pilih periode Mei 2025 sampai April 2026, atau gunakan filter 1 tahun/custom.',
+                              ),
+                            ),
+                          )
+                        else
+                          for (final summary in legacySummaries)
+                            Card(
+                              child: ListTile(
+                                title: Text(summary.label),
+                                subtitle: Text(
+                                  'Masuk ${summary.income.toRupiah()} - Keluar ${summary.expense.toRupiah()}',
+                                ),
+                                trailing: Text(
+                                  summary.profit.toRupiah(),
+                                  style: TextStyle(
+                                    color: summary.profit >= 0
+                                        ? AppColors.success
+                                        : AppColors.error,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
                       ],
                     ),
                   ],
@@ -189,6 +270,26 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             ? DateTime(today.year + 1)
             : DateTime(today.year, today.month + 1),
       ),
+      _ReportPeriod.last3Months => DateTimeRange(
+        start: DateTime(today.year, today.month - 2),
+        end: today.month == 12
+            ? DateTime(today.year + 1)
+            : DateTime(today.year, today.month + 1),
+      ),
+      _ReportPeriod.last6Months => DateTimeRange(
+        start: DateTime(today.year, today.month - 5),
+        end: today.month == 12
+            ? DateTime(today.year + 1)
+            : DateTime(today.year, today.month + 1),
+      ),
+      _ReportPeriod.lastYear => DateTimeRange(
+        start: DateTime(today.year - 1, today.month, today.day),
+        end: today.add(const Duration(days: 1)),
+      ),
+      _ReportPeriod.legacyExcel => DateTimeRange(
+        start: DateTime(2025, 5),
+        end: DateTime(2026, 5),
+      ),
       _ReportPeriod.custom =>
         _customRange == null
             ? DateTimeRange(
@@ -216,6 +317,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return !date.isBefore(range.start) && date.isBefore(range.end);
   }
 
+  bool _isMonthWithinRange(DateTime month, DateTimeRange range) {
+    final monthStart = DateTime(month.year, month.month);
+    final monthEnd = month.month == 12
+        ? DateTime(month.year + 1)
+        : DateTime(month.year, month.month + 1);
+    return monthEnd.isAfter(range.start) && monthStart.isBefore(range.end);
+  }
+
   bool _isSameDay(DateTime first, DateTime second) {
     return first.year == second.year &&
         first.month == second.month &&
@@ -236,6 +345,10 @@ enum _ReportPeriod {
   yesterday('Kemarin'),
   thisWeek('Minggu ini'),
   thisMonth('Bulan ini'),
+  last3Months('3 bulan'),
+  last6Months('6 bulan'),
+  lastYear('1 tahun'),
+  legacyExcel('Old Data'),
   custom('Rentang');
 
   const _ReportPeriod(this.label);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/localization/app_language.dart';
 import '../core/router/app_router.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_snack_bar.dart';
@@ -11,10 +12,12 @@ class IdolaLaundryApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final language = ref.watch(appLanguageProvider);
 
     return MaterialApp.router(
       title: 'Idola Laundry',
       debugShowCheckedModeBanner: false,
+      locale: language.locale,
       scaffoldMessengerKey: appScaffoldMessengerKey,
       theme: AppTheme.light(),
       routerConfig: router,

@@ -1,13 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/domain/user_role.dart';
+import '../../auth/presentation/auth_controller.dart';
 import 'order_whatsapp.dart';
 import 'receipt_preview_sheet.dart';
 
@@ -18,6 +25,8 @@ class OrderDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(authControllerProvider).value?.user?.role;
+    final isOwner = role == UserRole.owner;
     final data = ref.watch(
       previewDataProvider.select(
         (state) => (
@@ -54,7 +63,24 @@ class OrderDetailPage extends ConsumerWidget {
         'Belum ditugaskan';
 
     return Scaffold(
-      appBar: AppBar(title: Text(order.orderNumber)),
+      appBar: AppBar(
+        title: Text(order.orderNumber),
+        actions: [
+          if (isOwner) ...[
+            IconButton(
+              tooltip: 'Edit pesanan',
+              onPressed: () =>
+                  _showEditOrderSheet(context, ref, order, data.employees),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              tooltip: 'Hapus pesanan',
+              onPressed: () => _confirmDeleteOrder(context, ref, order),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ],
+      ),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: ListView(
@@ -210,6 +236,187 @@ class OrderDetailPage extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _showEditOrderSheet(
+    BuildContext context,
+    WidgetRef ref,
+    PreviewOrder order,
+    List<PreviewEmployee> employees,
+  ) async {
+    var status = order.orderStatus;
+    var employeeId = order.assignedEmployeeId.isEmpty
+        ? employees.first.id
+        : order.assignedEmployeeId;
+    final noteController = TextEditingController(text: order.note);
+    final result = await showAppModalBottomSheet<_OrderEditInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AppBottomSheetBody(
+              children: [
+                Text(
+                  'Edit Pesanan',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text('${order.orderNumber} - ${order.customerNameSnapshot}'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PreviewOrderStatus>(
+                  initialValue: status,
+                  items: [
+                    for (final item in PreviewOrderStatus.values)
+                      DropdownMenuItem(value: item, child: Text(item.label)),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => status = value ?? status),
+                  decoration: const InputDecoration(labelText: 'Status'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: employeeId,
+                  items: [
+                    for (final employee in employees)
+                      DropdownMenuItem(
+                        value: employee.id,
+                        child: Text(employee.name),
+                      ),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => employeeId = value ?? employeeId),
+                  decoration: const InputDecoration(labelText: 'Petugas'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Catatan'),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop(
+                      _OrderEditInput(
+                        status: status,
+                        employeeId: employeeId,
+                        note: noteController.text,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Simpan Perubahan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    noteController.dispose();
+    if (result == null || !context.mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+    try {
+      ref
+          .read(previewDataProvider.notifier)
+          .updateOrderDetails(
+            orderId: order.id,
+            status: result.status,
+            employeeId: result.employeeId,
+            note: result.note,
+          );
+      showAppSnackBar('Pesanan berhasil diperbarui.');
+    } on StateError catch (error) {
+      showAppSnackBar(error.message);
+    }
+  }
+
+  Future<void> _confirmDeleteOrder(
+    BuildContext context,
+    WidgetRef ref,
+    PreviewOrder order,
+  ) async {
+    final confirmed = await _showDeleteCountdownDialog(context, order);
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    ref.read(previewDataProvider.notifier).deleteOrder(order.id);
+    if (!context.mounted) {
+      return;
+    }
+    showAppSnackBar('${order.orderNumber} dihapus.');
+    context.go('/orders');
+  }
+
+  Future<bool> _showDeleteCountdownDialog(
+    BuildContext context,
+    PreviewOrder order,
+  ) async {
+    var remaining = 5;
+    Timer? timer;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
+              if (remaining <= 1) {
+                timer.cancel();
+                setDialogState(() => remaining = 0);
+                return;
+              }
+              setDialogState(() => remaining -= 1);
+            });
+            return AlertDialog(
+              title: const Text('Hapus pesanan?'),
+              content: Text(
+                'Pesanan ${order.orderNumber} akan dihapus beserta pembayaran dan transaksi kas terkait. Tombol hapus aktif dalam $remaining detik.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Batal'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                  ),
+                  onPressed: remaining > 0
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(true),
+                  child: Text(remaining > 0 ? 'Hapus ($remaining)' : 'Hapus'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    timer?.cancel();
+    await waitForTransientUiDismissal();
+    return result ?? false;
+  }
+}
+
+class _OrderEditInput {
+  const _OrderEditInput({
+    required this.status,
+    required this.employeeId,
+    required this.note,
+  });
+
+  final PreviewOrderStatus status;
+  final String employeeId;
+  final String note;
 }
 
 class _Pill extends StatelessWidget {

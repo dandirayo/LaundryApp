@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -30,6 +31,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       ),
     );
     final role = ref.watch(authControllerProvider).value?.user?.role;
+    final strings = ref.strings;
     final canImportContacts = role == UserRole.owner;
     final canEditCustomers = role == UserRole.owner;
     final customers = data.customers.where((customer) {
@@ -40,16 +42,16 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pelanggan'),
+        title: Text(strings.customers),
         actions: [
           if (canImportContacts)
             IconButton(
-              tooltip: 'Import kontak HP',
+              tooltip: strings.importPhoneContacts,
               onPressed: () => _importContact(context),
               icon: const Icon(Icons.contacts_outlined),
             ),
           IconButton(
-            tooltip: 'Tambah pelanggan',
+            tooltip: strings.addCustomer,
             onPressed: () => _showCustomerDialog(context),
             icon: const Icon(Icons.person_add_alt_1),
           ),
@@ -60,16 +62,16 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           : FloatingActionButton.extended(
               onPressed: () => _showCustomerDialog(context),
               icon: const Icon(Icons.add),
-              label: const Text('Pelanggan'),
+              label: Text(strings.customers),
             ),
       body: ResponsivePage(
         padding: EdgeInsets.fromLTRB(16, 8, 16, customers.isEmpty ? 24 : 96),
         child: Column(
           children: [
             TextField(
-              decoration: const InputDecoration(
-                hintText: 'Cari nama, telepon, atau alamat',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                hintText: strings.searchCustomers,
+                prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) => setState(() => _query = value),
             ),
@@ -77,10 +79,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             Expanded(
               child: customers.isEmpty
                   ? AppStateView.empty(
-                      title: 'Pelanggan belum ada',
-                      message:
-                          'Tambahkan pelanggan agar pesanan bisa memakai customerId yang valid.',
-                      actionLabel: 'Tambah pelanggan',
+                      title: strings.noCustomersTitle,
+                      message: strings.noCustomersMessage,
+                      actionLabel: strings.addCustomer,
                       onAction: () => _showCustomerDialog(context),
                     )
                   : RefreshIndicator(
@@ -96,7 +97,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                               .toList();
                           final totalKg = orders.fold<double>(
                             0,
-                            (sum, order) => sum + order.totalQuantity,
+                            (sum, order) => sum + order.laundryWeightKg,
                           );
                           return Card(
                             child: ListTile(
@@ -124,7 +125,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                                 ),
                               ),
                               subtitle: Text(
-                                '${customer.phone}\n${customer.address.isEmpty ? 'Alamat belum diisi' : customer.address}\n${orders.length} kunjungan - ${totalKg.toStringAsFixed(1)} kg',
+                                '${customer.phone}\n${customer.address.isEmpty ? strings.addressMissing : customer.address}\n${strings.visits(orders.length)} - ${totalKg.toStringAsFixed(1)} kg',
                               ),
                               isThreeLine: true,
                               trailing: Row(
@@ -132,7 +133,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                                 children: [
                                   if (canEditCustomers)
                                     IconButton(
-                                      tooltip: 'Edit pelanggan',
+                                      tooltip: strings.editCustomer,
                                       onPressed: () => _showCustomerDialog(
                                         context,
                                         customer: customer,
@@ -140,9 +141,11 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                                       icon: const Icon(Icons.edit_outlined),
                                     ),
                                   IconButton(
-                                    tooltip: 'Telepon',
+                                    tooltip: strings.phone,
                                     onPressed: () => _showSnack(
-                                      'Aksi telepon siap dihubungkan ke url_launcher.',
+                                      strings.isEnglish
+                                          ? 'Phone action is ready to be connected to url_launcher.'
+                                          : 'Aksi telepon siap dihubungkan ke url_launcher.',
                                     ),
                                     icon: const Icon(Icons.call_outlined),
                                   ),
@@ -165,6 +168,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     PreviewCustomer? customer,
   }) async {
     final isEditing = customer != null;
+    final strings = ref.read(appLanguageProvider) == AppLanguage.en
+        ? const AppStrings(AppLanguage.en)
+        : const AppStrings(AppLanguage.id);
     final nameController = TextEditingController(text: customer?.name ?? '');
     final phoneController = TextEditingController(text: customer?.phone ?? '');
     final addressController = TextEditingController(
@@ -183,7 +189,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           child: AppBottomSheetBody(
             children: [
               Text(
-                isEditing ? 'Edit Pelanggan' : 'Tambah Pelanggan',
+                isEditing ? strings.editCustomer : strings.addCustomer,
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -191,29 +197,29 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nama'),
+                decoration: InputDecoration(labelText: strings.name),
                 validator: (value) =>
-                    (value ?? '').trim().isEmpty ? 'Nama wajib diisi.' : null,
+                    (value ?? '').trim().isEmpty ? strings.nameRequired : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Nomor telepon'),
+                decoration: InputDecoration(labelText: strings.phone),
                 validator: (value) => (value ?? '').trim().length < 8
-                    ? 'Nomor telepon belum valid.'
+                    ? strings.invalidPhone
                     : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: addressController,
-                decoration: const InputDecoration(labelText: 'Alamat'),
+                decoration: InputDecoration(labelText: strings.address),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: noteController,
-                decoration: const InputDecoration(labelText: 'Catatan'),
+                decoration: InputDecoration(labelText: strings.note),
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -233,7 +239,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                 icon: Icon(
                   isEditing ? Icons.check_circle_outline : Icons.save_outlined,
                 ),
-                label: Text(isEditing ? 'Simpan Perubahan' : 'Simpan'),
+                label: Text(isEditing ? strings.saveChanges : strings.save),
               ),
             ],
           ),
@@ -272,11 +278,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         );
       }
       if (mounted) {
-        _showSnack(
-          isEditing
-              ? 'Pelanggan berhasil diperbarui.'
-              : 'Pelanggan berhasil ditambahkan.',
-        );
+        _showSnack(isEditing ? strings.customerUpdated : strings.customerAdded);
       }
     } on StateError catch (error) {
       if (mounted) {
@@ -348,7 +350,10 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             note: 'Import kontak HP',
           );
       if (mounted) {
-        _showSnack('${selected.name} berhasil diimport.');
+        final strings = ref.read(appLanguageProvider) == AppLanguage.en
+            ? const AppStrings(AppLanguage.en)
+            : const AppStrings(AppLanguage.id);
+        _showSnack(strings.imported(selected.name));
       }
     } on StateError catch (error) {
       if (mounted) {
