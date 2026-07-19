@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'order_whatsapp.dart';
+import 'receipt_preview_sheet.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   const OrderDetailPage({required this.orderId, super.key});
@@ -17,7 +20,13 @@ class OrderDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(
       previewDataProvider.select(
-        (state) => (orders: state.orders, payments: state.payments),
+        (state) => (
+          orders: state.orders,
+          payments: state.payments,
+          employees: state.employees,
+          shopName: state.shopName,
+          shopAddress: state.shopAddress,
+        ),
       ),
     );
     final order = data.orders
@@ -37,6 +46,12 @@ class OrderDetailPage extends ConsumerWidget {
     final payments = data.payments
         .where((payment) => payment.orderId == order.id)
         .toList();
+    final employeeName =
+        data.employees
+            .where((employee) => employee.id == order.assignedEmployeeId)
+            .map((employee) => employee.name)
+            .firstOrNull ??
+        'Belum ditugaskan';
 
     return Scaffold(
       appBar: AppBar(title: Text(order.orderNumber)),
@@ -58,6 +73,8 @@ class OrderDetailPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(order.customerPhoneSnapshot),
+                    const SizedBox(height: 6),
+                    Text('Diproses oleh $employeeName'),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
@@ -155,18 +172,38 @@ class OrderDetailPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Preview struk tersedia. PDF masuk integrasi printer.',
-                    ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final opened = await launchReadyPickupWhatsApp(order);
+                    if (!context.mounted) {
+                      return;
+                    }
+                    showAppSnackBar(
+                      opened
+                          ? 'WhatsApp dibuka dengan template siap ambil.'
+                          : 'WhatsApp tidak bisa dibuka di perangkat ini.',
+                    );
+                  },
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('WhatsApp Siap Ambil'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => showReceiptPreviewSheet(
+                    context: context,
+                    order: order,
+                    payments: payments,
+                    shopName: data.shopName,
+                    shopAddress: data.shopAddress,
+                    employeeName: employeeName,
                   ),
-                );
-              },
-              icon: const Icon(Icons.print_outlined),
-              label: const Text('Preview Struk'),
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text('Preview Struk'),
+                ),
+              ],
             ),
           ],
         ),

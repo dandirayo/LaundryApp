@@ -29,6 +29,7 @@ import '../../features/services/presentation/services_page.dart';
 import '../../features/settings/presentation/more_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/shifts/presentation/shifts_page.dart';
+import '../widgets/app_back_guard.dart';
 import '../widgets/feature_status_page.dart';
 import 'app_routes.dart';
 
@@ -77,135 +78,143 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: AppRoutes.dashboard,
-            builder: (context, state) => const DashboardPage(),
+            builder: (context, state) => _withBackGuard(const DashboardPage()),
           ),
           GoRoute(
             path: AppRoutes.orders,
-            builder: (context, state) => const OrdersPage(),
+            builder: (context, state) => _withBackGuard(const OrdersPage()),
           ),
           GoRoute(
             path: AppRoutes.ordersMine,
-            builder: (context, state) => const OrdersPage(showMineOnly: true),
+            builder: (context, state) =>
+                _withBackGuard(const OrdersPage(showMineOnly: true)),
           ),
           GoRoute(
             path: AppRoutes.orderCreate,
-            builder: (context, state) => const OrderCreatePage(),
+            builder: (context, state) =>
+                _withBackGuard(const OrderCreatePage()),
           ),
           GoRoute(
             path: AppRoutes.orderDetail,
-            builder: (context, state) =>
-                OrderDetailPage(orderId: state.pathParameters['orderId'] ?? ''),
+            builder: (context, state) => _withBackGuard(
+              OrderDetailPage(orderId: state.pathParameters['orderId'] ?? ''),
+            ),
           ),
           GoRoute(
             path: AppRoutes.customers,
-            builder: (context, state) => const CustomersPage(),
+            builder: (context, state) => _withBackGuard(const CustomersPage()),
           ),
           GoRoute(
             path: AppRoutes.more,
-            builder: (context, state) => const MorePage(),
+            builder: (context, state) => _withBackGuard(const MorePage()),
           ),
           GoRoute(
             path: AppRoutes.services,
-            builder: (context, state) => const ServicesPage(),
+            builder: (context, state) => _withBackGuard(const ServicesPage()),
           ),
           GoRoute(
             path: AppRoutes.inventory,
-            builder: (context, state) => const InventoryPage(),
+            builder: (context, state) => _withBackGuard(const InventoryPage()),
           ),
           GoRoute(
             path: AppRoutes.shifts,
-            builder: (context, state) => const ShiftsPage(),
+            builder: (context, state) => _withBackGuard(const ShiftsPage()),
           ),
           GoRoute(
             path: AppRoutes.shiftsMine,
-            builder: (context, state) => const ShiftsPage(showMineOnly: true),
+            builder: (context, state) =>
+                _withBackGuard(const ShiftsPage(showMineOnly: true)),
           ),
           GoRoute(
             path: AppRoutes.employees,
-            builder: (context, state) => const EmployeesPage(),
+            builder: (context, state) => _withBackGuard(const EmployeesPage()),
           ),
           GoRoute(
             path: AppRoutes.attendance,
-            builder: (context, state) => const AttendancePage(),
+            builder: (context, state) => _withBackGuard(const AttendancePage()),
           ),
           GoRoute(
             path: AppRoutes.attendanceMine,
             builder: (context, state) =>
-                const AttendancePage(showMineOnly: true),
+                _withBackGuard(const AttendancePage(showMineOnly: true)),
           ),
           GoRoute(
             path: AppRoutes.payroll,
-            builder: (context, state) => const PayrollPage(),
+            builder: (context, state) => _withBackGuard(const PayrollPage()),
           ),
           GoRoute(
             path: AppRoutes.requestReview,
-            builder: (context, state) => const RequestReviewPage(),
+            builder: (context, state) =>
+                _withBackGuard(const RequestReviewPage()),
           ),
           GoRoute(
             path: AppRoutes.reports,
-            builder: (context, state) => const ReportsPage(),
+            builder: (context, state) => _withBackGuard(const ReportsPage()),
           ),
           GoRoute(
             path: AppRoutes.cashbook,
-            builder: (context, state) => const CashbookPage(),
+            builder: (context, state) => _withBackGuard(const CashbookPage()),
           ),
           GoRoute(
             path: AppRoutes.expenses,
-            builder: (context, state) => const ExpensesPage(),
+            builder: (context, state) => _withBackGuard(const ExpensesPage()),
           ),
           GoRoute(
             path: AppRoutes.notifications,
-            builder: (context, state) => const NotificationsPage(),
+            builder: (context, state) =>
+                _withBackGuard(const NotificationsPage()),
           ),
           GoRoute(
             path: AppRoutes.printer,
-            builder: (context, state) => const PrinterPage(),
+            builder: (context, state) => _withBackGuard(const PrinterPage()),
           ),
           GoRoute(
             path: AppRoutes.backup,
-            builder: (context, state) => const BackupPage(),
+            builder: (context, state) => _withBackGuard(const BackupPage()),
           ),
           GoRoute(
             path: AppRoutes.shopSettings,
-            builder: (context, state) => const SettingsPage(),
+            builder: (context, state) => _withBackGuard(const SettingsPage()),
           ),
           GoRoute(
             path: AppRoutes.profile,
-            builder: (context, state) => const ProfilePage(),
+            builder: (context, state) => _withBackGuard(const ProfilePage()),
           ),
           GoRoute(
             path: AppRoutes.stockRequest,
             builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Stok'),
+                _withBackGuard(const RequestPage(typeLabel: 'Request Stok')),
           ),
           GoRoute(
             path: AppRoutes.overtimeRequest,
             builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Lembur'),
+                _withBackGuard(const RequestPage(typeLabel: 'Request Lembur')),
           ),
           GoRoute(
             path: AppRoutes.shiftSwapRequest,
-            builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Tukar Shift'),
+            builder: (context, state) => _withBackGuard(
+              const RequestPage(typeLabel: 'Request Tukar Shift'),
+            ),
           ),
           GoRoute(
             path: AppRoutes.leaveRequest,
             builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Izin'),
+                _withBackGuard(const RequestPage(typeLabel: 'Request Izin')),
           ),
           GoRoute(
             path: AppRoutes.incentiveRequest,
-            builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Insentif'),
+            builder: (context, state) => _withBackGuard(
+              const RequestPage(typeLabel: 'Request Insentif'),
+            ),
           ),
           GoRoute(
             path: AppRoutes.cashAdvanceRequest,
             builder: (context, state) =>
-                const RequestPage(typeLabel: 'Request Kasbon'),
+                _withBackGuard(const RequestPage(typeLabel: 'Request Kasbon')),
           ),
           GoRoute(
             path: AppRoutes.changePin,
-            builder: (context, state) => const ChangePinPage(),
+            builder: (context, state) => _withBackGuard(const ChangePinPage()),
           ),
         ],
       ),
@@ -219,3 +228,5 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+Widget _withBackGuard(Widget child) => AppBackGuard(child: child);

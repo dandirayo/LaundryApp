@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 
 class ChangePinPage extends StatefulWidget {
@@ -72,11 +73,7 @@ class _ChangePinPageState extends State<ChangePinPage> {
                   if (!_formKey.currentState!.validate()) {
                     return;
                   }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('PIN preview tersimpan untuk sesi lokal.'),
-                    ),
-                  );
+                  showAppSnackBar('PIN preview tersimpan untuk sesi lokal.');
                   Navigator.of(context).pop();
                 },
                 icon: const Icon(Icons.save_outlined),

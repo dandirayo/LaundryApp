@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 import 'auth_controller.dart';
 
@@ -79,7 +81,7 @@ class ProfilePage extends ConsumerWidget {
     final name = TextEditingController(text: currentName);
     final phone = TextEditingController(text: currentPhone);
     final formKey = GlobalKey<FormState>();
-    final result = await showModalBottomSheet<_ProfileInput>(
+    final result = await showAppModalBottomSheet<_ProfileInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -130,6 +132,10 @@ class ProfilePage extends ConsumerWidget {
     if (result == null || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
     await ref
         .read(authControllerProvider.notifier)
         .updateProfile(name: result.name, phone: result.phone);
@@ -137,16 +143,12 @@ class ProfilePage extends ConsumerWidget {
       return;
     }
     final error = ref.read(authControllerProvider).error;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? 'Profil tersimpan.'
-              : error is Failure
-              ? error.message
-              : 'Profil gagal disimpan.',
-        ),
-      ),
+    showAppSnackBar(
+      error == null
+          ? 'Profil tersimpan.'
+          : error is Failure
+          ? error.message
+          : 'Profil gagal disimpan.',
     );
   }
 }

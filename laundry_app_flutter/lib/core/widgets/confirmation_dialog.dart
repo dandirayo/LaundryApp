@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../utils/ui_action_queue.dart';
 
 Future<bool> showConfirmationDialog(
   BuildContext context, {
@@ -32,5 +33,6 @@ Future<bool> showConfirmationDialog(
       );
     },
   );
+  await waitForTransientUiDismissal();
   return result ?? false;
 }

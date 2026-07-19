@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -71,7 +73,7 @@ class RequestPage extends ConsumerWidget {
         typeLabel.contains('Kasbon') ||
         typeLabel.contains('Insentif') ||
         typeLabel.contains('Lembur');
-    final result = await showModalBottomSheet<_RequestInput>(
+    final result = await showAppModalBottomSheet<_RequestInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -136,6 +138,10 @@ class RequestPage extends ConsumerWidget {
     if (result == null || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
     ref
         .read(previewDataProvider.notifier)
         .addRequest(
@@ -143,9 +149,7 @@ class RequestPage extends ConsumerWidget {
           reason: result.reason,
           amount: result.amount,
         );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Request dikirim ke Owner.')));
+    showAppSnackBar('Request dikirim ke Owner.');
   }
 }
 

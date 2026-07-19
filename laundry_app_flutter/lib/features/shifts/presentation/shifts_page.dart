@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -111,9 +113,9 @@ class ShiftsPage extends ConsumerWidget {
     final data = ref.read(previewDataProvider);
     var employeeId = data.employees.first.id;
     var day = _days.first;
-    final start = TextEditingController(text: '08.00');
-    final end = TextEditingController(text: '16.00');
-    await showModalBottomSheet<void>(
+    final start = TextEditingController(text: '06.00');
+    final end = TextEditingController(text: '14.00');
+    final result = await showAppModalBottomSheet<_ShiftInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -135,8 +137,12 @@ class ShiftsPage extends ConsumerWidget {
                       child: Text(employee.name),
                     ),
                 ],
-                onChanged: (value) =>
-                    setModalState(() => employeeId = value ?? employeeId),
+                onChanged: (value) => setModalState(() {
+                  employeeId = value ?? employeeId;
+                  final defaults = _defaultTimeForEmployee(employeeId);
+                  start.text = defaults.$1;
+                  end.text = defaults.$2;
+                }),
                 decoration: const InputDecoration(labelText: 'Karyawan'),
               ),
               const SizedBox(height: 12),
@@ -170,21 +176,14 @@ class ShiftsPage extends ConsumerWidget {
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () {
-                  try {
-                    ref
-                        .read(previewDataProvider.notifier)
-                        .addShift(
-                          employeeId: employeeId,
-                          day: day,
-                          startTime: start.text,
-                          endTime: end.text,
-                        );
-                    Navigator.of(context).pop();
-                  } on StateError catch (error) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(error.message)));
-                  }
+                  Navigator.of(context).pop(
+                    _ShiftInput(
+                      employeeId: employeeId,
+                      day: day,
+                      startTime: start.text,
+                      endTime: end.text,
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.save_outlined),
                 label: const Text('Simpan'),
@@ -196,5 +195,48 @@ class ShiftsPage extends ConsumerWidget {
     );
     start.dispose();
     end.dispose();
+
+    if (result == null || !context.mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+    try {
+      ref
+          .read(previewDataProvider.notifier)
+          .addShift(
+            employeeId: result.employeeId,
+            day: result.day,
+            startTime: result.startTime,
+            endTime: result.endTime,
+          );
+      showAppSnackBar('Shift berhasil ditambahkan.');
+    } on StateError catch (error) {
+      showAppSnackBar(error.message);
+    }
   }
+
+  (String, String) _defaultTimeForEmployee(String employeeId) {
+    return switch (employeeId) {
+      'employee-1' => ('06.00', '14.00'),
+      'employee-2' => ('12.00', '20.00'),
+      _ => ('06.00', '14.00'),
+    };
+  }
+}
+
+class _ShiftInput {
+  const _ShiftInput({
+    required this.employeeId,
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final String employeeId;
+  final String day;
+  final String startTime;
+  final String endTime;
 }

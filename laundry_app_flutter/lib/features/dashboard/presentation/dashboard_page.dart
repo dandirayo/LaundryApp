@@ -6,6 +6,8 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
+import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../core/widgets/summary_card.dart';
 import '../../../shared/preview_data.dart';
@@ -25,6 +27,7 @@ class DashboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Beranda'),
         actions: [
+          const _OperationalSummaryAction(),
           IconButton(
             tooltip: 'Notifikasi',
             onPressed: () => context.go(AppRoutes.notifications),
@@ -96,12 +99,14 @@ class _OwnerDashboard extends ConsumerWidget {
               value: '${todayOrders.length}',
               icon: Icons.receipt_long,
               color: AppColors.primaryBlue,
+              onTap: () => context.go(AppRoutes.orders),
             ),
             SummaryCard(
               label: 'Pelanggan hari ini',
               value: '${data.customers.length}',
               icon: Icons.people,
               color: AppColors.softBlue,
+              onTap: () => context.go(AppRoutes.customers),
             ),
             SummaryCard(
               label: 'Total kilogram',
@@ -109,24 +114,28 @@ class _OwnerDashboard extends ConsumerWidget {
                   '${todayOrders.fold<double>(0, (sum, order) => sum + order.totalQuantity).toStringAsFixed(1)} kg',
               icon: Icons.scale,
               color: AppColors.success,
+              onTap: () => context.go(AppRoutes.reports),
             ),
             SummaryCard(
               label: 'Pemasukan hari ini',
               value: todayIncome.toRupiah(),
               icon: Icons.payments,
               color: AppColors.primaryNavy,
+              onTap: () => context.go(AppRoutes.cashbook),
             ),
             SummaryCard(
               label: 'Pengeluaran hari ini',
               value: todayOut.toRupiah(),
               icon: Icons.trending_down,
               color: AppColors.error,
+              onTap: () => context.go(AppRoutes.expenses),
             ),
             SummaryCard(
               label: 'Saldo hari ini',
               value: (todayIncome - todayOut).toRupiah(),
               icon: Icons.account_balance_wallet,
               color: AppColors.success,
+              onTap: () => context.go(AppRoutes.cashbook),
             ),
             SummaryCard(
               label: 'Siap diambil',
@@ -134,18 +143,21 @@ class _OwnerDashboard extends ConsumerWidget {
                   '${data.orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
               icon: Icons.inventory_2,
               color: AppColors.warning,
+              onTap: () => context.go(AppRoutes.orders),
             ),
             SummaryCard(
               label: 'Stok menipis',
               value: '$lowStock',
               icon: Icons.warning_amber_outlined,
               color: AppColors.warning,
+              onTap: () => context.go(AppRoutes.inventory),
             ),
             SummaryCard(
               label: 'Request pending',
               value: '$pending',
               icon: Icons.task_alt,
               color: AppColors.primaryBlue,
+              onTap: () => context.go(AppRoutes.requestReview),
             ),
           ],
         ),
@@ -181,8 +193,6 @@ class _OwnerDashboard extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        _AttentionSection(data: data),
       ],
     );
   }
@@ -203,6 +213,13 @@ class _EmployeeDashboard extends ConsumerWidget {
     final myRequests = data.requests
         .where((request) => request.employeeId == 'employee-1')
         .toList();
+    final todayShift = data.shifts
+        .where(
+          (shift) =>
+              shift.employeeId == 'employee-1' &&
+              shift.day == _indonesianDay(DateTime.now()),
+        )
+        .firstOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,32 +228,33 @@ class _EmployeeDashboard extends ConsumerWidget {
           cards: [
             SummaryCard(
               label: 'Shift hari ini',
-              value:
-                  data.shifts
-                      .where((shift) => shift.employeeId == 'employee-1')
-                      .map((shift) => '${shift.startTime}-${shift.endTime}')
-                      .firstOrNull ??
-                  '-',
+              value: todayShift == null
+                  ? '-'
+                  : '${todayShift.startTime}-${todayShift.endTime}',
               icon: Icons.calendar_today,
               color: AppColors.primaryBlue,
+              onTap: () => context.go(AppRoutes.shiftsMine),
             ),
             SummaryCard(
               label: 'Status absensi',
               value: myAttendance.isEmpty ? 'Belum' : 'Hadir',
               icon: Icons.fact_check,
               color: AppColors.warning,
+              onTap: () => context.go(AppRoutes.attendanceMine),
             ),
             SummaryCard(
               label: 'Pesanan saya',
               value: '${myOrders.length}',
               icon: Icons.assignment,
               color: AppColors.primaryNavy,
+              onTap: () => context.go(AppRoutes.ordersMine),
             ),
             SummaryCard(
               label: 'Request aktif',
               value: '${myRequests.length}',
               icon: Icons.pending_actions,
               color: AppColors.success,
+              onTap: () => context.go(AppRoutes.more),
             ),
           ],
         ),
@@ -271,8 +289,6 @@ class _EmployeeDashboard extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        _AttentionSection(data: data),
       ],
     );
   }
@@ -300,6 +316,19 @@ class _SummaryGrid extends StatelessWidget {
       },
     );
   }
+}
+
+String _indonesianDay(DateTime date) {
+  return switch (date.weekday) {
+    DateTime.monday => 'Senin',
+    DateTime.tuesday => 'Selasa',
+    DateTime.wednesday => 'Rabu',
+    DateTime.thursday => 'Kamis',
+    DateTime.friday => 'Jumat',
+    DateTime.saturday => 'Sabtu',
+    DateTime.sunday => 'Minggu',
+    _ => 'Senin',
+  };
 }
 
 class _QuickActions extends StatelessWidget {
@@ -348,8 +377,59 @@ class _QuickAction {
   final String route;
 }
 
-class _AttentionSection extends StatelessWidget {
-  const _AttentionSection({required this.data});
+class _OperationalSummaryAction extends ConsumerWidget {
+  const _OperationalSummaryAction();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(previewDataProvider);
+    final attentionCount =
+        data.requests
+            .where((request) => request.status == PreviewRequestStatus.pending)
+            .length +
+        data.orders
+            .where((order) => order.orderStatus == PreviewOrderStatus.ready)
+            .length +
+        data.inventory.where((item) => item.isLowStock).length;
+
+    return IconButton(
+      tooltip: 'Ringkasan operasional',
+      onPressed: () => _showOperationalSummary(context, data),
+      icon: attentionCount == 0
+          ? const Icon(Icons.insights_outlined)
+          : Badge.count(
+              count: attentionCount,
+              child: const Icon(Icons.insights_outlined),
+            ),
+    );
+  }
+
+  void _showOperationalSummary(BuildContext context, PreviewDataState data) {
+    showAppModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => AppBottomSheetBody(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Ringkasan operasional',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _OperationalSummaryList(data: data),
+        ],
+      ),
+    );
+  }
+}
+
+class _OperationalSummaryList extends StatelessWidget {
+  const _OperationalSummaryList({required this.data});
 
   final PreviewDataState data;
 
@@ -376,24 +456,15 @@ class _AttentionSection extends StatelessWidget {
       ),
     ];
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Ringkasan operasional',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
         for (final item in items) ...[
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: Text(item.$1),
-              subtitle: Text(item.$2),
-            ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.info_outline),
+            title: Text(item.$1),
+            subtitle: Text(item.$2),
           ),
-          const SizedBox(height: 8),
+          const Divider(height: 1),
         ],
       ],
     );

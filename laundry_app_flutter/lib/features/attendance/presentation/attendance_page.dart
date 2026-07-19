@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -48,7 +51,7 @@ class AttendancePage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Mode preview mensimulasikan foto. Kamera asli akan aktif saat integrasi storage.',
+                        'Foto wajib diambil dari kamera belakang sebelum absen tersimpan.',
                       ),
                       const SizedBox(height: 14),
                       Row(
@@ -134,6 +137,26 @@ class AttendancePage extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+
+    final photo = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.rear,
+      imageQuality: 75,
+      maxWidth: 1600,
+    );
+    if (photo == null || !context.mounted) {
+      showAppSnackBar('Absen dibatalkan. Foto kamera belakang wajib diambil.');
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+
     try {
       ref
           .read(previewDataProvider.notifier)
@@ -141,16 +164,11 @@ class AttendancePage extends ConsumerWidget {
             employeeId: employee.id,
             employeeName: employee.name,
             isCheckOut: isCheckOut,
+            photoPath: photo.path,
           );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Absen ${isCheckOut ? 'keluar' : 'masuk'} tersimpan.'),
-        ),
-      );
+      showAppSnackBar('Absen ${isCheckOut ? 'keluar' : 'masuk'} tersimpan.');
     } on StateError catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppSnackBar(error.message);
     }
   }
 }

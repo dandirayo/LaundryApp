@@ -17,6 +17,8 @@ Tanggal update: 19 Juli 2026
 - Banner "Mode online siap" dihapus selama tahap offline-first.
 - Beberapa halaman daftar memakai `provider.select(...)` untuk mengurangi rebuild dari `previewDataProvider`.
 - Test layout ditambahkan untuk layar 320x568 dengan text scale 1.5.
+- Fix assertion Flutter `_dependents.isEmpty` pada aksi setelah bottom sheet/dialog dengan menunda mutasi provider sampai route transien selesai dibongkar.
+- Form pelanggan, layanan, stok, shift, karyawan, pembayaran, request, pengeluaran, profil, backup, payroll, dan absensi memakai pola aksi aman setelah modal/dialog tertutup.
 - Fix crash pembayaran dengan menutup bottom sheet lebih dulu sebelum update provider.
 - Pembayaran pesanan otomatis memperbarui status tagihan dan masuk Buku Kas.
 - Owner mendapat halaman Review Request untuk menyetujui, menolak, membayar, dan menyelesaikan request karyawan.
@@ -29,10 +31,10 @@ Tanggal update: 19 Juli 2026
 
 - `dart format lib test`: lulus.
 - `flutter analyze`: No issues found.
-- `flutter test`: 6 test lulus.
+- `flutter test`: diblokir Windows Application Control pada `flutter_tester.exe` di SDK temp; sebelumnya 6 test lulus sebelum policy ini aktif.
 - `flutter build apk --debug`: berhasil.
 - APK: `build/app/outputs/flutter-apk/app-debug.apk`
-- Smoke test emulator: belum dijalankan karena tidak ada device ADB yang tersambung saat verifikasi.
+- Smoke test HP `RRCT2017K6N`: APK berhasil di-install dan launch; tidak ada log assertion saat smoke awal.
 
 ## Belum Selesai
 

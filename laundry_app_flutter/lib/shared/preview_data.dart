@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'imported_contacts.dart';
+
 final previewDataProvider =
     NotifierProvider<PreviewDataController, PreviewDataState>(
       PreviewDataController.new,
@@ -140,6 +142,24 @@ class PreviewCustomer {
   final String address;
   final String note;
   final DateTime createdAt;
+
+  PreviewCustomer copyWith({
+    String? name,
+    String? phone,
+    String? normalizedPhone,
+    String? address,
+    String? note,
+  }) {
+    return PreviewCustomer(
+      id: id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      normalizedPhone: normalizedPhone ?? this.normalizedPhone,
+      address: address ?? this.address,
+      note: note ?? this.note,
+      createdAt: createdAt,
+    );
+  }
 }
 
 class PreviewService {
@@ -361,6 +381,21 @@ class PreviewEmployee {
   final String phone;
   final String position;
   final bool isActive;
+
+  PreviewEmployee copyWith({
+    String? name,
+    String? phone,
+    String? position,
+    bool? isActive,
+  }) {
+    return PreviewEmployee(
+      id: id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      position: position ?? this.position,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }
 
 class PreviewAttendance {
@@ -384,16 +419,21 @@ class PreviewAttendance {
   final String status;
   final String note;
 
-  PreviewAttendance copyWith({DateTime? checkOutAt, String? status}) {
+  PreviewAttendance copyWith({
+    DateTime? checkOutAt,
+    String? status,
+    String? employeeName,
+    String? note,
+  }) {
     return PreviewAttendance(
       id: id,
       employeeId: employeeId,
-      employeeName: employeeName,
+      employeeName: employeeName ?? this.employeeName,
       date: date,
       checkInAt: checkInAt,
       checkOutAt: checkOutAt ?? this.checkOutAt,
       status: status ?? this.status,
-      note: note,
+      note: note ?? this.note,
     );
   }
 }
@@ -416,6 +456,18 @@ class PreviewShift {
   final String startTime;
   final String endTime;
   final bool isDayOff;
+
+  PreviewShift copyWith({String? employeeName, bool? isDayOff}) {
+    return PreviewShift(
+      id: id,
+      employeeId: employeeId,
+      employeeName: employeeName ?? this.employeeName,
+      day: day,
+      startTime: startTime,
+      endTime: endTime,
+      isDayOff: isDayOff ?? this.isDayOff,
+    );
+  }
 }
 
 class PreviewEmployeeRequest {
@@ -444,11 +496,12 @@ class PreviewEmployeeRequest {
   PreviewEmployeeRequest copyWith({
     PreviewRequestStatus? status,
     String? reviewNote,
+    String? employeeName,
   }) {
     return PreviewEmployeeRequest(
       id: id,
       employeeId: employeeId,
-      employeeName: employeeName,
+      employeeName: employeeName ?? this.employeeName,
       type: type,
       reason: reason,
       amount: amount,
@@ -510,6 +563,239 @@ class PreviewExpense {
 }
 
 class PreviewDataController extends Notifier<PreviewDataState> {
+  static const _days = [
+    'Senin',
+    'Selasa',
+    'Rabu',
+    'Kamis',
+    'Jumat',
+    'Sabtu',
+    'Minggu',
+  ];
+  static const _lateTolerance = Duration(hours: 2);
+  static const _defaultServices = [
+    PreviewService(
+      id: 'service-cs-reguler',
+      name: 'Cuci Setrika Reguler',
+      category: 'Cuci Setrika',
+      unit: 'kg',
+      price: 7000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-cs-express',
+      name: 'Cuci Setrika Express',
+      category: 'Cuci Setrika',
+      unit: 'kg',
+      price: 9000,
+      estimatedHours: 24,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-cs-kilat',
+      name: 'Cuci Setrika Kilat',
+      category: 'Cuci Setrika',
+      unit: 'kg',
+      price: 12000,
+      estimatedHours: 8,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-ckl-reguler',
+      name: 'Cuci Kering Lipat Reguler',
+      category: 'Cuci Kering Lipat',
+      unit: 'kg',
+      price: 4000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-ckl-express',
+      name: 'Cuci Kering Lipat Express',
+      category: 'Cuci Kering Lipat',
+      unit: 'kg',
+      price: 6000,
+      estimatedHours: 24,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-ckl-kilat',
+      name: 'Cuci Kering Lipat Kilat',
+      category: 'Cuci Kering Lipat',
+      unit: 'kg',
+      price: 9000,
+      estimatedHours: 8,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-sl-reguler',
+      name: 'Setrika Lipat Reguler',
+      category: 'Setrika Lipat',
+      unit: 'kg',
+      price: 5000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-sl-express',
+      name: 'Setrika Lipat Express',
+      category: 'Setrika Lipat',
+      unit: 'kg',
+      price: 7000,
+      estimatedHours: 24,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-sl-kilat',
+      name: 'Setrika Lipat Kilat',
+      category: 'Setrika Lipat',
+      unit: 'kg',
+      price: 10000,
+      estimatedHours: 8,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-add-noda-bandel',
+      name: 'Noda Bandel',
+      category: 'Layanan Tambahan',
+      unit: 'layanan',
+      price: 5000,
+      estimatedHours: 24,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-add-speed-satuan',
+      name: 'Speed Satuan',
+      category: 'Layanan Tambahan',
+      unit: 'layanan',
+      price: 5000,
+      estimatedHours: 24,
+      isExpress: true,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-add-antar-jemput',
+      name: 'Antar Jemput',
+      category: 'Layanan Tambahan',
+      unit: 'layanan',
+      price: 2000,
+      estimatedHours: 24,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-kaos',
+      name: 'Kaos / Polo Shirt / Singlet',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 5000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-kemeja',
+      name: 'Kemeja Pendek / Panjang',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 6000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-celana-panjang',
+      name: 'Celana Panjang Kain / Chino / Kulot',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 7000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-jaket',
+      name: 'Jaket / Hoodie / Sweater',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 10000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-dress',
+      name: 'Dress / Rok Terusan Simple',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 10000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-sprei-single',
+      name: 'Sprei Single',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 10000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-bedcover-single',
+      name: 'Bedcover Single',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 20000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-bedcover-double',
+      name: 'Bedcover Double / King Size',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 30000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-bantal-guling',
+      name: 'Sarung Bantal / Guling',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 2000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+    PreviewService(
+      id: 'service-satuan-boneka-sedang',
+      name: 'Boneka Ukuran Sedang',
+      category: 'Laundry Satuan',
+      unit: 'pcs',
+      price: 15000,
+      estimatedHours: 72,
+      isExpress: false,
+      isActive: true,
+    ),
+  ];
+
   @override
   PreviewDataState build() {
     final now = DateTime.now();
@@ -536,16 +822,18 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       note: 'Pelanggan reguler',
       createdAt: now,
     );
-    final service = PreviewService(
-      id: 'service-1',
-      name: 'Cuci Setrika Reguler',
-      category: 'Cuci Setrika',
-      unit: 'kg',
-      price: 7000,
-      estimatedHours: 48,
-      isExpress: false,
-      isActive: true,
-    );
+    final importedCustomers = importedCustomerContacts.map((contact) {
+      return PreviewCustomer(
+        id: contact['id']!,
+        name: contact['name']!,
+        phone: contact['phone']!,
+        normalizedPhone: contact['normalizedPhone']!,
+        address: contact['address']!,
+        note: contact['note']!,
+        createdAt: now,
+      );
+    }).toList();
+    final service = _defaultServices.first;
     final order = _buildOrder(
       orderIndex: 1,
       customer: customer,
@@ -565,20 +853,8 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       receiverName: 'Owner Idola',
     );
     return PreviewDataState(
-      customers: [customer],
-      services: [
-        service,
-        const PreviewService(
-          id: 'service-2',
-          name: 'Setrika Kilat',
-          category: 'Setrika',
-          unit: 'kg',
-          price: 5000,
-          estimatedHours: 24,
-          isExpress: true,
-          isActive: true,
-        ),
-      ],
+      customers: [customer, ...importedCustomers],
+      services: _defaultServices,
       orders: [order],
       payments: [payment],
       cashTransactions: [
@@ -620,24 +896,26 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       employees: [employee1, employee2],
       attendance: const [],
       shifts: [
-        PreviewShift(
-          id: 'shift-1',
-          employeeId: employee1.id,
-          employeeName: employee1.name,
-          day: 'Senin',
-          startTime: '08.00',
-          endTime: '16.00',
-          isDayOff: false,
-        ),
-        PreviewShift(
-          id: 'shift-2',
-          employeeId: employee2.id,
-          employeeName: employee2.name,
-          day: 'Senin',
-          startTime: '12.00',
-          endTime: '20.00',
-          isDayOff: false,
-        ),
+        for (final (index, day) in _days.indexed) ...[
+          PreviewShift(
+            id: 'shift-employee-1-${index + 1}',
+            employeeId: employee1.id,
+            employeeName: employee1.name,
+            day: day,
+            startTime: '06.00',
+            endTime: '14.00',
+            isDayOff: false,
+          ),
+          PreviewShift(
+            id: 'shift-employee-2-${index + 1}',
+            employeeId: employee2.id,
+            employeeName: employee2.name,
+            day: day,
+            startTime: '12.00',
+            endTime: '20.00',
+            isDayOff: false,
+          ),
+        ],
       ],
       requests: const [],
       notifications: [
@@ -681,6 +959,43 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       createdAt: DateTime.now(),
     );
     state = state.copyWith(customers: [...state.customers, customer]);
+  }
+
+  void updateCustomer({
+    required String id,
+    required String name,
+    required String phone,
+    required String address,
+    required String note,
+  }) {
+    final normalizedPhone = normalizeIndonesianPhone(phone);
+    final duplicate = state.customers.any(
+      (customer) =>
+          customer.id != id && customer.normalizedPhone == normalizedPhone,
+    );
+    if (duplicate) {
+      throw StateError('Nomor telepon sudah terdaftar.');
+    }
+
+    var found = false;
+    final customers = state.customers.map((customer) {
+      if (customer.id != id) {
+        return customer;
+      }
+      found = true;
+      return customer.copyWith(
+        name: name.trim(),
+        phone: phone.trim(),
+        normalizedPhone: normalizedPhone,
+        address: address.trim(),
+        note: note.trim(),
+      );
+    }).toList();
+
+    if (!found) {
+      throw StateError('Pelanggan tidak ditemukan.');
+    }
+    state = state.copyWith(customers: customers);
   }
 
   void addService({
@@ -730,6 +1045,120 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       employeeId: employeeId,
       note: note,
       createdAt: DateTime.now(),
+    );
+    final payments = [...state.payments];
+    final cash = [...state.cashTransactions];
+    if (paidAmount > 0) {
+      final payment = PreviewPayment(
+        id: _uuid.v4(),
+        orderId: order.id,
+        amount: paidAmount,
+        method: paymentMethod,
+        paidAt: DateTime.now(),
+        receiverName: 'Owner Idola',
+      );
+      payments.add(payment);
+      cash.add(
+        PreviewCashTransaction(
+          id: _uuid.v4(),
+          referenceId: payment.id,
+          referenceType: 'PAYMENT',
+          type: 'IN',
+          category: order.paymentStatus == PreviewPaymentStatus.paid
+              ? 'Pelunasan'
+              : 'DP',
+          description: 'Pembayaran ${order.orderNumber}',
+          amount: paidAmount,
+          method: paymentMethod,
+          createdAt: payment.paidAt,
+        ),
+      );
+    }
+    state = state.copyWith(
+      orders: [order, ...state.orders],
+      payments: payments,
+      cashTransactions: cash,
+      notifications: [
+        _notification(
+          'Pesanan baru',
+          '${order.orderNumber} untuk ${order.customerNameSnapshot} berhasil dibuat.',
+          '/orders/${order.id}',
+        ),
+        ...state.notifications,
+      ],
+    );
+    return order;
+  }
+
+  PreviewOrder createOrderWithItems({
+    required String customerId,
+    required List<({String serviceId, double quantity})> items,
+    required int paidAmount,
+    required String paymentMethod,
+    required String employeeId,
+    required String note,
+  }) {
+    if (items.isEmpty) {
+      throw StateError('Tambahkan minimal satu item pesanan.');
+    }
+    final customer = state.customers.firstWhere(
+      (item) => item.id == customerId,
+    );
+    final servicesById = {for (final service in state.services) service.id: service};
+    final orderItems = <PreviewOrderItem>[];
+    var total = 0;
+    var longestHours = 0;
+    for (final item in items) {
+      final service = servicesById[item.serviceId];
+      if (service == null) {
+        throw StateError('Layanan tidak ditemukan.');
+      }
+      if (service.unit.toLowerCase() == 'kg' && item.quantity < 3) {
+        throw StateError('Minimum laundry kiloan 3 kg.');
+      }
+      final itemTotal = (service.price * item.quantity).round();
+      total += itemTotal;
+      if (service.estimatedHours > longestHours) {
+        longestHours = service.estimatedHours;
+      }
+      orderItems.add(
+        PreviewOrderItem(
+          id: _uuid.v4(),
+          serviceId: service.id,
+          serviceNameSnapshot: service.name,
+          unit: service.unit,
+          quantity: item.quantity,
+          price: service.price,
+          total: itemTotal,
+        ),
+      );
+    }
+    if (paidAmount < 0 || paidAmount > total) {
+      throw StateError('Nominal pembayaran tidak valid.');
+    }
+    final createdAt = DateTime.now();
+    final orderIndex = state.orders.length + 1;
+    final orderNumber =
+        'IDL-${createdAt.year}${createdAt.month.toString().padLeft(2, '0')}${createdAt.day.toString().padLeft(2, '0')}-${orderIndex.toString().padLeft(4, '0')}';
+    final order = PreviewOrder(
+      id: _uuid.v4(),
+      orderNumber: orderNumber,
+      customerId: customer.id,
+      customerNameSnapshot: customer.name,
+      customerPhoneSnapshot: customer.phone,
+      items: orderItems,
+      totalPrice: total,
+      paidAmount: paidAmount,
+      paymentStatus: paidAmount == 0
+          ? PreviewPaymentStatus.unpaid
+          : paidAmount >= total
+          ? PreviewPaymentStatus.paid
+          : PreviewPaymentStatus.partiallyPaid,
+      orderStatus: PreviewOrderStatus.received,
+      receivedAt: createdAt,
+      dueAt: createdAt.add(Duration(hours: longestHours)),
+      assignedEmployeeId: employeeId,
+      note: note,
     );
     final payments = [...state.payments];
     final cash = [...state.cashTransactions];
@@ -893,8 +1322,10 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String employeeId,
     required String employeeName,
     required bool isCheckOut,
+    required String photoPath,
   }) {
     final today = DateTime.now();
+    final shift = _shiftFor(employeeId, today);
     final existing = state.attendance.where((entry) {
       return entry.employeeId == employeeId &&
           entry.date.year == today.year &&
@@ -903,6 +1334,18 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     }).toList();
 
     if (!isCheckOut) {
+      final shiftStart = _timeOnDate(today, shift.startTime);
+      final lastCheckIn = shiftStart.add(_lateTolerance);
+      if (today.isBefore(shiftStart)) {
+        throw StateError(
+          'Absen masuk belum dibuka. Jadwal mulai ${_formatTime(shiftStart)}.',
+        );
+      }
+      if (today.isAfter(lastCheckIn)) {
+        throw StateError(
+          'Maksimal terlambat 2 jam. Absen masuk ditutup ${_formatTime(lastCheckIn)}.',
+        );
+      }
       if (existing.isNotEmpty) {
         throw StateError('Karyawan sudah absen masuk hari ini.');
       }
@@ -913,7 +1356,8 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         date: today,
         checkInAt: today,
         status: 'HADIR',
-        note: 'Foto absensi preview tersimpan lokal.',
+        note:
+            'Foto masuk: $photoPath. Shift ${shift.startTime}-${shift.endTime}.',
       );
       state = state.copyWith(attendance: [attendance, ...state.attendance]);
       return;
@@ -926,15 +1370,58 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     if (current.checkOutAt != null) {
       throw StateError('Karyawan sudah absen keluar hari ini.');
     }
+    final shiftEnd = _timeOnDate(today, shift.endTime);
+    if (today.isBefore(shiftEnd)) {
+      throw StateError(
+        'Belum waktunya absen keluar. Jadwal selesai ${_formatTime(shiftEnd)}.',
+      );
+    }
     state = state.copyWith(
       attendance: [
         for (final entry in state.attendance)
           if (entry.id == current.id)
-            entry.copyWith(checkOutAt: today)
+            entry.copyWith(
+              checkOutAt: today,
+              note: '${entry.note} Foto keluar: $photoPath.',
+            )
           else
             entry,
       ],
     );
+  }
+
+  PreviewShift _shiftFor(String employeeId, DateTime date) {
+    final day = _indonesianDay(date);
+    return state.shifts.firstWhere(
+      (shift) => shift.employeeId == employeeId && shift.day == day,
+      orElse: () => throw StateError('Jadwal hari ini belum dibuat.'),
+    );
+  }
+
+  DateTime _timeOnDate(DateTime date, String value) {
+    final parts = value.replaceAll(':', '.').split('.');
+    final hour = int.tryParse(parts.first) ?? 0;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  String _formatTime(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour.$minute';
+  }
+
+  String _indonesianDay(DateTime date) {
+    return switch (date.weekday) {
+      DateTime.monday => 'Senin',
+      DateTime.tuesday => 'Selasa',
+      DateTime.wednesday => 'Rabu',
+      DateTime.thursday => 'Kamis',
+      DateTime.friday => 'Jumat',
+      DateTime.saturday => 'Sabtu',
+      DateTime.sunday => 'Minggu',
+      _ => 'Senin',
+    };
   }
 
   void addShift({
@@ -968,15 +1455,68 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String name,
     required String phone,
     required String position,
+    bool isActive = true,
   }) {
     final employee = PreviewEmployee(
       id: _uuid.v4(),
-      name: name,
-      phone: phone,
-      position: position,
-      isActive: true,
+      name: name.trim(),
+      phone: phone.trim(),
+      position: position.trim(),
+      isActive: isActive,
     );
     state = state.copyWith(employees: [...state.employees, employee]);
+  }
+
+  void updateEmployee({
+    required String id,
+    required String name,
+    required String phone,
+    required String position,
+    required bool isActive,
+  }) {
+    var found = false;
+    final trimmedName = name.trim();
+    final employees = state.employees.map((employee) {
+      if (employee.id != id) {
+        return employee;
+      }
+      found = true;
+      return employee.copyWith(
+        name: trimmedName,
+        phone: phone.trim(),
+        position: position.trim(),
+        isActive: isActive,
+      );
+    }).toList();
+
+    if (!found) {
+      throw StateError('Karyawan tidak ditemukan.');
+    }
+
+    state = state.copyWith(
+      employees: employees,
+      attendance: [
+        for (final entry in state.attendance)
+          if (entry.employeeId == id)
+            entry.copyWith(employeeName: trimmedName)
+          else
+            entry,
+      ],
+      shifts: [
+        for (final shift in state.shifts)
+          if (shift.employeeId == id)
+            shift.copyWith(employeeName: trimmedName)
+          else
+            shift,
+      ],
+      requests: [
+        for (final request in state.requests)
+          if (request.employeeId == id)
+            request.copyWith(employeeName: trimmedName)
+          else
+            request,
+      ],
+    );
   }
 
   void addRequest({

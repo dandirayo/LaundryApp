@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -13,10 +15,11 @@ class ServicesPage extends ConsumerWidget {
 
   static const _categories = [
     'Cuci Setrika',
-    'Setrika',
+    'Cuci Kering Lipat',
+    'Setrika Lipat',
     'Sepatu',
     'Helm',
-    'Satuan',
+    'Laundry Satuan',
     'Layanan Tambahan',
   ];
 
@@ -125,7 +128,7 @@ class ServicesPage extends ConsumerWidget {
     var category = _categories.first;
     var isExpress = false;
 
-    await showModalBottomSheet<void>(
+    final result = await showAppModalBottomSheet<_ServiceInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -208,23 +211,17 @@ class ServicesPage extends ConsumerWidget {
                       if (!formKey.currentState!.validate()) {
                         return;
                       }
-                      ref
-                          .read(previewDataProvider.notifier)
-                          .addService(
-                            name: nameController.text,
-                            category: category,
-                            unit: unitController.text.trim().isEmpty
-                                ? 'kg'
-                                : unitController.text.trim(),
-                            price: int.parse(priceController.text),
-                            estimatedHours:
-                                int.tryParse(hoursController.text) ?? 48,
-                            isExpress: isExpress,
-                          );
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Layanan berhasil ditambahkan.'),
+                      Navigator.of(context).pop(
+                        _ServiceInput(
+                          name: nameController.text,
+                          category: category,
+                          unit: unitController.text.trim().isEmpty
+                              ? 'kg'
+                              : unitController.text.trim(),
+                          price: int.parse(priceController.text),
+                          estimatedHours:
+                              int.tryParse(hoursController.text) ?? 48,
+                          isExpress: isExpress,
                         ),
                       );
                     },
@@ -242,5 +239,42 @@ class ServicesPage extends ConsumerWidget {
     priceController.dispose();
     unitController.dispose();
     hoursController.dispose();
+
+    if (result == null || !context.mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+    ref
+        .read(previewDataProvider.notifier)
+        .addService(
+          name: result.name,
+          category: result.category,
+          unit: result.unit,
+          price: result.price,
+          estimatedHours: result.estimatedHours,
+          isExpress: result.isExpress,
+        );
+    showAppSnackBar('Layanan berhasil ditambahkan.');
   }
+}
+
+class _ServiceInput {
+  const _ServiceInput({
+    required this.name,
+    required this.category,
+    required this.unit,
+    required this.price,
+    required this.estimatedHours,
+    required this.isExpress,
+  });
+
+  final String name;
+  final String category;
+  final String unit;
+  final int price;
+  final int estimatedHours;
+  final bool isExpress;
 }

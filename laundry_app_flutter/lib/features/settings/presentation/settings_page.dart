@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 
@@ -57,9 +58,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       name: _nameController.text,
                       address: _addressController.text,
                     );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Pengaturan toko tersimpan.')),
-                );
+                showAppSnackBar('Pengaturan toko tersimpan.');
               },
               icon: const Icon(Icons.save_outlined),
               label: const Text('Simpan'),

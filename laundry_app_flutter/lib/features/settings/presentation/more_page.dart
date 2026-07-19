@@ -131,6 +131,11 @@ class MorePage extends ConsumerWidget {
             AppRoutes.ordersMine,
           ),
           _MenuItem(
+            'Tambah Pelanggan',
+            Icons.person_add_alt_1,
+            AppRoutes.customers,
+          ),
+          _MenuItem(
             'Notifikasi',
             Icons.notifications_outlined,
             AppRoutes.notifications,

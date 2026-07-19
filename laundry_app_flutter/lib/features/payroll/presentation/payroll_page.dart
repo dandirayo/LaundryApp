@@ -6,7 +6,9 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -141,23 +143,23 @@ class PayrollPage extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
     try {
       ref
           .read(previewDataProvider.notifier)
           .payWeeklySalary(employeeId: employee.id, method: method);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Gaji masuk Buku Kas.')));
+      showAppSnackBar('Gaji masuk Buku Kas.');
     } on StateError catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppSnackBar(error.message);
     }
   }
 
   Future<String?> _showPaymentMethodSheet(BuildContext context) async {
     var method = 'Tunai';
-    return showModalBottomSheet<String>(
+    return showAppModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

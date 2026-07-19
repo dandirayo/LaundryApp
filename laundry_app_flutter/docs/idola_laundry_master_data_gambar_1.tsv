@@ -1,0 +1,23 @@
+No	Kode Item	Kategori Utama	Subkategori	Nama Item	Ukuran atau Varian	Satuan	Harga Minimum	Harga Maksimum	Jenis Treatment	Estimasi Selesai	Status Harga	Catatan
+1	ALT-BTL-001	Alat Tidur	Bantal	Bantal	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+2	ALT-GUL-001	Alat Tidur	Guling	Guling	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+3	ALT-BDC-001	Alat Tidur	Bedcover	Bedcover	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+4	BNK-BNK-001	Boneka dan Mainan	Boneka	Boneka	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+5	HLM-HLM-001	Helm	Helm	Helm	Tanpa Varian	Pcs			Cuci Helm		Perlu Konfirmasi	Tercantum sebagai optional; harga tidak tercantum pada gambar pertama
+6	KKP-KRP-001	Karpet dan Keset	Karpet	Karpet	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+7	LTK-CKL-001	Layanan Laundry Kiloan	Cuci Kering Lipat	Cuci Kering Lipat	Reguler	Kg	4000		Cuci Kering Lipat	2-3 hari	Tetap	Minimum 3 kg; dicuci, dilipat, dipacking
+8	LTK-CKL-002	Layanan Laundry Kiloan	Cuci Kering Lipat	Cuci Kering Lipat	Express	Kg	6000		Cuci Kering Lipat	Besoknya	Tetap	Minimum 3 kg; order sebelum jam 17.00; dicuci, dilipat, dipacking
+9	LTK-CKL-003	Layanan Laundry Kiloan	Cuci Kering Lipat	Cuci Kering Lipat	Kilat	Kg	9000		Cuci Kering Lipat	4-8 jam	Tetap	Minimum 3 kg; order sebelum jam 14.00; dicuci, dilipat, dipacking
+10	LTK-CST-001	Layanan Laundry Kiloan	Cuci Setrika	Cuci Setrika	Reguler	Kg	7000		Cuci Setrika	2-3 hari	Tetap	Minimum 3 kg
+11	LTK-CST-002	Layanan Laundry Kiloan	Cuci Setrika	Cuci Setrika	Express	Kg	9000		Cuci Setrika	Besoknya	Tetap	Minimum 3 kg; order sebelum jam 17.00
+12	LTK-CST-003	Layanan Laundry Kiloan	Cuci Setrika	Cuci Setrika	Kilat	Kg	12000		Cuci Setrika	6-8 jam	Tetap	Minimum 3 kg; order sebelum jam 14.00; hari yang sama
+13	LTK-STL-001	Layanan Laundry Kiloan	Setrika Lipat	Setrika Lipat	Reguler	Kg	5000		Setrika Saja	2-3 hari	Tetap	Minimum 3 kg
+14	LTK-STL-002	Layanan Laundry Kiloan	Setrika Lipat	Setrika Lipat	Express	Kg	7000		Setrika Saja	Besoknya	Tetap	Minimum 3 kg; order sebelum jam 17.00
+15	LTK-STL-003	Layanan Laundry Kiloan	Setrika Lipat	Setrika Lipat	Kilat	Kg	10000		Setrika Saja	4-8 jam	Tetap	Minimum 3 kg; order sebelum jam 14.00
+16	LTT-AJM-001	Layanan Tambahan	Antar Jemput	Antar Jemput	Tanpa Varian	Layanan	2000		Belum Ditentukan		Tetap	Maksimal radius 2 km
+17	LTT-NDB-001	Layanan Tambahan	Noda Bandel	Noda Bandel	Tanpa Varian	Layanan	5000		Special Treatment		Tetap	Tambahan tarif
+18	LTT-SPD-001	Layanan Tambahan	Speed Satuan	Speed Satuan	Tanpa Varian	Layanan	5000		Belum Ditentukan		Tetap	Tambahan tarif untuk layanan satuan
+19	PKF-JAS-001	Pakaian Formal	Jas	Set Jas	Satu Set	Set			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+20	SPT-SPT-001	Sepatu dan Alas Kaki	Sepatu	Sepatu	Tanpa Varian	Pasang			Cuci Sepatu		Perlu Konfirmasi	Tercantum sebagai optional; harga tidak tercantum pada gambar pertama
+21	TSR-RNS-001	Tas dan Ransel	Ransel	Ransel	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama
+22	TSR-TAS-001	Tas dan Ransel	Tas	Tas	Tanpa Varian	Pcs			Laundry Satuan		Perlu Konfirmasi	Tercantum pada bagian menerima semua satuan; harga tidak tercantum pada gambar pertama

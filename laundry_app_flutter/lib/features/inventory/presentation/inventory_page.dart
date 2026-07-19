@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -151,7 +153,7 @@ class InventoryPage extends ConsumerWidget {
     final price = TextEditingController(text: '0');
     final note = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    await showModalBottomSheet<void>(
+    final result = await showAppModalBottomSheet<_InventoryItemInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -212,17 +214,16 @@ class InventoryPage extends ConsumerWidget {
                 if (!formKey.currentState!.validate()) {
                   return;
                 }
-                ref
-                    .read(previewDataProvider.notifier)
-                    .addInventoryItem(
-                      name: name.text,
-                      stock: double.tryParse(stock.text) ?? 0,
-                      unit: unit.text,
-                      minStock: double.tryParse(minStock.text) ?? 0,
-                      purchasePrice: int.tryParse(price.text) ?? 0,
-                      note: note.text,
-                    );
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(
+                  _InventoryItemInput(
+                    name: name.text,
+                    stock: double.tryParse(stock.text) ?? 0,
+                    unit: unit.text,
+                    minStock: double.tryParse(minStock.text) ?? 0,
+                    purchasePrice: int.tryParse(price.text) ?? 0,
+                    note: note.text,
+                  ),
+                );
               },
               icon: const Icon(Icons.save_outlined),
               label: const Text('Simpan'),
@@ -237,6 +238,25 @@ class InventoryPage extends ConsumerWidget {
     minStock.dispose();
     price.dispose();
     note.dispose();
+
+    if (result == null || !context.mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+    ref
+        .read(previewDataProvider.notifier)
+        .addInventoryItem(
+          name: result.name,
+          stock: result.stock,
+          unit: result.unit,
+          minStock: result.minStock,
+          purchasePrice: result.purchasePrice,
+          note: result.note,
+        );
+    showAppSnackBar('Barang stok berhasil ditambahkan.');
   }
 
   Future<void> _showAdjustSheet(
@@ -248,7 +268,7 @@ class InventoryPage extends ConsumerWidget {
     final quantity = TextEditingController(text: '1');
     final note = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    await showModalBottomSheet<void>(
+    final result = await showAppModalBottomSheet<_StockAdjustmentInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -280,21 +300,13 @@ class InventoryPage extends ConsumerWidget {
                 if (!formKey.currentState!.validate()) {
                   return;
                 }
-                try {
-                  ref
-                      .read(previewDataProvider.notifier)
-                      .adjustStock(
-                        itemId: item.id,
-                        quantity: double.parse(quantity.text),
-                        type: isAdd ? 'IN' : 'OUT',
-                        note: note.text,
-                      );
-                  Navigator.of(context).pop();
-                } on StateError catch (error) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(error.message)));
-                }
+                Navigator.of(context).pop(
+                  _StockAdjustmentInput(
+                    quantity: double.parse(quantity.text),
+                    type: isAdd ? 'IN' : 'OUT',
+                    note: note.text,
+                  ),
+                );
               },
               icon: Icon(isAdd ? Icons.add : Icons.remove),
               label: const Text('Simpan'),
@@ -305,7 +317,58 @@ class InventoryPage extends ConsumerWidget {
     );
     quantity.dispose();
     note.dispose();
+
+    if (result == null || !context.mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
+    try {
+      ref
+          .read(previewDataProvider.notifier)
+          .adjustStock(
+            itemId: item.id,
+            quantity: result.quantity,
+            type: result.type,
+            note: result.note,
+          );
+      showAppSnackBar('Riwayat stok tersimpan.');
+    } on StateError catch (error) {
+      showAppSnackBar(error.message);
+    }
   }
+}
+
+class _InventoryItemInput {
+  const _InventoryItemInput({
+    required this.name,
+    required this.stock,
+    required this.unit,
+    required this.minStock,
+    required this.purchasePrice,
+    required this.note,
+  });
+
+  final String name;
+  final double stock;
+  final String unit;
+  final double minStock;
+  final int purchasePrice;
+  final String note;
+}
+
+class _StockAdjustmentInput {
+  const _StockAdjustmentInput({
+    required this.quantity,
+    required this.type,
+    required this.note,
+  });
+
+  final double quantity;
+  final String type;
+  final String note;
 }
 
 class _StockBadge extends StatelessWidget {

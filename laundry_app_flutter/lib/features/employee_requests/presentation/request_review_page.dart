@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -109,6 +111,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     if (note == null || !mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
+      return;
+    }
     final confirmed = await showConfirmationDialog(
       context,
       title: status == PreviewRequestStatus.approved
@@ -123,6 +129,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       isDestructive: status == PreviewRequestStatus.rejected,
     );
     if (!confirmed || !mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
       return;
     }
     try {
@@ -140,6 +150,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     if (method == null || !mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
+      return;
+    }
     final confirmed = await showConfirmationDialog(
       context,
       title: 'Bayar request?',
@@ -148,6 +162,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       confirmLabel: 'Bayar',
     );
     if (!confirmed || !mounted) {
+      return;
+    }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
       return;
     }
     try {
@@ -171,6 +189,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     if (!confirmed || !mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
+      return;
+    }
     try {
       ref.read(previewDataProvider.notifier).completeRequest(request.id);
       _showMessage('Request ditandai selesai.');
@@ -186,7 +208,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   }) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final result = await showModalBottomSheet<String>(
+    final result = await showAppModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -233,7 +255,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
 
   Future<String?> _showPaymentMethodSheet(BuildContext context) async {
     var method = 'Tunai';
-    return showModalBottomSheet<String>(
+    return showAppModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -269,9 +291,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showAppSnackBar(message);
   }
 }
 

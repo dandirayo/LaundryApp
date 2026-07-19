@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -76,7 +78,7 @@ class ExpensesPage extends ConsumerWidget {
     var category = 'Operasional';
     var method = 'Tunai';
     final formKey = GlobalKey<FormState>();
-    final result = await showModalBottomSheet<_ExpenseInput>(
+    final result = await showAppModalBottomSheet<_ExpenseInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -163,6 +165,10 @@ class ExpensesPage extends ConsumerWidget {
     if (result == null || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
     ref
         .read(previewDataProvider.notifier)
         .addExpense(
@@ -171,9 +177,7 @@ class ExpensesPage extends ConsumerWidget {
           amount: result.amount,
           method: result.method,
         );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pengeluaran masuk Buku Kas.')),
-    );
+    showAppSnackBar('Pengeluaran masuk Buku Kas.');
   }
 }
 

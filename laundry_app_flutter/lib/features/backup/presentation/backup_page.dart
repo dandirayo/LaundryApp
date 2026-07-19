@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 
@@ -64,7 +66,7 @@ class BackupPage extends ConsumerWidget {
   }
 
   Future<void> _showExportSheet(BuildContext context, WidgetRef ref) async {
-    final format = await showModalBottomSheet<String>(
+    final format = await showAppModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -92,10 +94,12 @@ class BackupPage extends ConsumerWidget {
     if (format == null || !context.mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!context.mounted) {
+      return;
+    }
     ref.read(previewDataProvider.notifier).recordBackupExport(format);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Export $format preview berhasil disiapkan.')),
-    );
+    showAppSnackBar('Export $format preview berhasil disiapkan.');
   }
 }
 

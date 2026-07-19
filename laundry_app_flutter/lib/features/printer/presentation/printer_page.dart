@@ -1,12 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
+import '../../../shared/preview_data.dart';
+import '../../orders/presentation/receipt_preview_sheet.dart';
 
-class PrinterPage extends StatelessWidget {
+class PrinterPage extends ConsumerWidget {
   const PrinterPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(previewDataProvider);
+    final latestOrder = data.orders.firstOrNull;
+    final latestPayments = latestOrder == null
+        ? <PreviewPayment>[]
+        : data.payments
+              .where((payment) => payment.orderId == latestOrder.id)
+              .toList();
+    final employeeName = latestOrder == null
+        ? '-'
+        : data.employees
+                  .where(
+                    (employee) => employee.id == latestOrder.assignedEmployeeId,
+                  )
+                  .map((employee) => employee.name)
+                  .firstOrNull ??
+              'Belum ditugaskan';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Printer')),
       body: ResponsivePage(
@@ -24,25 +45,30 @@ class PrinterPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Test koneksi printer akan aktif saat plugin Bluetooth dipasang.',
-                  ),
-                ),
+              onPressed: () => showAppSnackBar(
+                'Test koneksi printer akan aktif saat plugin Bluetooth dipasang.',
               ),
               icon: const Icon(Icons.bluetooth_searching),
               label: const Text('Test Koneksi'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Preview struk siap dari detail pesanan.'),
-                ),
-              ),
+              onPressed: latestOrder == null
+                  ? null
+                  : () => showReceiptPreviewSheet(
+                      context: context,
+                      order: latestOrder,
+                      payments: latestPayments,
+                      shopName: data.shopName,
+                      shopAddress: data.shopAddress,
+                      employeeName: employeeName,
+                    ),
               icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('Preview Struk'),
+              label: Text(
+                latestOrder == null
+                    ? 'Belum ada struk'
+                    : 'Preview Struk Terakhir',
+              ),
             ),
           ],
         ),

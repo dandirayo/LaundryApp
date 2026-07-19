@@ -6,11 +6,14 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'order_whatsapp.dart';
 
 class OrdersPage extends ConsumerStatefulWidget {
   const OrdersPage({this.showMineOnly = false, super.key});
@@ -27,9 +30,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final allOrders = ref.watch(
-      previewDataProvider.select((state) => state.orders),
+    final data = ref.watch(
+      previewDataProvider.select(
+        (state) => (orders: state.orders, employees: state.employees),
+      ),
     );
+    final allOrders = data.orders;
     final orders = allOrders.where((order) {
       final queryMatch =
           '${order.orderNumber} ${order.customerNameSnapshot} ${order.customerPhoneSnapshot}'
@@ -116,13 +122,22 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final order = orders[index];
+                          final nextStatus = _nextStatusFor(order);
                           return _OrderCard(
                             order: order,
+                            employeeName: _employeeNameFor(
+                              data.employees,
+                              order.assignedEmployeeId,
+                            ),
                             onDetail: () => context.go('/orders/${order.id}'),
+                            onWhatsApp: () => _sendReadyPickupWhatsApp(order),
                             onPayment: order.remainingAmount <= 0
                                 ? null
                                 : () => _showPaymentSheet(order),
-                            onStatus: () => _showStatusDialog(order),
+                            statusActionLabel: _statusActionLabel(order),
+                            onStatus: nextStatus == null
+                                ? null
+                                : () => _confirmStatusChange(order, nextStatus),
                           );
                         },
                       ),
@@ -140,7 +155,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     );
     var method = 'Tunai';
     final formKey = GlobalKey<FormState>();
-    final result = await showModalBottomSheet<_PaymentInput>(
+    final result = await showAppModalBottomSheet<_PaymentInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -220,6 +235,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     if (result == null || !mounted) {
       return;
     }
+    await waitForTransientUiDismissal();
+    if (!mounted) {
+      return;
+    }
     try {
       ref
           .read(previewDataProvider.notifier)
@@ -231,38 +250,19 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pembayaran masuk Buku Kas.')),
-      );
+      showAppSnackBar('Pembayaran masuk Buku Kas.');
     } on StateError catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppSnackBar(error.message);
     }
   }
 
-  Future<void> _showStatusDialog(PreviewOrder order) async {
-    final selected = await showDialog<PreviewOrderStatus>(
-      context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: const Text('Ubah Status Pesanan'),
-          children: [
-            for (final status in PreviewOrderStatus.values)
-              SimpleDialogOption(
-                onPressed: () => Navigator.of(context).pop(status),
-                child: Text(status.label),
-              ),
-          ],
-        );
-      },
-    );
-    if (selected == null || selected == order.orderStatus) {
-      return;
-    }
+  Future<void> _confirmStatusChange(
+    PreviewOrder order,
+    PreviewOrderStatus selected,
+  ) async {
     if (!mounted) {
       return;
     }
@@ -274,10 +274,57 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       confirmLabel: 'Ubah',
     );
     if (confirmed) {
+      await waitForTransientUiDismissal();
+      if (!mounted) {
+        return;
+      }
       ref
           .read(previewDataProvider.notifier)
           .updateOrderStatus(order.id, selected);
+      if (!mounted) {
+        return;
+      }
+      showAppSnackBar('Status menjadi ${selected.label}.');
     }
+  }
+
+  Future<void> _sendReadyPickupWhatsApp(PreviewOrder order) async {
+    final opened = await launchReadyPickupWhatsApp(order);
+    if (!mounted) {
+      return;
+    }
+    showAppSnackBar(
+      opened
+          ? 'WhatsApp dibuka dengan template siap ambil.'
+          : 'WhatsApp tidak bisa dibuka di perangkat ini.',
+    );
+  }
+
+  PreviewOrderStatus? _nextStatusFor(PreviewOrder order) {
+    return switch (order.orderStatus) {
+      PreviewOrderStatus.received => PreviewOrderStatus.processing,
+      PreviewOrderStatus.processing => PreviewOrderStatus.ready,
+      PreviewOrderStatus.ready => PreviewOrderStatus.pickedUp,
+      PreviewOrderStatus.pickedUp || PreviewOrderStatus.cancelled => null,
+    };
+  }
+
+  String? _statusActionLabel(PreviewOrder order) {
+    return switch (order.orderStatus) {
+      PreviewOrderStatus.received => 'Mulai Proses',
+      PreviewOrderStatus.processing => 'Tandai Selesai',
+      PreviewOrderStatus.ready => 'Sudah Diambil',
+      PreviewOrderStatus.pickedUp => 'Sudah Selesai',
+      PreviewOrderStatus.cancelled => 'Dibatalkan',
+    };
+  }
+
+  String _employeeNameFor(List<PreviewEmployee> employees, String employeeId) {
+    return employees
+            .where((employee) => employee.id == employeeId)
+            .map((employee) => employee.name)
+            .firstOrNull ??
+        'Belum ditugaskan';
   }
 }
 
@@ -291,14 +338,20 @@ class _PaymentInput {
 class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
+    required this.employeeName,
     required this.onDetail,
+    required this.onWhatsApp,
     required this.onStatus,
+    this.statusActionLabel,
     this.onPayment,
   });
 
   final PreviewOrder order;
+  final String employeeName;
   final VoidCallback onDetail;
-  final VoidCallback onStatus;
+  final VoidCallback onWhatsApp;
+  final VoidCallback? onStatus;
+  final String? statusActionLabel;
   final VoidCallback? onPayment;
 
   @override
@@ -342,23 +395,23 @@ class _OrderCard extends StatelessWidget {
               'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()}',
               style: const TextStyle(color: AppColors.secondaryText),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Diproses oleh $employeeName',
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Telepon siap dihubungkan ke url_launcher.',
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.call_outlined),
-                  label: const Text('Telepon'),
+                  onPressed: onWhatsApp,
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('WhatsApp'),
                 ),
                 OutlinedButton.icon(
                   onPressed: onDetail,
@@ -367,8 +420,8 @@ class _OrderCard extends StatelessWidget {
                 ),
                 OutlinedButton.icon(
                   onPressed: onStatus,
-                  icon: const Icon(Icons.sync_alt),
-                  label: const Text('Status'),
+                  icon: Icon(_statusActionIcon(order.orderStatus)),
+                  label: Text(statusActionLabel ?? 'Status Selesai'),
                 ),
                 FilledButton.icon(
                   onPressed: onPayment,
@@ -381,6 +434,16 @@ class _OrderCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  IconData _statusActionIcon(PreviewOrderStatus status) {
+    return switch (status) {
+      PreviewOrderStatus.received => Icons.play_arrow_outlined,
+      PreviewOrderStatus.processing => Icons.done_all_outlined,
+      PreviewOrderStatus.ready => Icons.shopping_bag_outlined,
+      PreviewOrderStatus.pickedUp => Icons.task_alt,
+      PreviewOrderStatus.cancelled => Icons.block,
+    };
   }
 }
 

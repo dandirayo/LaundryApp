@@ -38,7 +38,6 @@ class AppRoutes {
   static const changePin = '/account/change-pin';
 
   static const ownerOnlyPaths = <String>{
-    customers,
     services,
     inventory,
     shifts,
