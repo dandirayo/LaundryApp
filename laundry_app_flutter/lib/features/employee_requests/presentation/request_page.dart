@@ -67,12 +67,12 @@ class RequestPage extends ConsumerWidget {
 
   Future<void> _showRequestSheet(BuildContext context, WidgetRef ref) async {
     final reason = TextEditingController();
-    final amount = TextEditingController(text: '0');
+    final amount = TextEditingController(text: _isStockRequest ? '1' : '0');
     final formKey = GlobalKey<FormState>();
-    final requiresAmount =
-        typeLabel.contains('Kasbon') ||
-        typeLabel.contains('Insentif') ||
-        typeLabel.contains('Lembur');
+    final requiresMoney =
+        typeLabel.contains('Kasbon') || typeLabel.contains('Insentif');
+    final requiresQuantity = _isStockRequest;
+    final showAmountField = requiresMoney || requiresQuantity;
     final result = await showAppModalBottomSheet<_RequestInput>(
       context: context,
       isScrollControlled: true,
@@ -94,25 +94,33 @@ class RequestPage extends ConsumerWidget {
                   (value ?? '').trim().isEmpty ? 'Alasan wajib diisi.' : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: amount,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: requiresAmount ? 'Nominal' : 'Nominal opsional',
-                helperText: (int.tryParse(amount.text) ?? 0).toRupiah(),
+            if (showAmountField) ...[
+              TextFormField(
+                controller: amount,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: requiresQuantity ? 'Quantity' : 'Nominal',
+                  helperText: requiresQuantity
+                      ? 'Masukkan jumlah barang yang diminta.'
+                      : (int.tryParse(amount.text) ?? 0).toRupiah(),
+                ),
+                validator: (value) {
+                  final parsed = int.tryParse(value ?? '') ?? 0;
+                  if (parsed < 0) {
+                    return requiresQuantity
+                        ? 'Quantity tidak boleh negatif.'
+                        : 'Nominal tidak boleh negatif.';
+                  }
+                  if ((requiresMoney || requiresQuantity) && parsed <= 0) {
+                    return requiresQuantity
+                        ? 'Quantity wajib lebih dari nol.'
+                        : 'Nominal wajib lebih dari nol.';
+                  }
+                  return null;
+                },
               ),
-              validator: (value) {
-                final parsed = int.tryParse(value ?? '') ?? 0;
-                if (parsed < 0) {
-                  return 'Nominal tidak boleh negatif.';
-                }
-                if (requiresAmount && parsed <= 0) {
-                  return 'Nominal wajib lebih dari nol.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
             FilledButton.icon(
               onPressed: () {
                 if (!formKey.currentState!.validate()) {
@@ -151,6 +159,8 @@ class RequestPage extends ConsumerWidget {
         );
     showAppSnackBar('Request dikirim ke Owner.');
   }
+
+  bool get _isStockRequest => typeLabel.contains('Stok');
 }
 
 class _RequestInput {

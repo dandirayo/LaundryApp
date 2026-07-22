@@ -146,6 +146,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   }
 
   Future<void> _payRequest(PreviewEmployeeRequest request) async {
+    if (!_isMoneyRequest(request)) {
+      await _completeRequest(request);
+      return;
+    }
     final method = await _showPaymentMethodSheet(context);
     if (method == null || !mounted) {
       return;
@@ -293,6 +297,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   void _showMessage(String message) {
     showAppSnackBar(message);
   }
+
+  bool _isMoneyRequest(PreviewEmployeeRequest request) {
+    return request.type.contains('Kasbon') || request.type.contains('Insentif');
+  }
 }
 
 class _RequestReviewCard extends StatelessWidget {
@@ -312,6 +320,9 @@ class _RequestReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMoneyRequest =
+        request.type.contains('Kasbon') || request.type.contains('Insentif');
+    final isStockRequest = request.type.contains('Stok');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -339,10 +350,17 @@ class _RequestReviewCard extends StatelessWidget {
               '${request.employeeName} - ${request.createdAt.toIndonesianDate()} ${request.createdAt.toIndonesianTime()}',
               style: const TextStyle(color: AppColors.secondaryText),
             ),
-            if (request.amount > 0) ...[
+            if (request.amount > 0 && isMoneyRequest) ...[
               const SizedBox(height: 6),
               Text(
                 request.amount.toRupiah(),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+            if (request.amount > 0 && isStockRequest) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Quantity: ${request.amount}',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ],
@@ -371,7 +389,7 @@ class _RequestReviewCard extends StatelessWidget {
                   ),
                 ],
                 if (request.status == PreviewRequestStatus.approved) ...[
-                  if (request.amount > 0)
+                  if (request.amount > 0 && isMoneyRequest)
                     FilledButton.icon(
                       onPressed: onPay,
                       icon: const Icon(Icons.payments_outlined),
