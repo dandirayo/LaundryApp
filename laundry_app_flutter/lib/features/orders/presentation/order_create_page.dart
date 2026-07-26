@@ -25,6 +25,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   final _noteController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _items = <_OrderDraftItem>[];
+  var _mode = _OrderMode.kilo;
+  var _detailsExpanded = false;
   String? _customerId;
   String? _serviceId;
   String? _employeeId;
@@ -63,6 +65,18 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         .where((customer) => customer.id == _customerId)
         .cast<PreviewCustomer?>()
         .firstOrNull;
+    final quickServices = services
+        .where((service) {
+          final group = service.effectiveGroup.toLowerCase();
+          final unit = service.unit.toUpperCase();
+          return switch (_mode) {
+            _OrderMode.kilo ||
+            _OrderMode.mix => group == 'kiloan' || unit == 'KG',
+            _OrderMode.unit => group != 'kiloan' && unit != 'KG',
+          };
+        })
+        .take(_mode == _OrderMode.unit ? 8 : 9)
+        .toList();
     final total = _items.fold<int>(0, (sum, item) => sum + item.total);
     final strings = ref.strings;
 
@@ -83,6 +97,15 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 key: _formKey,
                 child: ListView(
                   children: [
+                    _QuickHeader(
+                      title: strings.isEnglish
+                          ? 'Quick Order'
+                          : 'Pesanan Cepat',
+                      subtitle: strings.isEnglish
+                          ? 'Use the big buttons first. Details can be filled later.'
+                          : 'Pakai tombol besar dulu. Detail bisa diisi belakangan.',
+                    ),
+                    const SizedBox(height: 16),
                     _StepTitle(
                       number: 1,
                       title: strings.isEnglish
@@ -96,91 +119,112 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                 ? 'Customer is required.'
                                 : 'Pelanggan wajib dipilih.')
                           : null,
-                      builder: (field) => _PickerField(
-                        label: strings.customer,
-                        value: selectedCustomer == null
-                            ? (strings.isEnglish
-                                  ? 'Search customer'
-                                  : 'Cari pelanggan')
-                            : '${selectedCustomer.name} - ${selectedCustomer.phone}',
-                        hasError: field.hasError,
-                        errorText: field.errorText,
-                        onTap: () async {
-                          final customer = await _pickCustomer(
-                            context,
-                            customers,
-                          );
-                          if (customer == null || !mounted) {
-                            return;
-                          }
-                          setState(() => _customerId = customer.id);
-                          field.didChange(customer.id);
-                        },
+                      builder: (field) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _CustomerQuickButton(
+                            customer: selectedCustomer,
+                            hasError: field.hasError,
+                            errorText: field.errorText,
+                            onPick: () async {
+                              final customer = await _pickCustomer(
+                                context,
+                                customers,
+                              );
+                              if (customer == null || !mounted) {
+                                return;
+                              }
+                              setState(() => _customerId = customer.id);
+                              field.didChange(customer.id);
+                            },
+                            onAdd: () async {
+                              final customer = await _createQuickCustomer(
+                                context,
+                              );
+                              if (customer == null || !mounted) {
+                                return;
+                              }
+                              setState(() => _customerId = customer.id);
+                              field.didChange(customer.id);
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
                     _StepTitle(
                       number: 2,
                       title: strings.isEnglish
-                          ? 'Fill order items'
-                          : 'Isi item pesanan',
+                          ? 'Choose order type'
+                          : 'Pilih jenis pesanan',
                     ),
-                    _PickerField(
-                      label: strings.service,
-                      value: selectedService == null
-                          ? (strings.isEnglish
-                                ? 'Search service'
-                                : 'Cari layanan')
-                          : '${selectedService.breadcrumb} - ${selectedService.price.toRupiah()}/${selectedService.unit}',
-                      onTap: () async {
+                    _ModeSelector(
+                      selected: _mode,
+                      onChanged: (mode) => setState(() {
+                        _mode = mode;
+                        _serviceId = null;
+                        _quantityController.text = mode == _OrderMode.unit
+                            ? '1'
+                            : '3';
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    _StepTitle(
+                      number: 3,
+                      title: strings.isEnglish
+                          ? 'Tap service and amount'
+                          : 'Pencet layanan dan isi jumlah',
+                    ),
+                    if (quickServices.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final service in quickServices)
+                            _ServiceQuickButton(
+                              service: service,
+                              selected: service.id == _serviceId,
+                              onTap: () => _selectService(service),
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () async {
                         final service = await _pickService(context, services);
                         if (service == null || !mounted) {
                           return;
                         }
-                        final quantity =
-                            double.tryParse(_quantityController.text) ?? 0;
-                        if (service.unit.toUpperCase() == 'KG' &&
-                            quantity < 3) {
-                          _quantityController.text = '3';
-                        }
-                        if (service.unit.toUpperCase() != 'KG' &&
-                            quantity <= 0) {
-                          _quantityController.text = '1';
-                        }
-                        setState(() => _serviceId = service.id);
+                        _selectService(service);
                       },
+                      icon: const Icon(Icons.search),
+                      label: Text(
+                        strings.isEnglish
+                            ? 'Search another service'
+                            : 'Cari layanan lain',
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _quantityController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: selectedService?.unit == 'KG'
-                                  ? (strings.isEnglish
-                                        ? 'Weight kg'
-                                        : 'Berat kg')
-                                  : (strings.isEnglish ? 'Quantity' : 'Jumlah'),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 124,
-                          height: 56,
-                          child: FilledButton.icon(
-                            onPressed: selectedService == null
-                                ? null
-                                : () => _addItem(selectedService),
-                            icon: const Icon(Icons.add),
-                            label: Text(strings.add),
-                          ),
-                        ),
-                      ],
+                    _QuantityStepper(
+                      controller: _quantityController,
+                      unit:
+                          selectedService?.unit ??
+                          (_mode == _OrderMode.unit ? 'PCS' : 'KG'),
+                      isKilo:
+                          (selectedService?.unit ?? 'KG').toUpperCase() == 'KG',
+                      onChanged: () => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: selectedService == null
+                          ? null
+                          : () => _addItem(selectedService),
+                      icon: const Icon(Icons.add),
+                      label: Text(
+                        strings.isEnglish
+                            ? 'Add to order'
+                            : 'Masukkan ke pesanan',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (_items.isEmpty)
@@ -195,92 +239,102 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                           ),
                         ),
                     ],
-                    const SizedBox(height: 20),
-                    _StepTitle(
-                      number: 3,
-                      title: strings.isEnglish ? 'Payment' : 'Pembayaran',
-                    ),
-                    Text(
-                      '${strings.isEnglish ? 'Current total' : 'Total sementara'} ${total.toRupiah()}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    const SizedBox(height: 16),
+                    _TotalBar(total: total),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _paidController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: strings.isEnglish
-                            ? 'Down payment / initial payment'
-                            : 'DP / pembayaran awal',
+                    ExpansionTile(
+                      initiallyExpanded: _detailsExpanded,
+                      onExpansionChanged: (value) =>
+                          setState(() => _detailsExpanded = value),
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        strings.isEnglish
+                            ? 'Optional details'
+                            : 'Detail opsional',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      validator: (value) {
-                        final amount = int.tryParse(value ?? '') ?? 0;
-                        if (_items.isEmpty) {
-                          return strings.isEnglish
-                              ? 'Add order items first.'
-                              : 'Tambahkan item pesanan dulu.';
-                        }
-                        if (amount < 0) {
-                          return strings.isEnglish
-                              ? 'Amount is invalid.'
-                              : 'Nominal tidak valid.';
-                        }
-                        if (amount > total) {
-                          return strings.isEnglish
-                              ? 'Payment exceeds total.'
-                              : 'Pembayaran melebihi total.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _paymentMethod,
-                      items: const [
-                        DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
-                        DropdownMenuItem(
-                          value: 'Transfer',
-                          child: Text('Transfer'),
-                        ),
-                        DropdownMenuItem(value: 'QRIS', child: Text('QRIS')),
-                      ],
-                      onChanged: (value) => setState(
-                        () => _paymentMethod = value ?? _paymentMethod,
-                      ),
-                      decoration: InputDecoration(labelText: strings.method),
-                    ),
-                    const SizedBox(height: 20),
-                    _StepTitle(
-                      number: 4,
-                      title: strings.isEnglish
-                          ? 'Note and staff'
-                          : 'Catatan dan petugas',
-                    ),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedEmployeeId,
-                      items: [
-                        for (final employee in employees)
-                          DropdownMenuItem(
-                            value: employee.id,
-                            child: Text(employee.name),
+                      children: [
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _paidController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish
+                                ? 'Down payment / initial payment'
+                                : 'DP / pembayaran awal',
                           ),
+                          validator: (value) {
+                            final amount = int.tryParse(value ?? '') ?? 0;
+                            if (_items.isEmpty) {
+                              return strings.isEnglish
+                                  ? 'Add order items first.'
+                                  : 'Tambahkan item pesanan dulu.';
+                            }
+                            if (amount < 0) {
+                              return strings.isEnglish
+                                  ? 'Amount is invalid.'
+                                  : 'Nominal tidak valid.';
+                            }
+                            if (amount > total) {
+                              return strings.isEnglish
+                                  ? 'Payment exceeds total.'
+                                  : 'Pembayaran melebihi total.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: _paymentMethod,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Tunai',
+                              child: Text('Tunai'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Transfer',
+                              child: Text('Transfer'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'QRIS',
+                              child: Text('QRIS'),
+                            ),
+                          ],
+                          onChanged: (value) => setState(
+                            () => _paymentMethod = value ?? _paymentMethod,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: strings.method,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedEmployeeId,
+                          items: [
+                            for (final employee in employees)
+                              DropdownMenuItem(
+                                value: employee.id,
+                                child: Text(employee.name),
+                              ),
+                          ],
+                          onChanged: (value) => setState(
+                            () => _employeeId = value ?? selectedEmployeeId,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: strings.employee,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _noteController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish
+                                ? 'Order note'
+                                : 'Catatan pesanan',
+                          ),
+                        ),
                       ],
-                      onChanged: (value) => setState(
-                        () => _employeeId = value ?? selectedEmployeeId,
-                      ),
-                      decoration: InputDecoration(labelText: strings.employee),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _noteController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: strings.isEnglish
-                            ? 'Order note'
-                            : 'Catatan pesanan',
-                      ),
                     ),
                     const SizedBox(height: 24),
                     FilledButton.icon(
@@ -321,6 +375,119 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       showDragHandle: true,
       builder: (context) => _ServicePickerSheet(services: services),
     );
+  }
+
+  Future<PreviewCustomer?> _createQuickCustomer(BuildContext context) async {
+    final strings = ref.read(appLanguageProvider) == AppLanguage.en
+        ? const AppStrings(AppLanguage.en)
+        : const AppStrings(AppLanguage.id);
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final addressController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showAppModalBottomSheet<_QuickCustomerInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(
+          children: [
+            Text(
+              strings.isEnglish ? 'New Customer' : 'Pelanggan Baru',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: nameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: strings.isEnglish ? 'Customer name' : 'Nama',
+                prefixIcon: const Icon(Icons.person_outline),
+              ),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? strings.nameRequired : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: strings.isEnglish ? 'WhatsApp number' : 'Nomor WA',
+                prefixIcon: const Icon(Icons.chat_outlined),
+              ),
+              validator: (value) =>
+                  (value ?? '').trim().length < 8 ? strings.invalidPhone : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: addressController,
+              decoration: InputDecoration(
+                labelText: strings.isEnglish
+                    ? 'Address (optional)'
+                    : 'Alamat opsional',
+                prefixIcon: const Icon(Icons.place_outlined),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                Navigator.of(context).pop(
+                  _QuickCustomerInput(
+                    name: nameController.text,
+                    phone: phoneController.text,
+                    address: addressController.text,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.check_circle_outline),
+              label: Text(strings.save),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    phoneController.dispose();
+    addressController.dispose();
+
+    if (result == null || !mounted) {
+      return null;
+    }
+    try {
+      return ref
+          .read(previewDataProvider.notifier)
+          .addCustomer(
+            name: result.name,
+            phone: result.phone,
+            address: result.address,
+            note: '',
+          );
+    } on StateError catch (error) {
+      showAppSnackBar(error.message);
+      return null;
+    }
+  }
+
+  void _selectService(PreviewService service) {
+    final quantity = double.tryParse(_quantityController.text) ?? 0;
+    setState(() {
+      _serviceId = service.id;
+      if (service.unit.toUpperCase() == 'KG' && quantity < 3) {
+        _quantityController.text = '3';
+      }
+      if (service.unit.toUpperCase() != 'KG' && quantity <= 0) {
+        _quantityController.text = '1';
+      }
+    });
   }
 
   void _addItem(PreviewService service) {
@@ -386,33 +553,348 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   }
 }
 
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.hasError = false,
-    this.errorText,
+enum _OrderMode { kilo, unit, mix }
+
+class _QuickCustomerInput {
+  const _QuickCustomerInput({
+    required this.name,
+    required this.phone,
+    required this.address,
   });
 
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final bool hasError;
-  final String? errorText;
+  final String name;
+  final String phone;
+  final String address;
+}
+
+class _QuickHeader extends StatelessWidget {
+  const _QuickHeader({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          errorText: hasError ? errorText : null,
-          suffixIcon: const Icon(Icons.search),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.softBlue,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.bolt_outlined, color: AppColors.primaryNavy),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.primaryNavy,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: AppColors.secondaryText),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerQuickButton extends StatelessWidget {
+  const _CustomerQuickButton({
+    required this.customer,
+    required this.hasError,
+    required this.errorText,
+    required this.onPick,
+    required this.onAdd,
+  });
+
+  final PreviewCustomer? customer;
+  final bool hasError;
+  final String? errorText;
+  final VoidCallback onPick;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = customer;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onPick,
+                icon: const Icon(Icons.search),
+                label: Text(
+                  selected == null
+                      ? 'Pelanggan Lama'
+                      : '${selected.name} - ${selected.phone}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Pelanggan Baru'),
+              ),
+            ),
+          ],
         ),
-        child: Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
+        if (hasError && errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ModeSelector extends StatelessWidget {
+  const _ModeSelector({required this.selected, required this.onChanged});
+
+  final _OrderMode selected;
+  final ValueChanged<_OrderMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ModeButton(
+            label: 'Kiloan',
+            icon: Icons.scale_outlined,
+            selected: selected == _OrderMode.kilo,
+            onTap: () => onChanged(_OrderMode.kilo),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ModeButton(
+            label: 'Satuan',
+            icon: Icons.checkroom_outlined,
+            selected: selected == _OrderMode.unit,
+            onTap: () => onChanged(_OrderMode.unit),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ModeButton(
+            label: 'Gabung',
+            icon: Icons.playlist_add_check_outlined,
+            selected: selected == _OrderMode.mix,
+            onTap: () => onChanged(_OrderMode.mix),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 76,
+      child: selected
+          ? FilledButton(
+              onPressed: onTap,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [Icon(icon), const SizedBox(height: 6), Text(label)],
+              ),
+            )
+          : OutlinedButton(
+              onPressed: onTap,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [Icon(icon), const SizedBox(height: 6), Text(label)],
+              ),
+            ),
+    );
+  }
+}
+
+class _ServiceQuickButton extends StatelessWidget {
+  const _ServiceQuickButton({
+    required this.service,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PreviewService service;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = service.effectiveVariant.isEmpty
+        ? service.name
+        : '${service.effectiveItem} ${service.effectiveVariant}';
+    return SizedBox(
+      width: 168,
+      height: 86,
+      child: selected
+          ? FilledButton(
+              onPressed: onTap,
+              child: _ServiceButtonContent(service: service, title: title),
+            )
+          : OutlinedButton(
+              onPressed: onTap,
+              child: _ServiceButtonContent(service: service, title: title),
+            ),
+    );
+  }
+}
+
+class _ServiceButtonContent extends StatelessWidget {
+  const _ServiceButtonContent({required this.service, required this.title});
+
+  final PreviewService service;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${service.price.toRupiah()}/${service.unit}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _QuantityStepper extends StatelessWidget {
+  const _QuantityStepper({
+    required this.controller,
+    required this.unit,
+    required this.isKilo,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String unit;
+  final bool isKilo;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isKilo ? 'Berat kg' : 'Jumlah';
+    final step = isKilo ? 0.5 : 1.0;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IconButton.filledTonal(
+          tooltip: 'Kurangi',
+          onPressed: () => _change(-step),
+          icon: const Icon(Icons.remove),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(labelText: '$label ($unit)'),
+            onChanged: (_) => onChanged(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Tambah',
+          onPressed: () => _change(step),
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+
+  void _change(double delta) {
+    final current = double.tryParse(controller.text) ?? 0;
+    final min = isKilo ? 3.0 : 1.0;
+    final next = (current + delta).clamp(min, 999.0);
+    controller.text = isKilo
+        ? next.toStringAsFixed(1)
+        : next.round().toString();
+    onChanged();
+  }
+}
+
+class _TotalBar extends StatelessWidget {
+  const _TotalBar({required this.total});
+
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.lightGold,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.receipt_long_outlined, color: AppColors.primaryNavy),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Total sementara',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          Text(
+            total.toRupiah(),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppColors.primaryNavy,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

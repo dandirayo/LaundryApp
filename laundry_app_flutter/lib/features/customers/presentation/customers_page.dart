@@ -194,10 +194,21 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
+              const SizedBox(height: 6),
+              Text(
+                strings.isEnglish
+                    ? 'Only name and WhatsApp number are required. Other details are optional.'
+                    : 'Cukup isi nama dan nomor WA. Detail lain boleh menyusul.',
+                style: const TextStyle(color: AppColors.secondaryText),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: strings.name),
+                autofocus: !isEditing,
+                decoration: InputDecoration(
+                  labelText: strings.name,
+                  prefixIcon: const Icon(Icons.person_outline),
+                ),
                 validator: (value) =>
                     (value ?? '').trim().isEmpty ? strings.nameRequired : null,
               ),
@@ -205,21 +216,39 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               TextFormField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: InputDecoration(labelText: strings.phone),
+                decoration: InputDecoration(
+                  labelText: strings.isEnglish ? 'WhatsApp number' : 'Nomor WA',
+                  prefixIcon: const Icon(Icons.chat_outlined),
+                ),
                 validator: (value) => (value ?? '').trim().length < 8
                     ? strings.invalidPhone
                     : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: addressController,
-                decoration: InputDecoration(labelText: strings.address),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: noteController,
-                decoration: InputDecoration(labelText: strings.note),
+              const SizedBox(height: 8),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  strings.isEnglish ? 'Optional details' : 'Detail opsional',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                children: [
+                  TextFormField(
+                    controller: addressController,
+                    decoration: InputDecoration(
+                      labelText: strings.address,
+                      prefixIcon: const Icon(Icons.place_outlined),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: noteController,
+                    decoration: InputDecoration(
+                      labelText: strings.note,
+                      prefixIcon: const Icon(Icons.note_alt_outlined),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               FilledButton.icon(

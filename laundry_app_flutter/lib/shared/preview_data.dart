@@ -1357,7 +1357,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     );
   }
 
-  void addCustomer({
+  PreviewCustomer addCustomer({
     required String name,
     required String phone,
     required String address,
@@ -1380,6 +1380,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       createdAt: DateTime.now(),
     );
     state = state.copyWith(customers: [...state.customers, customer]);
+    return customer;
   }
 
   void updateCustomer({
