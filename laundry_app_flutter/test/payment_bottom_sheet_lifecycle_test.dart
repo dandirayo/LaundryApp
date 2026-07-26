@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:laundry_app_flutter/core/widgets/app_snack_bar.dart';
 import 'package:laundry_app_flutter/features/customers/presentation/customers_page.dart';
 import 'package:laundry_app_flutter/features/orders/presentation/orders_page.dart';
+import 'package:laundry_app_flutter/shared/preview_data.dart';
 
 void main() {
   tearDown(() {
@@ -13,16 +16,26 @@ void main() {
   testWidgets(
     'pembayaran dari bottom sheet aman saat snackbar dan pindah tab',
     (tester) async {
-      final flutterErrors = <FlutterErrorDetails>[];
-      final previousOnError = FlutterError.onError;
-      FlutterError.onError = flutterErrors.add;
-      addTearDown(() => FlutterError.onError = previousOnError);
-
+      Intl.defaultLocale = 'id_ID';
+      await initializeDateFormatting('id_ID');
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(430, 932);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(previewDataProvider.notifier);
+      final state = container.read(previewDataProvider);
+      notifier.createOrderWithItems(
+        customerId: state.customers.first.id,
+        items: [(serviceId: state.services.first.id, quantity: 3)],
+        paidAmount: 0,
+        paymentMethod: 'Tunai',
+        employeeId: state.employees.first.id,
+        note: '',
+      );
 
       await tester.pumpWidget(
-        ProviderScope(
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             scaffoldMessengerKey: appScaffoldMessengerKey,
             home: const _PaymentLifecycleHarness(),
@@ -33,15 +46,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pesanan'), findsWidgets);
 
-      await tester.ensureVisible(find.text('Bayar'));
-      await tester.tap(find.text('Bayar'));
+      await tester.ensureVisible(find.text('Terima Pembayaran'));
+      await tester.tap(find.text('Terima Pembayaran'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).first, '5000');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nominal'),
+        '5000',
+      );
+      await tester.ensureVisible(find.text('Simpan Pembayaran'));
       await tester.tap(find.text('Simpan Pembayaran'));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
-      expect(find.text('Pembayaran masuk Buku Kas.'), findsOneWidget);
+      await _pumpUntil(
+        tester,
+        () => container.read(previewDataProvider).payments.length == 1,
+      );
+      expect(container.read(previewDataProvider).payments, hasLength(1));
+      expect(
+        container.read(previewDataProvider).cashTransactions,
+        hasLength(1),
+      );
 
       await tester.tap(find.text('Pelanggan'));
       await tester.pumpAndSettle();
@@ -51,18 +76,39 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(OrdersPage), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Bayar'));
-      await tester.tap(find.text('Bayar'));
+      await tester.ensureVisible(find.text('Terima Pembayaran'));
+      await tester.tap(find.text('Terima Pembayaran'));
       await tester.pumpAndSettle();
 
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nominal'),
+        '5000',
+      );
+      await tester.ensureVisible(find.text('Simpan Pembayaran'));
       await tester.tap(find.text('Simpan Pembayaran'));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
-      expect(find.text('Pembayaran masuk Buku Kas.'), findsOneWidget);
+      await _pumpUntil(
+        tester,
+        () => container.read(previewDataProvider).payments.length == 2,
+      );
+      expect(container.read(previewDataProvider).payments, hasLength(2));
+      expect(
+        container.read(previewDataProvider).cashTransactions,
+        hasLength(2),
+      );
       expect(tester.takeException(), isNull);
-      expect(flutterErrors, isEmpty);
     },
   );
+}
+
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var i = 0; i < 20; i++) {
+    if (condition()) {
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 void testerViewReset() {

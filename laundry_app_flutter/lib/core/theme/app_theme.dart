@@ -29,6 +29,8 @@ class AppTheme {
     );
 
     return base.copyWith(
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
