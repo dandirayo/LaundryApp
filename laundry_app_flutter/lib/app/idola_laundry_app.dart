@@ -20,7 +20,21 @@ class IdolaLaundryApp extends ConsumerWidget {
       locale: language.locale,
       scaffoldMessengerKey: appScaffoldMessengerKey,
       theme: AppTheme.light(),
+      scrollBehavior: const _IdolaScrollBehavior(),
       routerConfig: router,
     );
+  }
+}
+
+class _IdolaScrollBehavior extends MaterialScrollBehavior {
+  const _IdolaScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }

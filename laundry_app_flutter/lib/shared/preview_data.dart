@@ -1427,7 +1427,17 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required int price,
     required int estimatedHours,
     required bool isExpress,
+    String itemName = '',
+    String sizeVariant = '',
+    String materialVariant = '',
   }) {
+    final trimmedItemName = itemName.trim().isEmpty
+        ? name.trim()
+        : itemName.trim();
+    final variant = [
+      sizeVariant.trim(),
+      materialVariant.trim(),
+    ].where((part) => part.isNotEmpty).join(' · ');
     final service = PreviewService(
       id: _uuid.v4(),
       name: name.trim(),
@@ -1439,8 +1449,8 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       isActive: true,
       groupName: unit.trim().toUpperCase() == 'KG' ? 'Kiloan' : 'Satuan',
       categoryName: category.trim(),
-      itemName: name.trim(),
-      variantName: 'Manual',
+      itemName: trimmedItemName,
+      variantName: variant.isEmpty ? 'Manual' : variant,
     );
     state = state.copyWith(services: [...state.services, service]);
   }

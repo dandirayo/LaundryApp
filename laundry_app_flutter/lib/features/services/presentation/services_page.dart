@@ -36,6 +36,7 @@ class ServicesPage extends ConsumerWidget {
     final services = ref.watch(
       previewDataProvider.select((state) => state.services),
     );
+    final groupedServices = _groupServices(services);
     final strings = ref.strings;
 
     return Scaffold(
@@ -73,60 +74,76 @@ class ServicesPage extends ConsumerWidget {
               )
             : ListView.separated(
                 padding: const EdgeInsets.only(bottom: 24),
-                itemCount: services.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemCount: groupedServices.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final service = services[index];
+                  final group = groupedServices[index];
                   return Card(
-                    child: ListTile(
-                      minTileHeight: 82,
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: service.isExpress
-                              ? AppColors.warning.withValues(alpha: 0.14)
-                              : AppColors.softMint,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          service.isExpress
-                              ? Icons.flash_on_outlined
-                              : Icons.local_laundry_service_outlined,
-                          color: service.isExpress
-                              ? AppColors.warning
-                              : AppColors.primaryNavy,
-                        ),
-                      ),
+                    child: ExpansionTile(
+                      initiallyExpanded: index < 3,
+                      leading: const Icon(Icons.category_outlined),
                       title: Text(
-                        service.name,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        group.category,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                       subtitle: Text(
-                        '${service.breadcrumb} - ${service.unit} - ${service.estimatedHours} jam',
+                        strings.isEnglish
+                            ? '${group.services.length} price variants'
+                            : '${group.services.length} varian harga',
                       ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            service.price.toRupiah(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primaryNavy,
+                      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      children: [
+                        for (final itemGroup in group.items)
+                          ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding: const EdgeInsets.only(
+                              left: 8,
+                              bottom: 8,
                             ),
-                          ),
-                          Text(
-                            service.isActive
-                                ? (strings.isEnglish ? 'Active' : 'Aktif')
-                                : (strings.isEnglish ? 'Inactive' : 'Nonaktif'),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.secondaryText,
+                            title: Text(
+                              itemGroup.itemName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
+                            subtitle: Text(
+                              '${itemGroup.services.length} pilihan',
+                            ),
+                            children: [
+                              for (final service in itemGroup.services)
+                                ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    service.isExpress
+                                        ? Icons.flash_on_outlined
+                                        : Icons.local_laundry_service_outlined,
+                                    color: service.isExpress
+                                        ? AppColors.warning
+                                        : AppColors.primaryBlue,
+                                  ),
+                                  title: Text(
+                                    service.effectiveVariant.isEmpty
+                                        ? service.name
+                                        : service.effectiveVariant,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${service.unit} · ${service.estimatedHours} jam',
+                                  ),
+                                  trailing: Text(
+                                    service.price.toRupiah(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.primaryNavy,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   );
                 },
@@ -135,8 +152,26 @@ class ServicesPage extends ConsumerWidget {
     );
   }
 
+  List<_ServiceCategoryGroup> _groupServices(List<PreviewService> services) {
+    final sorted = [...services]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final groups = <String, List<PreviewService>>{};
+    for (final service in sorted) {
+      groups
+          .putIfAbsent(service.effectiveCategory, () => <PreviewService>[])
+          .add(service);
+    }
+    return [
+      for (final entry in groups.entries)
+        _ServiceCategoryGroup(category: entry.key, services: entry.value),
+    ];
+  }
+
   Future<void> _showServiceDialog(BuildContext context, WidgetRef ref) async {
     final nameController = TextEditingController();
+    final itemController = TextEditingController();
+    final sizeController = TextEditingController();
+    final materialController = TextEditingController();
     final priceController = TextEditingController();
     final hoursController = TextEditingController(text: '48');
     final formKey = GlobalKey<FormState>();
@@ -190,6 +225,42 @@ class ServicesPage extends ConsumerWidget {
                     decoration: InputDecoration(
                       labelText: strings.isEnglish ? 'Category' : 'Kategori',
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: itemController,
+                    decoration: InputDecoration(
+                      labelText: strings.isEnglish ? 'Item name' : 'Nama item',
+                      helperText: strings.isEnglish
+                          ? 'Example: T-shirt, Sheet, Bed Cover'
+                          : 'Contoh: Kaos, Sprei, Bed Cover',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: sizeController,
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish ? 'Size' : 'Ukuran',
+                            helperText: 'S/M/L, Sedang, Besar',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: materialController,
+                          decoration: InputDecoration(
+                            labelText: strings.isEnglish
+                                ? 'Material / quality'
+                                : 'Bahan / kualitas',
+                            helperText: 'Normal, Bagus, Katun',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -251,6 +322,9 @@ class ServicesPage extends ConsumerWidget {
                       Navigator.of(context).pop(
                         _ServiceInput(
                           name: nameController.text,
+                          itemName: itemController.text,
+                          sizeVariant: sizeController.text,
+                          materialVariant: materialController.text,
                           category: category,
                           unit: unit,
                           price: int.parse(priceController.text),
@@ -271,6 +345,9 @@ class ServicesPage extends ConsumerWidget {
       },
     );
     nameController.dispose();
+    itemController.dispose();
+    sizeController.dispose();
+    materialController.dispose();
     priceController.dispose();
     hoursController.dispose();
 
@@ -285,6 +362,9 @@ class ServicesPage extends ConsumerWidget {
         .read(previewDataProvider.notifier)
         .addService(
           name: result.name,
+          itemName: result.itemName,
+          sizeVariant: result.sizeVariant,
+          materialVariant: result.materialVariant,
           category: result.category,
           unit: result.unit,
           price: result.price,
@@ -302,6 +382,9 @@ class ServicesPage extends ConsumerWidget {
 class _ServiceInput {
   const _ServiceInput({
     required this.name,
+    required this.itemName,
+    required this.sizeVariant,
+    required this.materialVariant,
     required this.category,
     required this.unit,
     required this.price,
@@ -310,9 +393,39 @@ class _ServiceInput {
   });
 
   final String name;
+  final String itemName;
+  final String sizeVariant;
+  final String materialVariant;
   final String category;
   final String unit;
   final int price;
   final int estimatedHours;
   final bool isExpress;
+}
+
+class _ServiceCategoryGroup {
+  _ServiceCategoryGroup({required this.category, required this.services});
+
+  final String category;
+  final List<PreviewService> services;
+
+  List<_ServiceItemGroup> get items {
+    final groups = <String, List<PreviewService>>{};
+    for (final service in services) {
+      groups
+          .putIfAbsent(service.effectiveItem, () => <PreviewService>[])
+          .add(service);
+    }
+    return [
+      for (final entry in groups.entries)
+        _ServiceItemGroup(itemName: entry.key, services: entry.value),
+    ];
+  }
+}
+
+class _ServiceItemGroup {
+  const _ServiceItemGroup({required this.itemName, required this.services});
+
+  final String itemName;
+  final List<PreviewService> services;
 }

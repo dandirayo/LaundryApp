@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/localization/app_language.dart';
+import '../core/responsive/breakpoints.dart';
 import '../core/router/app_routes.dart';
+import '../core/theme/app_colors.dart';
 import '../core/widgets/confirmation_dialog.dart';
 import '../features/auth/domain/user_role.dart';
 import '../features/auth/presentation/auth_controller.dart';
@@ -22,27 +24,68 @@ class AppShell extends ConsumerWidget {
     final path = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(path, destinations);
 
-    return Scaffold(
-      body: SafeArea(top: false, child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          final destination = destinations[index];
-          if (destination.path == path) {
-            return;
-          }
-          context.go(destination.path);
-        },
-        destinations: [
-          for (final destination in destinations)
-            NavigationDestination(
-              icon: Icon(destination.icon),
-              selectedIcon: Icon(destination.selectedIcon),
-              label: destination.label,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < Breakpoints.compact) {
+          return Scaffold(
+            body: SafeArea(top: false, child: child),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) =>
+                  _goToDestination(context, path, destinations[index]),
+              destinations: [
+                for (final destination in destinations)
+                  NavigationDestination(
+                    icon: Icon(destination.icon),
+                    selectedIcon: Icon(destination.selectedIcon),
+                    label: destination.label,
+                  ),
+              ],
             ),
-        ],
-      ),
+          );
+        }
+
+        final extended = constraints.maxWidth >= Breakpoints.medium;
+        return Scaffold(
+          body: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                NavigationRail(
+                  extended: extended,
+                  minExtendedWidth: 184,
+                  backgroundColor: AppColors.surface,
+                  selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+                  onDestinationSelected: (index) =>
+                      _goToDestination(context, path, destinations[index]),
+                  destinations: [
+                    for (final destination in destinations)
+                      NavigationRailDestination(
+                        icon: Icon(destination.icon),
+                        selectedIcon: Icon(destination.selectedIcon),
+                        label: Text(destination.label),
+                      ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  void _goToDestination(
+    BuildContext context,
+    String currentPath,
+    _ShellDestination destination,
+  ) {
+    if (destination.path == currentPath) {
+      return;
+    }
+    context.go(destination.path);
   }
 
   List<_ShellDestination> _destinationsFor(UserRole role, AppStrings strings) {
