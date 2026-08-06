@@ -548,14 +548,20 @@ class PreviewShift {
   final String endTime;
   final bool isDayOff;
 
-  PreviewShift copyWith({String? employeeName, bool? isDayOff}) {
+  PreviewShift copyWith({
+    String? employeeName,
+    String? day,
+    String? startTime,
+    String? endTime,
+    bool? isDayOff,
+  }) {
     return PreviewShift(
       id: id,
       employeeId: employeeId,
       employeeName: employeeName ?? this.employeeName,
-      day: day,
-      startTime: startTime,
-      endTime: endTime,
+      day: day ?? this.day,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
       isDayOff: isDayOff ?? this.isDayOff,
     );
   }
@@ -2040,6 +2046,45 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       isDayOff: false,
     );
     state = state.copyWith(shifts: [...state.shifts, shift]);
+  }
+
+  void updateShift({
+    required String id,
+    required String day,
+    required String startTime,
+    required String endTime,
+  }) {
+    var found = false;
+    state = state.copyWith(
+      shifts: [
+        for (final shift in state.shifts)
+          if (shift.id == id)
+            shift.copyWith(
+              day: day,
+              startTime: startTime.trim(),
+              endTime: endTime.trim(),
+            )
+          else
+            shift,
+      ],
+    );
+    found = state.shifts.any((shift) => shift.id == id);
+    if (!found) {
+      throw StateError('Shift tidak ditemukan.');
+    }
+  }
+
+  void deleteShift(String id) {
+    final exists = state.shifts.any((shift) => shift.id == id);
+    if (!exists) {
+      throw StateError('Shift tidak ditemukan.');
+    }
+    state = state.copyWith(
+      shifts: [
+        for (final shift in state.shifts)
+          if (shift.id != id) shift,
+      ],
+    );
   }
 
   void addEmployee({

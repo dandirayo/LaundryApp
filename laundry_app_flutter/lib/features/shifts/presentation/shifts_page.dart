@@ -5,6 +5,7 @@ import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
+import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 
@@ -98,6 +99,16 @@ class ShiftsPage extends ConsumerWidget {
                                 subtitle: Text(
                                   '${shift.startTime}-${shift.endTime}',
                                 ),
+                                trailing: showMineOnly
+                                    ? null
+                                    : const Icon(Icons.edit_outlined),
+                                onTap: showMineOnly
+                                    ? null
+                                    : () => _showShiftSheet(
+                                        context,
+                                        ref,
+                                        existingShift: shift,
+                                      ),
                               ),
                         ],
                       ),
@@ -109,12 +120,21 @@ class ShiftsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showShiftSheet(BuildContext context, WidgetRef ref) async {
+  Future<void> _showShiftSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    PreviewShift? existingShift,
+  }) async {
     final data = ref.read(previewDataProvider);
-    var employeeId = data.employees.first.id;
-    var day = _days.first;
-    final start = TextEditingController(text: '06.00');
-    final end = TextEditingController(text: '14.00');
+    var employeeId = existingShift?.employeeId ?? data.employees.first.id;
+    var day = existingShift?.day ?? _days.first;
+    final defaults = _defaultTimeForEmployee(employeeId);
+    final start = TextEditingController(
+      text: existingShift?.startTime ?? defaults.$1,
+    );
+    final end = TextEditingController(
+      text: existingShift?.endTime ?? defaults.$2,
+    );
     final result = await showAppModalBottomSheet<_ShiftInput>(
       context: context,
       isScrollControlled: true,
@@ -124,7 +144,7 @@ class ShiftsPage extends ConsumerWidget {
           builder: (context, setModalState) => AppBottomSheetBody(
             children: [
               const Text(
-                'Tambah Shift',
+                'Atur Shift',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
               ),
               const SizedBox(height: 16),
@@ -137,12 +157,14 @@ class ShiftsPage extends ConsumerWidget {
                       child: Text(employee.name),
                     ),
                 ],
-                onChanged: (value) => setModalState(() {
-                  employeeId = value ?? employeeId;
-                  final defaults = _defaultTimeForEmployee(employeeId);
-                  start.text = defaults.$1;
-                  end.text = defaults.$2;
-                }),
+                onChanged: existingShift == null
+                    ? (value) => setModalState(() {
+                        employeeId = value ?? employeeId;
+                        final defaults = _defaultTimeForEmployee(employeeId);
+                        start.text = defaults.$1;
+                        end.text = defaults.$2;
+                      })
+                    : null,
                 decoration: const InputDecoration(labelText: 'Karyawan'),
               ),
               const SizedBox(height: 12),
@@ -188,6 +210,16 @@ class ShiftsPage extends ConsumerWidget {
                 icon: const Icon(Icons.save_outlined),
                 label: const Text('Simpan'),
               ),
+              if (existingShift != null) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop(_ShiftInput.delete(existingShift.id)),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Hapus shift'),
+                ),
+              ],
             ],
           ),
         );
@@ -204,15 +236,43 @@ class ShiftsPage extends ConsumerWidget {
       return;
     }
     try {
+      if (result.deleteId != null) {
+        final confirmed = await showConfirmationDialog(
+          context,
+          title: 'Hapus shift?',
+          message:
+              'Shift ini akan dihapus dari jadwal. Absensi berikutnya akan mengikuti jadwal yang tersisa.',
+          confirmLabel: 'Hapus',
+          isDestructive: true,
+        );
+        if (!confirmed || !context.mounted) {
+          return;
+        }
+        ref.read(previewDataProvider.notifier).deleteShift(result.deleteId!);
+        showAppSnackBar('Shift berhasil dihapus.');
+        return;
+      }
+      if (existingShift == null) {
+        ref
+            .read(previewDataProvider.notifier)
+            .addShift(
+              employeeId: result.employeeId,
+              day: result.day,
+              startTime: result.startTime,
+              endTime: result.endTime,
+            );
+        showAppSnackBar('Shift berhasil ditambahkan.');
+        return;
+      }
       ref
           .read(previewDataProvider.notifier)
-          .addShift(
-            employeeId: result.employeeId,
+          .updateShift(
+            id: existingShift.id,
             day: result.day,
             startTime: result.startTime,
             endTime: result.endTime,
           );
-      showAppSnackBar('Shift berhasil ditambahkan.');
+      showAppSnackBar('Shift berhasil diperbarui.');
     } on StateError catch (error) {
       showAppSnackBar(error.message);
     }
@@ -233,10 +293,18 @@ class _ShiftInput {
     required this.day,
     required this.startTime,
     required this.endTime,
-  });
+  }) : deleteId = null;
+
+  const _ShiftInput.delete(String id)
+    : employeeId = '',
+      day = '',
+      startTime = '',
+      endTime = '',
+      deleteId = id;
 
   final String employeeId;
   final String day;
   final String startTime;
   final String endTime;
+  final String? deleteId;
 }
