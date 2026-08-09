@@ -15,6 +15,14 @@ abstract interface class AuthRepository {
     required String password,
   });
 
+  Future<AppUser> registerEmployeeWithInvite({
+    required String inviteCode,
+    required String name,
+    required String phone,
+    required String username,
+    required String password,
+  });
+
   Future<AppUser> signInPreview(UserRole role);
 
   Future<AppUser> updateProfile({required String name, required String phone});
@@ -126,6 +134,47 @@ class SupabaseAuthRepository implements AuthRepository {
         message: error.code == '54001'
             ? 'Aturan keamanan Supabase belum diperbaiki. Jalankan migrasi RLS terbaru.'
             : 'Profil pengguna gagal dibaca: ${error.message}',
+      );
+    }
+  }
+
+  @override
+  Future<AppUser> registerEmployeeWithInvite({
+    required String inviteCode,
+    required String name,
+    required String phone,
+    required String username,
+    required String password,
+  }) async {
+    if (!_config.isSupabaseConfigured || _client == null) {
+      throw const Failure(
+        code: 'supabase-not-configured',
+        message:
+            'Supabase belum dikonfigurasi. Isi SUPABASE_URL dan SUPABASE_ANON_KEY.',
+      );
+    }
+
+    try {
+      final normalizedUsername = username.trim().toLowerCase();
+      await _client.functions.invoke(
+        'join-employee-user',
+        body: {
+          'inviteCode': inviteCode.trim(),
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'username': normalizedUsername,
+          'password': password,
+        },
+      );
+      return signInWithEmailPassword(
+        email: normalizedUsername,
+        password: password,
+      );
+    } on FunctionException catch (error) {
+      throw Failure(
+        code: 'daftar-karyawan-gagal',
+        message:
+            'Daftar karyawan gagal: ${error.details is Map ? (error.details as Map)['error'] ?? error.details : error.details}',
       );
     }
   }

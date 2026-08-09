@@ -204,6 +204,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                                 : const Icon(Icons.login),
                             label: Text(strings.signIn),
                           ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () => _showEmployeeJoinSheet(context),
+                            icon: const Icon(Icons.badge_outlined),
+                            label: const Text('Daftar Karyawan Cepat'),
+                          ),
                         ],
                       ),
                     ),
@@ -266,6 +274,168 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           password: _passwordController.text,
         );
   }
+
+  Future<void> _showEmployeeJoinSheet(BuildContext context) async {
+    final inviteCode = TextEditingController();
+    final name = TextEditingController();
+    final phone = TextEditingController();
+    final username = TextEditingController();
+    final password = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showModalBottomSheet<_EmployeeJoinInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final bottom = MediaQuery.viewInsetsOf(context).bottom;
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottom),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Daftar Karyawan Cepat',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Gunakan kode toko dari Owner. Setelah berhasil, akun ini langsung masuk sebagai karyawan.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: inviteCode,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Kode toko',
+                      prefixIcon: Icon(Icons.key_outlined),
+                    ),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? 'Kode toko wajib diisi.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: name,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama karyawan',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? 'Nama wajib diisi.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Nomor WhatsApp',
+                      prefixIcon: Icon(Icons.chat_outlined),
+                    ),
+                    validator: (value) => (value ?? '').trim().length < 8
+                        ? 'Nomor WhatsApp tidak valid.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: username,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Username',
+                      prefixIcon: Icon(Icons.alternate_email),
+                    ),
+                    validator: (value) {
+                      final text = (value ?? '').trim();
+                      if (text.length < 3) {
+                        return 'Username minimal 3 karakter.';
+                      }
+                      if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(text)) {
+                        return 'Username hanya huruf, angka, titik, strip, underscore.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: password,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                    validator: (value) => (value ?? '').length < 8
+                        ? 'Password minimal 8 karakter.'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (!formKey.currentState!.validate()) {
+                        return;
+                      }
+                      Navigator.of(context).pop(
+                        _EmployeeJoinInput(
+                          inviteCode: inviteCode.text,
+                          name: name.text,
+                          phone: phone.text,
+                          username: username.text,
+                          password: password.text,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.login),
+                    label: const Text('Daftar dan Masuk'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    inviteCode.dispose();
+    name.dispose();
+    phone.dispose();
+    username.dispose();
+    password.dispose();
+
+    if (result == null || !mounted) {
+      return;
+    }
+    ref
+        .read(authControllerProvider.notifier)
+        .registerEmployeeWithInvite(
+          inviteCode: result.inviteCode,
+          name: result.name,
+          phone: result.phone,
+          username: result.username,
+          password: result.password,
+        );
+  }
+}
+
+class _EmployeeJoinInput {
+  const _EmployeeJoinInput({
+    required this.inviteCode,
+    required this.name,
+    required this.phone,
+    required this.username,
+    required this.password,
+  });
+
+  final String inviteCode;
+  final String name;
+  final String phone;
+  final String username;
+  final String password;
 }
 
 class _SetupNotice extends StatelessWidget {

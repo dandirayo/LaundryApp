@@ -61,6 +61,28 @@ class AuthController extends AsyncNotifier<AuthSessionState> {
     });
   }
 
+  Future<void> registerEmployeeWithInvite({
+    required String inviteCode,
+    required String name,
+    required String phone,
+    required String username,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final user = await ref
+          .read(authRepositoryProvider)
+          .registerEmployeeWithInvite(
+            inviteCode: inviteCode,
+            name: name,
+            phone: phone,
+            username: username,
+            password: password,
+          );
+      return AuthSessionState.authenticated(user);
+    });
+  }
+
   Future<void> signInPreview(UserRole role) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
