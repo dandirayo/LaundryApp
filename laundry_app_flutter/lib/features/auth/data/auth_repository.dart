@@ -33,6 +33,16 @@ class SupabaseAuthRepository implements AuthRepository {
 
   static const _uuid = Uuid();
   static const _previewPrefix = 'preview_auth_';
+  static const _previewKeys = [
+    'userId',
+    'shopId',
+    'employeeId',
+    'name',
+    'role',
+    'isActive',
+    'photoUrl',
+    'phone',
+  ];
 
   final SupabaseClient? _client;
   final FlutterSecureStorage _secureStorage;
@@ -54,16 +64,7 @@ class SupabaseAuthRepository implements AuthRepository {
         return null;
       }
       final values = <String, String>{};
-      for (final key in [
-        'userId',
-        'shopId',
-        'employeeId',
-        'name',
-        'role',
-        'isActive',
-        'photoUrl',
-        'phone',
-      ]) {
+      for (final key in _previewKeys) {
         final value = await _secureStorage.read(key: '$_previewPrefix$key');
         if (value != null) {
           values[key] = value;
@@ -88,27 +89,45 @@ class SupabaseAuthRepository implements AuthRepository {
       );
     }
 
-    final response = await _client.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-    final authUser = response.user;
-    if (authUser == null) {
-      throw const Failure(
-        code: 'auth-empty-user',
-        message: 'Login berhasil tetapi profil auth tidak ditemukan.',
+    try {
+      final login = email.trim().toLowerCase();
+      final loginEmail = login.contains('@') ? login : '$login@idola.local';
+      final response = await _client.auth.signInWithPassword(
+        email: loginEmail,
+        password: password,
       );
-    }
+      final authUser = response.user;
+      if (authUser == null) {
+        throw const Failure(
+          code: 'auth-empty-user',
+          message: 'Login berhasil tetapi profil akun tidak ditemukan.',
+        );
+      }
 
-    final appUser = await _loadProfile(authUser.id);
-    if (!appUser.isActive) {
-      await _client.auth.signOut();
-      throw const Failure(
-        code: 'inactive-user',
-        message: 'Akun ini tidak aktif. Hubungi Owner.',
+      final appUser = await _loadProfile(authUser.id);
+      if (!appUser.isActive) {
+        await _client.auth.signOut();
+        throw const Failure(
+          code: 'inactive-user',
+          message: 'Akun ini tidak aktif. Hubungi Owner.',
+        );
+      }
+      return appUser;
+    } on AuthException catch (error) {
+      throw Failure(
+        code: 'login-gagal',
+        message: error.message.toLowerCase().contains('invalid login')
+            ? 'Username/email atau password salah.'
+            : error.message,
+      );
+    } on PostgrestException catch (error) {
+      throw Failure(
+        code: 'profil-gagal-dibaca',
+        message: error.code == '54001'
+            ? 'Aturan keamanan Supabase belum diperbaiki. Jalankan migrasi RLS terbaru.'
+            : 'Profil pengguna gagal dibaca: ${error.message}',
       );
     }
-    return appUser;
   }
 
   @override
@@ -186,7 +205,9 @@ class SupabaseAuthRepository implements AuthRepository {
     }
 
     try {
-      await _secureStorage.deleteAll();
+      for (final key in _previewKeys) {
+        await _secureStorage.delete(key: '$_previewPrefix$key');
+      }
     } catch (_) {
       // Best-effort cleanup; provider state is cleared by AuthController.
     }

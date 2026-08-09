@@ -30,6 +30,12 @@ supabase.cmd db push
 
 Ini menjalankan migration di folder `supabase/migrations`.
 
+Untuk project yang schema awalnya sudah pernah dijalankan manual, buka SQL
+Editor lalu jalankan isi file berikut agar error `stack depth limit exceeded`
+hilang:
+
+`supabase/migrations/202608090002_fix_profile_rls_and_employee_accounts.sql`
+
 ## 4. Masukkan Seed Katalog Awal
 
 Seed opsional berisi toko Idola Laundry dan contoh katalog bertingkat.
@@ -90,9 +96,28 @@ C:\Users\ASUS\dev\flutter_sdk\bin\flutter.bat run -d RRCT2017K6N `
 
 Kalau `SUPABASE_URL` dan `SUPABASE_ANON_KEY` kosong, app tetap masuk mode preview/offline.
 
+## 7. Pasang Fungsi Pembuatan Akun Karyawan
+
+Owner membuat akun karyawan melalui Edge Function supaya secret key Supabase
+tidak pernah masuk ke APK.
+
+```powershell
+supabase.cmd functions deploy create-employee-user
+```
+
+Kode fungsi berada di:
+
+`supabase/functions/create-employee-user/index.ts`
+
+Setelah fungsi terpasang, buka `Lainnya > Data Karyawan > Tambah Karyawan`.
+Owner dapat mengisi nama, telepon, posisi, username, dan password awal.
+Karyawan kemudian login menggunakan username tersebut atau email internalnya.
+
 ## Status Saat Ini
 
 - Supabase Auth sudah dibaca oleh app lewat tabel `profiles`.
+- Login menerima email Owner atau username karyawan.
+- Data dan akun login karyawan sudah menggunakan Supabase.
 - Schema database bisnis sudah disiapkan.
 - Repository data bisnis masih memakai preview/offline data dan akan dipindahkan bertahap:
   1. Services/katalog

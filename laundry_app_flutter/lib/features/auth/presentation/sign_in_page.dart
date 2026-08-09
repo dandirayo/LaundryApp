@@ -7,7 +7,6 @@ import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/widgets/responsive_page.dart';
-import '../domain/user_role.dart';
 import 'auth_controller.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
@@ -18,13 +17,24 @@ class SignInPage extends ConsumerStatefulWidget {
 }
 
 class _SignInPageState extends ConsumerState<SignInPage> {
-  final _emailController = TextEditingController();
+  static const _savedLoginKey = 'saved_login';
+  static const _savedPasswordKey = 'saved_password';
+  static const _rememberAccountKey = 'remember_account';
+
+  final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _rememberAccount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSavedAccount();
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _loginController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -124,20 +134,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                             const SizedBox(height: 16),
                           ],
                           TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
+                            controller: _loginController,
+                            keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.mail_outline),
+                              labelText: 'Username atau email',
+                              prefixIcon: Icon(Icons.person_outline),
                             ),
                             validator: (value) {
                               final text = value?.trim() ?? '';
                               if (text.isEmpty) {
-                                return strings.emailRequired;
-                              }
-                              if (!text.contains('@')) {
-                                return strings.invalidEmail;
+                                return 'Username atau email wajib diisi.';
                               }
                               return null;
                             },
@@ -158,6 +165,21 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                               }
                               return null;
                             },
+                          ),
+                          const SizedBox(height: 8),
+                          CheckboxListTile(
+                            value: _rememberAccount,
+                            onChanged: isLoading
+                                ? null
+                                : (value) => setState(
+                                    () => _rememberAccount = value ?? false,
+                                  ),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Simpan akun'),
+                            subtitle: const Text(
+                              'Username dan password otomatis terisi di HP ini.',
+                            ),
                           ),
                           if (error != null) ...[
                             const SizedBox(height: 12),
@@ -182,42 +204,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                                 : const Icon(Icons.login),
                             label: Text(strings.signIn),
                           ),
-                          if (kDebugMode) ...[
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () => ref
-                                              .read(
-                                                authControllerProvider.notifier,
-                                              )
-                                              .signInPreview(UserRole.owner),
-                                    icon: const Icon(
-                                      Icons.admin_panel_settings_outlined,
-                                    ),
-                                    label: Text(strings.previewOwner),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () => ref
-                                              .read(
-                                                authControllerProvider.notifier,
-                                              )
-                                              .signInPreview(UserRole.employee),
-                                    icon: const Icon(Icons.badge_outlined),
-                                    label: Text(strings.previewEmployee),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -231,14 +217,52 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     );
   }
 
-  void _submit() {
+  Future<void> _restoreSavedAccount() async {
+    final storage = ref.read(secureStorageProvider);
+    final remember = await storage.read(key: _rememberAccountKey);
+    if (!mounted || remember != 'true') {
+      return;
+    }
+    _loginController.text = await storage.read(key: _savedLoginKey) ?? '';
+    _passwordController.text = await storage.read(key: _savedPasswordKey) ?? '';
+    if (!mounted) {
+      return;
+    }
+    setState(() => _rememberAccount = true);
+  }
+
+  Future<void> _saveAccountPreference() async {
+    final storage = ref.read(secureStorageProvider);
+    if (_rememberAccount) {
+      await storage.write(key: _rememberAccountKey, value: 'true');
+      await storage.write(
+        key: _savedLoginKey,
+        value: _loginController.text.trim(),
+      );
+      await storage.write(
+        key: _savedPasswordKey,
+        value: _passwordController.text,
+      );
+      return;
+    }
+
+    await storage.delete(key: _rememberAccountKey);
+    await storage.delete(key: _savedLoginKey);
+    await storage.delete(key: _savedPasswordKey);
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    await _saveAccountPreference();
+    if (!mounted) {
       return;
     }
     ref
         .read(authControllerProvider.notifier)
         .signInWithEmailPassword(
-          email: _emailController.text.trim(),
+          email: _loginController.text.trim(),
           password: _passwordController.text,
         );
   }

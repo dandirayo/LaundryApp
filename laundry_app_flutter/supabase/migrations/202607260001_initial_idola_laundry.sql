@@ -13,6 +13,7 @@ create table if not exists public.employees (
   shop_id uuid not null references public.shops(id) on delete cascade,
   name text not null,
   phone text not null default '',
+  position text not null default 'Operator',
   role text not null default 'EMPLOYEE' check (role in ('OWNER', 'EMPLOYEE')),
   shift_start time not null default '06:00',
   shift_end time not null default '14:00',
@@ -31,6 +32,7 @@ create table if not exists public.profiles (
   is_active boolean not null default true,
   avatar_url text,
   phone text,
+  username text unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -165,6 +167,8 @@ create or replace function public.current_shop_id()
 returns uuid
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select shop_id from public.profiles where id = auth.uid()
 $$;
@@ -173,6 +177,8 @@ create or replace function public.current_role()
 returns text
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select role from public.profiles where id = auth.uid()
 $$;

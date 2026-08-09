@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/failure.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../data/employee_repository.dart';
 
-class EmployeesPage extends ConsumerWidget {
+class EmployeesPage extends ConsumerStatefulWidget {
   const EmployeesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EmployeesPage> createState() => _EmployeesPageState();
+}
+
+class _EmployeesPageState extends ConsumerState<EmployeesPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOnlineEmployees());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final employees = ref.watch(
       previewDataProvider.select((state) => state.employees),
     );
@@ -58,7 +71,12 @@ class EmployeesPage extends ConsumerWidget {
                       leading: const Icon(Icons.badge_outlined),
                       title: Text(employee.name),
                       subtitle: Text(
-                        '${employee.position} - ${employee.phone}',
+                        [
+                          employee.position,
+                          employee.phone,
+                          if (employee.username.isNotEmpty)
+                            '@${employee.username}',
+                        ].where((value) => value.isNotEmpty).join(' - '),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -89,11 +107,15 @@ class EmployeesPage extends ConsumerWidget {
     PreviewEmployee? employee,
   }) async {
     final isEditing = employee != null;
+    final repository = EmployeeRepository();
+    final isOnline = repository.isOnline;
     final name = TextEditingController(text: employee?.name ?? '');
     final phone = TextEditingController(text: employee?.phone ?? '');
     final position = TextEditingController(
       text: employee?.position ?? 'Operator',
     );
+    final username = TextEditingController(text: employee?.username ?? '');
+    final password = TextEditingController();
     var isActive = employee?.isActive ?? true;
     final formKey = GlobalKey<FormState>();
     final result = await showAppModalBottomSheet<_EmployeeInput>(
@@ -131,6 +153,46 @@ class EmployeesPage extends ConsumerWidget {
                   controller: position,
                   decoration: const InputDecoration(labelText: 'Posisi'),
                 ),
+                if (isOnline) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: username,
+                    enabled: !isEditing,
+                    autocorrect: false,
+                    textCapitalization: TextCapitalization.none,
+                    decoration: InputDecoration(
+                      labelText: 'Username login',
+                      prefixIcon: const Icon(Icons.alternate_email),
+                      helperText: isEditing
+                          ? 'Username tidak diubah dari halaman ini.'
+                          : 'Contoh: karyawan1',
+                    ),
+                    validator: (value) {
+                      if (isEditing) return null;
+                      final text = (value ?? '').trim().toLowerCase();
+                      if (!RegExp(r'^[a-z0-9._-]{3,32}$').hasMatch(text)) {
+                        return 'Gunakan 3-32 huruf kecil, angka, titik, _ atau -.';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (!isEditing) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: password,
+                      obscureText: true,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Password awal',
+                        prefixIcon: Icon(Icons.lock_outline),
+                        helperText: 'Minimal 8 karakter.',
+                      ),
+                      validator: (value) => (value ?? '').length < 8
+                          ? 'Password minimal 8 karakter.'
+                          : null,
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -155,6 +217,8 @@ class EmployeesPage extends ConsumerWidget {
                         phone: phone.text,
                         position: position.text,
                         isActive: isActive,
+                        username: username.text,
+                        password: password.text,
                       ),
                     );
                   },
@@ -174,6 +238,8 @@ class EmployeesPage extends ConsumerWidget {
     name.dispose();
     phone.dispose();
     position.dispose();
+    username.dispose();
+    password.dispose();
 
     if (result == null || !context.mounted) {
       return;
@@ -185,6 +251,16 @@ class EmployeesPage extends ConsumerWidget {
     try {
       final notifier = ref.read(previewDataProvider.notifier);
       if (isEditing) {
+        if (isOnline) {
+          await repository.updateEmployee(
+            id: employee.id,
+            name: result.name,
+            phone: result.phone,
+            position: result.position,
+            isActive: result.isActive,
+          );
+          if (!context.mounted) return;
+        }
         notifier.updateEmployee(
           id: employee.id,
           name: result.name,
@@ -193,11 +269,24 @@ class EmployeesPage extends ConsumerWidget {
           isActive: result.isActive,
         );
       } else {
+        CreatedEmployeeAccount? account;
+        if (isOnline) {
+          account = await repository.createAccount(
+            username: result.username,
+            password: result.password,
+            name: result.name,
+            phone: result.phone,
+            position: result.position,
+          );
+          if (!context.mounted) return;
+        }
         notifier.addEmployee(
+          id: account?.employeeId,
           name: result.name,
           phone: result.phone,
           position: result.position,
           isActive: result.isActive,
+          username: account?.username ?? result.username,
         );
       }
       showAppSnackBar(
@@ -205,8 +294,28 @@ class EmployeesPage extends ConsumerWidget {
             ? 'Karyawan berhasil diperbarui.'
             : 'Karyawan berhasil ditambahkan.',
       );
+    } on Failure catch (error) {
+      showAppSnackBar(error.message);
     } on StateError catch (error) {
       showAppSnackBar(error.message);
+    } catch (error) {
+      final message = error.toString().contains('404')
+          ? 'Fungsi akun karyawan belum dipasang di Supabase.'
+          : 'Gagal menyimpan karyawan: $error';
+      showAppSnackBar(message);
+    }
+  }
+
+  Future<void> _loadOnlineEmployees() async {
+    final repository = EmployeeRepository();
+    if (!repository.isOnline) return;
+    try {
+      final employees = await repository.fetchEmployees();
+      if (!mounted) return;
+      ref.read(previewDataProvider.notifier).replaceEmployees(employees);
+    } catch (error) {
+      if (!mounted) return;
+      showAppSnackBar('Data karyawan online belum dapat dimuat: $error');
     }
   }
 }
@@ -217,10 +326,14 @@ class _EmployeeInput {
     required this.phone,
     required this.position,
     required this.isActive,
+    required this.username,
+    required this.password,
   });
 
   final String name;
   final String phone;
   final String position;
   final bool isActive;
+  final String username;
+  final String password;
 }

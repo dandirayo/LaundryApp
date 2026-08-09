@@ -445,6 +445,7 @@ class PreviewEmployee {
     required this.phone,
     required this.position,
     required this.isActive,
+    this.username = '',
   });
 
   final String id;
@@ -452,12 +453,14 @@ class PreviewEmployee {
   final String phone;
   final String position;
   final bool isActive;
+  final String username;
 
   PreviewEmployee copyWith({
     String? name,
     String? phone,
     String? position,
     bool? isActive,
+    String? username,
   }) {
     return PreviewEmployee(
       id: id,
@@ -465,6 +468,7 @@ class PreviewEmployee {
       phone: phone ?? this.phone,
       position: position ?? this.position,
       isActive: isActive ?? this.isActive,
+      username: username ?? this.username,
     );
   }
 }
@@ -2088,19 +2092,26 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void addEmployee({
+    String? id,
     required String name,
     required String phone,
     required String position,
     bool isActive = true,
+    String username = '',
   }) {
     final employee = PreviewEmployee(
-      id: _uuid.v4(),
+      id: id ?? _uuid.v4(),
       name: name.trim(),
       phone: phone.trim(),
       position: position.trim(),
       isActive: isActive,
+      username: username.trim().toLowerCase(),
     );
     state = state.copyWith(employees: [...state.employees, employee]);
+  }
+
+  void replaceEmployees(List<PreviewEmployee> employees) {
+    state = state.copyWith(employees: List.unmodifiable(employees));
   }
 
   void updateEmployee({

@@ -47,8 +47,8 @@ class AppStrings {
   String get signInTitle =>
       isEnglish ? 'Sign in to Idola Laundry' : 'Masuk Idola Laundry';
   String get signInDescription => isEnglish
-      ? 'Use your account to continue. Preview mode is available while online sync is not configured.'
-      : 'Gunakan akun untuk masuk. Mode preview tersedia selama sinkron online belum dikonfigurasi.';
+      ? 'Use your registered Owner or employee account to continue.'
+      : 'Gunakan akun Owner atau karyawan yang sudah terdaftar.';
   String get signIn => isEnglish ? 'Sign In' : 'Masuk';
   String get previewOwner => isEnglish ? 'Preview Owner' : 'Preview Owner';
   String get previewEmployee =>
@@ -60,8 +60,8 @@ class AppStrings {
   String get passwordRequired =>
       isEnglish ? 'Password is required.' : 'Password wajib diisi.';
   String get supabasePreviewNotice => isEnglish
-      ? 'Supabase is not configured yet. Debug preview mode is available for checking navigation without production data.'
-      : 'Supabase belum dikonfigurasi. Mode preview debug tersedia untuk cek navigasi tanpa data produksi.';
+      ? 'Supabase is not configured yet. Online login cannot be used.'
+      : 'Supabase belum dikonfigurasi. Login online belum bisa digunakan.';
   String get supabaseMissingNotice => isEnglish
       ? 'Supabase is not configured yet. Fill dart-define before signing in.'
       : 'Supabase belum dikonfigurasi. Isi dart-define sebelum login.';
