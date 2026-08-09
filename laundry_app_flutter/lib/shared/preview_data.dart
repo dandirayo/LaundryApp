@@ -445,6 +445,9 @@ class PreviewEmployee {
     required this.phone,
     required this.position,
     required this.isActive,
+    this.shiftStart = '06.00',
+    this.shiftEnd = '14.00',
+    this.lateToleranceMinutes = 120,
     this.username = '',
   });
 
@@ -453,6 +456,9 @@ class PreviewEmployee {
   final String phone;
   final String position;
   final bool isActive;
+  final String shiftStart;
+  final String shiftEnd;
+  final int lateToleranceMinutes;
   final String username;
 
   PreviewEmployee copyWith({
@@ -460,6 +466,9 @@ class PreviewEmployee {
     String? phone,
     String? position,
     bool? isActive,
+    String? shiftStart,
+    String? shiftEnd,
+    int? lateToleranceMinutes,
     String? username,
   }) {
     return PreviewEmployee(
@@ -468,6 +477,9 @@ class PreviewEmployee {
       phone: phone ?? this.phone,
       position: position ?? this.position,
       isActive: isActive ?? this.isActive,
+      shiftStart: shiftStart ?? this.shiftStart,
+      shiftEnd: shiftEnd ?? this.shiftEnd,
+      lateToleranceMinutes: lateToleranceMinutes ?? this.lateToleranceMinutes,
       username: username ?? this.username,
     );
   }
@@ -693,7 +705,6 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     'Sabtu',
     'Minggu',
   ];
-  static const _lateTolerance = Duration(hours: 2);
   static final _legacyMonthlySummaries = [
     PreviewLegacyMonthlySummary(
       month: DateTime(2025, 5),
@@ -1266,6 +1277,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       phone: '081234567891',
       position: 'Operator',
       isActive: true,
+      shiftStart: '06.00',
+      shiftEnd: '14.00',
+      lateToleranceMinutes: 120,
     );
     final employee2 = PreviewEmployee(
       id: 'employee-2',
@@ -1273,6 +1287,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       phone: '081234567892',
       position: 'Kasir',
       isActive: true,
+      shiftStart: '12.00',
+      shiftEnd: '20.00',
+      lateToleranceMinutes: 120,
     );
     final customer = PreviewCustomer(
       id: 'customer-1',
@@ -1474,10 +1491,8 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String employeeId,
     required String note,
   }) {
-    final customer = state.customers.firstWhere(
-      (item) => item.id == customerId,
-    );
-    final service = state.services.firstWhere((item) => item.id == serviceId);
+    final customer = _customerById(customerId);
+    final service = _serviceById(serviceId);
     final total = (service.price * quantity).round();
     if (paidAmount < 0 || paidAmount > total) {
       throw StateError('Nominal pembayaran tidak valid.');
@@ -1547,9 +1562,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     if (items.isEmpty) {
       throw StateError('Tambahkan minimal satu item pesanan.');
     }
-    final customer = state.customers.firstWhere(
-      (item) => item.id == customerId,
-    );
+    final customer = _customerById(customerId);
     final servicesById = {
       for (final service in state.services) service.id: service,
     };
@@ -1657,7 +1670,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required int amount,
     required String method,
   }) {
-    final order = state.orders.firstWhere((item) => item.id == orderId);
+    final order = _orderById(orderId);
     if (amount <= 0 || amount > order.remainingAmount) {
       throw StateError(
         'Nominal pembayaran harus di antara Rp1 dan sisa tagihan.',
@@ -1704,9 +1717,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void updateOrderStatus(String orderId, PreviewOrderStatus status) {
-    final currentOrder = state.orders.firstWhere(
-      (order) => order.id == orderId,
-    );
+    final currentOrder = _orderById(orderId);
     if (status == PreviewOrderStatus.pickedUp &&
         currentOrder.remainingAmount > 0) {
       throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
@@ -1733,9 +1744,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String employeeId,
     required String note,
   }) {
-    final currentOrder = state.orders.firstWhere(
-      (order) => order.id == orderId,
-    );
+    final currentOrder = _orderById(orderId);
     if (status == PreviewOrderStatus.pickedUp &&
         currentOrder.remainingAmount > 0) {
       throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
@@ -1875,7 +1884,12 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String type,
     required String note,
   }) {
-    final item = state.inventory.firstWhere((entry) => entry.id == itemId);
+    final item = state.inventory
+        .where((entry) => entry.id == itemId)
+        .firstOrNull;
+    if (item == null) {
+      throw StateError('Item stok tidak ditemukan.');
+    }
     final delta = type == 'OUT' || type == 'USAGE' ? -quantity : quantity;
     final nextStock = item.stock + delta;
     if (nextStock < 0) {
@@ -1926,19 +1940,21 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         throw StateError('Karyawan sudah absen masuk hari ini.');
       }
       final shiftEnd = _timeOnDate(today, shift.endTime);
+      final employee = _employeeById(employeeId);
+      final lateToleranceMinutes = employee.lateToleranceMinutes;
       final lateMinutes = today.isAfter(shiftStart)
           ? today.difference(shiftStart).inMinutes
           : 0;
       final attendanceStatus = lateMinutes == 0
           ? PreviewAttendanceStatus.onTime
-          : lateMinutes <= _lateTolerance.inMinutes
+          : lateMinutes <= lateToleranceMinutes
           ? PreviewAttendanceStatus.late
           : PreviewAttendanceStatus.severelyLate;
       final warningMessage = lateMinutes == 0
           ? null
-          : lateMinutes <= _lateTolerance.inMinutes
+          : lateMinutes <= lateToleranceMinutes
           ? '$employeeName terlambat $lateMinutes menit untuk shift ${shift.startTime}-${shift.endTime}.'
-          : '$employeeName terlambat lebih dari 2 jam untuk shift ${shift.startTime}-${shift.endTime}.';
+          : '$employeeName terlambat lebih dari $lateToleranceMinutes menit untuk shift ${shift.startTime}-${shift.endTime}.';
       final attendance = PreviewAttendance(
         id: _uuid.v4(),
         employeeId: employeeId,
@@ -2031,9 +2047,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String startTime,
     required String endTime,
   }) {
-    final employee = state.employees.firstWhere(
-      (item) => item.id == employeeId,
-    );
+    final employee = _employeeById(employeeId);
     final exists = state.shifts.any(
       (shift) => shift.employeeId == employeeId && shift.day == day,
     );
@@ -2097,6 +2111,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String phone,
     required String position,
     bool isActive = true,
+    String shiftStart = '06.00',
+    String shiftEnd = '14.00',
+    int lateToleranceMinutes = 120,
     String username = '',
   }) {
     final employee = PreviewEmployee(
@@ -2105,13 +2122,22 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       phone: phone.trim(),
       position: position.trim(),
       isActive: isActive,
+      shiftStart: shiftStart.trim(),
+      shiftEnd: shiftEnd.trim(),
+      lateToleranceMinutes: lateToleranceMinutes,
       username: username.trim().toLowerCase(),
     );
-    state = state.copyWith(employees: [...state.employees, employee]);
+    state = state.copyWith(
+      employees: [...state.employees, employee],
+      shifts: _mergeEmployeeShifts(state.shifts, [employee]),
+    );
   }
 
   void replaceEmployees(List<PreviewEmployee> employees) {
-    state = state.copyWith(employees: List.unmodifiable(employees));
+    state = state.copyWith(
+      employees: List.unmodifiable(employees),
+      shifts: _mergeEmployeeShifts(state.shifts, employees),
+    );
   }
 
   void updateEmployee({
@@ -2120,6 +2146,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String phone,
     required String position,
     required bool isActive,
+    String? shiftStart,
+    String? shiftEnd,
+    int? lateToleranceMinutes,
   }) {
     var found = false;
     final trimmedName = name.trim();
@@ -2133,6 +2162,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         phone: phone.trim(),
         position: position.trim(),
         isActive: isActive,
+        shiftStart: shiftStart?.trim(),
+        shiftEnd: shiftEnd?.trim(),
+        lateToleranceMinutes: lateToleranceMinutes,
       );
     }).toList();
 
@@ -2152,7 +2184,11 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       shifts: [
         for (final shift in state.shifts)
           if (shift.employeeId == id)
-            shift.copyWith(employeeName: trimmedName)
+            shift.copyWith(
+              employeeName: trimmedName,
+              startTime: shiftStart?.trim(),
+              endTime: shiftEnd?.trim(),
+            )
           else
             shift,
       ],
@@ -2166,15 +2202,46 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     );
   }
 
+  List<PreviewShift> _mergeEmployeeShifts(
+    List<PreviewShift> current,
+    List<PreviewEmployee> employees,
+  ) {
+    final next = [...current];
+    final existingKeys = {
+      for (final shift in current) '${shift.employeeId}|${shift.day}',
+    };
+
+    for (final employee in employees) {
+      for (final day in _days) {
+        final key = '${employee.id}|$day';
+        if (existingKeys.contains(key)) {
+          continue;
+        }
+        existingKeys.add(key);
+        next.add(
+          PreviewShift(
+            id: 'shift-${employee.id}-$day',
+            employeeId: employee.id,
+            employeeName: employee.name,
+            day: day,
+            startTime: employee.shiftStart,
+            endTime: employee.shiftEnd,
+            isDayOff: false,
+          ),
+        );
+      }
+    }
+
+    return List.unmodifiable(next);
+  }
+
   void addRequest({
     required String type,
     required String reason,
     required int amount,
     String employeeId = 'employee-1',
   }) {
-    final employee = state.employees.firstWhere(
-      (item) => item.id == employeeId,
-    );
+    final employee = _employeeById(employeeId);
     final request = PreviewEmployeeRequest(
       id: _uuid.v4(),
       employeeId: employee.id,
@@ -2207,7 +2274,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         status != PreviewRequestStatus.rejected) {
       throw StateError('Review hanya bisa menyetujui atau menolak request.');
     }
-    final current = state.requests.firstWhere((request) => request.id == id);
+    final current = _requestById(id);
     if (current.status != PreviewRequestStatus.pending) {
       throw StateError('Request ini sudah pernah ditinjau.');
     }
@@ -2232,9 +2299,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void payEmployeeRequest({required String requestId, required String method}) {
-    final current = state.requests.firstWhere(
-      (request) => request.id == requestId,
-    );
+    final current = _requestById(requestId);
     if (current.status != PreviewRequestStatus.approved) {
       throw StateError('Setujui request sebelum mencatat pembayaran.');
     }
@@ -2288,9 +2353,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void completeRequest(String requestId) {
-    final current = state.requests.firstWhere(
-      (request) => request.id == requestId,
-    );
+    final current = _requestById(requestId);
     if (current.status == PreviewRequestStatus.pending) {
       throw StateError('Setujui request sebelum menandai selesai.');
     }
@@ -2322,9 +2385,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }
 
   void payWeeklySalary({required String employeeId, required String method}) {
-    final employee = state.employees.firstWhere(
-      (item) => item.id == employeeId,
-    );
+    final employee = _employeeById(employeeId);
     final periodStart = _startOfWeek(DateTime.now());
     final referenceId = 'PAYROLL-$employeeId-${_compactDate(periodStart)}';
     final alreadyRecorded = state.cashTransactions.any(
@@ -2486,6 +2547,46 @@ class PreviewDataController extends Notifier<PreviewDataState> {
 
   static String _compactDate(DateTime value) {
     return '${value.year}${value.month.toString().padLeft(2, '0')}${value.day.toString().padLeft(2, '0')}';
+  }
+
+  PreviewCustomer _customerById(String id) {
+    final customer = state.customers.where((item) => item.id == id).firstOrNull;
+    if (customer == null) {
+      throw StateError('Pelanggan tidak ditemukan.');
+    }
+    return customer;
+  }
+
+  PreviewService _serviceById(String id) {
+    final service = state.services.where((item) => item.id == id).firstOrNull;
+    if (service == null) {
+      throw StateError('Layanan tidak ditemukan.');
+    }
+    return service;
+  }
+
+  PreviewOrder _orderById(String id) {
+    final order = state.orders.where((item) => item.id == id).firstOrNull;
+    if (order == null) {
+      throw StateError('Pesanan tidak ditemukan.');
+    }
+    return order;
+  }
+
+  PreviewEmployee _employeeById(String id) {
+    final employee = state.employees.where((item) => item.id == id).firstOrNull;
+    if (employee == null) {
+      throw StateError('Karyawan tidak ditemukan.');
+    }
+    return employee;
+  }
+
+  PreviewEmployeeRequest _requestById(String id) {
+    final request = state.requests.where((item) => item.id == id).firstOrNull;
+    if (request == null) {
+      throw StateError('Request tidak ditemukan.');
+    }
+    return request;
   }
 
   static PreviewOrder _buildOrder({

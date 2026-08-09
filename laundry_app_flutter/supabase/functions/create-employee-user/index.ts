@@ -22,7 +22,12 @@ Deno.serve(async (request) => {
 
     const url = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
+      Deno.env.get('SUPABASE_SECRET_KEY') ??
+      ''
+    if (!serviceRoleKey) {
+      return json({ error: 'Secret SUPABASE_SERVICE_ROLE_KEY belum diset di Edge Function.' }, 500)
+    }
     const userClient = createClient(url, anonKey, {
       global: { headers: { Authorization: authorization } },
     })
@@ -31,13 +36,20 @@ Deno.serve(async (request) => {
     const { data: authData, error: authError } = await userClient.auth.getUser()
     if (authError || !authData.user) return json({ error: 'Sesi Owner tidak valid.' }, 401)
 
-    const { data: owner, error: ownerError } = await adminClient
+    const { data: owner, error: ownerError } = await userClient
       .from('profiles')
       .select('shop_id, role, is_active')
       .eq('id', authData.user.id)
       .single()
     if (ownerError || owner?.role !== 'OWNER' || owner?.is_active !== true) {
-      return json({ error: 'Hanya Owner aktif yang dapat membuat akun karyawan.' }, 403)
+      return json({
+        error: 'Hanya Owner aktif yang dapat membuat akun karyawan.',
+        auth_user_id: authData.user.id,
+        email: authData.user.email,
+        profile_role: owner?.role ?? null,
+        profile_is_active: owner?.is_active ?? null,
+        profile_error: ownerError?.message ?? null,
+      }, 403)
     }
 
     const body = await request.json()
@@ -46,12 +58,20 @@ Deno.serve(async (request) => {
     const name = String(body.name ?? '').trim()
     const phone = String(body.phone ?? '').trim()
     const position = String(body.position ?? 'Operator').trim()
+    const shiftStart = normalizeTime(String(body.shift_start ?? '06:00'))
+    const shiftEnd = normalizeTime(String(body.shift_end ?? '14:00'))
+    const lateToleranceMinutes = Number(body.late_tolerance_minutes ?? 120)
+    const isActive = body.is_active !== false
 
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
       return json({ error: 'Username harus 3-32 karakter: huruf kecil, angka, titik, garis bawah, atau strip.' }, 400)
     }
     if (password.length < 8) return json({ error: 'Password minimal 8 karakter.' }, 400)
     if (!name) return json({ error: 'Nama karyawan wajib diisi.' }, 400)
+    if (!shiftStart || !shiftEnd) return json({ error: 'Format jam shift belum valid.' }, 400)
+    if (!Number.isInteger(lateToleranceMinutes) || lateToleranceMinutes < 0 || lateToleranceMinutes > 480) {
+      return json({ error: 'Toleransi telat harus 0-480 menit.' }, 400)
+    }
 
     const { data: existing } = await adminClient
       .from('profiles')
@@ -72,7 +92,7 @@ Deno.serve(async (request) => {
     }
 
     const userId = createdAuth.user.id
-    const { data: employee, error: employeeError } = await adminClient
+    const { data: employee, error: employeeError } = await userClient
       .from('employees')
       .insert({
         shop_id: owner.shop_id,
@@ -80,7 +100,10 @@ Deno.serve(async (request) => {
         phone,
         position,
         role: 'EMPLOYEE',
-        is_active: true,
+        shift_start: shiftStart,
+        shift_end: shiftEnd,
+        late_tolerance_minutes: lateToleranceMinutes,
+        is_active: isActive,
       })
       .select('id')
       .single()
@@ -90,13 +113,13 @@ Deno.serve(async (request) => {
       return json({ error: employeeError?.message ?? 'Data karyawan gagal dibuat.' }, 400)
     }
 
-    const { error: profileError } = await adminClient.from('profiles').insert({
+    const { error: profileError } = await userClient.from('profiles').insert({
       id: userId,
       shop_id: owner.shop_id,
       employee_id: employee.id,
       full_name: name,
       role: 'EMPLOYEE',
-      is_active: true,
+      is_active: isActive,
       phone,
       username,
     })
@@ -114,8 +137,21 @@ Deno.serve(async (request) => {
       name,
       phone,
       position,
+      shift_start: shiftStart,
+      shift_end: shiftEnd,
+      late_tolerance_minutes: lateToleranceMinutes,
+      is_active: isActive,
     }, 201)
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan server.' }, 500)
   }
 })
+
+function normalizeTime(value: string) {
+  const match = value.trim().replace('.', ':').match(/^(\d{1,2}):(\d{1,2})$/)
+  if (!match) return ''
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}

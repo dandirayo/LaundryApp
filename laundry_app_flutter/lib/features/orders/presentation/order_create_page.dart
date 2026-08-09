@@ -11,6 +11,7 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'receipt_preview_sheet.dart';
 
 class OrderCreatePage extends ConsumerStatefulWidget {
   const OrderCreatePage({super.key});
@@ -31,6 +32,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   String? _serviceId;
   String? _employeeId;
   String _paymentMethod = 'Tunai';
+  var _showReceiptAfterSave = true;
 
   @override
   void dispose() {
@@ -56,7 +58,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         .where((service) => service.isActive)
         .toList();
     final employees = data.employees;
-    final selectedEmployeeId = _employeeId ?? employees.first.id;
+    final selectedEmployeeId = _employeeId ?? employees.firstOrNull?.id;
     final selectedService = services
         .where((service) => service.id == _serviceId)
         .cast<PreviewService?>()
@@ -84,14 +86,14 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       appBar: AppBar(title: Text(strings.addOrder)),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: customers.isEmpty || services.isEmpty
+        child: customers.isEmpty || services.isEmpty || employees.isEmpty
             ? AppStateView.empty(
                 title: strings.isEnglish
                     ? 'Master data is incomplete'
                     : 'Data master belum lengkap',
                 message: strings.isEnglish
-                    ? 'Add at least one customer and one service before creating an order.'
-                    : 'Tambahkan minimal satu pelanggan dan satu layanan sebelum membuat pesanan.',
+                    ? 'Add at least one customer, service, and employee before creating an order.'
+                    : 'Tambahkan minimal satu pelanggan, satu layanan, dan satu karyawan sebelum membuat pesanan.',
               )
             : Form(
                 key: _formKey,
@@ -337,6 +339,23 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                       ],
                     ),
                     const SizedBox(height: 24),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        strings.isEnglish
+                            ? 'Show receipt after saving'
+                            : 'Tampilkan struk setelah simpan',
+                      ),
+                      subtitle: Text(
+                        strings.isEnglish
+                            ? 'Turn off if the receipt will be printed later.'
+                            : 'Matikan kalau nota awal mau dicetak nanti.',
+                      ),
+                      value: _showReceiptAfterSave,
+                      onChanged: (value) =>
+                          setState(() => _showReceiptAfterSave = value),
+                    ),
+                    const SizedBox(height: 8),
                     FilledButton.icon(
                       onPressed: _submit,
                       icon: const Icon(Icons.receipt_long_outlined),
@@ -517,8 +536,16 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    final missingSteps = _missingOrderSteps();
+    if (missingSteps.isNotEmpty) {
+      await _showMissingStepsDialog(missingSteps);
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
+      await _showMissingStepsDialog([
+        'Cek kolom pembayaran dan detail pesanan yang bertanda merah.',
+      ]);
       return;
     }
     try {
@@ -538,6 +565,31 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       if (!mounted) {
         return;
       }
+      final latest = ref.read(previewDataProvider);
+      final payments = latest.payments
+          .where((payment) => payment.orderId == order.id)
+          .toList();
+      final employeeName = latest.employees
+          .where((employee) => employee.id == order.assignedEmployeeId)
+          .map((employee) => employee.name)
+          .firstOrNull;
+      if (_showReceiptAfterSave) {
+        await waitForTransientUiDismissal();
+        if (!mounted) {
+          return;
+        }
+        await showReceiptPreviewSheet(
+          context: context,
+          order: order,
+          payments: payments,
+          shopName: latest.shopName,
+          shopAddress: latest.shopAddress,
+          employeeName: employeeName ?? 'Petugas',
+        );
+        if (!mounted) {
+          return;
+        }
+      }
       final strings = ref.read(appLanguageProvider) == AppLanguage.en
           ? const AppStrings(AppLanguage.en)
           : const AppStrings(AppLanguage.id);
@@ -550,6 +602,59 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     } on StateError catch (error) {
       showAppSnackBar(error.message);
     }
+  }
+
+  List<String> _missingOrderSteps() {
+    final missing = <String>[];
+    if (_customerId == null) {
+      missing.add('Pilih pelanggan dulu atau tambah pelanggan baru.');
+    }
+    if (_items.isEmpty) {
+      missing.add(
+        'Pilih layanan, isi jumlah, lalu pencet Masukkan ke pesanan.',
+      );
+    }
+    final paidAmount = int.tryParse(_paidController.text) ?? 0;
+    final total = _items.fold<int>(0, (sum, item) => sum + item.total);
+    if (paidAmount < 0) {
+      missing.add('Nominal DP tidak boleh kurang dari nol.');
+    }
+    if (paidAmount > total) {
+      missing.add('Nominal DP tidak boleh lebih besar dari total pesanan.');
+    }
+    return missing;
+  }
+
+  Future<void> _showMissingStepsDialog(List<String> steps) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Lengkapi pesanan dulu'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final step in steps)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('• '),
+                    Expanded(child: Text(step)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

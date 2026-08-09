@@ -59,6 +59,12 @@ class BackupPage extends ConsumerWidget {
               icon: const Icon(Icons.file_download_outlined),
               label: const Text('Export JSON/CSV'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _showImportGuide(context),
+              icon: const Icon(Icons.upload_file_outlined),
+              label: const Text('Format Import Universal'),
+            ),
           ],
         ),
       ),
@@ -101,6 +107,45 @@ class BackupPage extends ConsumerWidget {
     ref.read(previewDataProvider.notifier).recordBackupExport(format);
     showAppSnackBar('Export $format preview berhasil disiapkan.');
   }
+
+  Future<void> _showImportGuide(BuildContext context) {
+    return showAppModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => AppBottomSheetBody(
+        children: const [
+          Text(
+            'Format Import Universal',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Untuk Excel/CSV, pakai header berikut agar data mudah dibaca otomatis:',
+          ),
+          SizedBox(height: 12),
+          _ImportFormatTile(
+            title: 'Pelanggan',
+            columns: 'nama, whatsapp, alamat, catatan',
+          ),
+          _ImportFormatTile(
+            title: 'Layanan / Harga',
+            columns:
+                'kategori, nama_layanan, nama_item, varian, satuan, harga, estimasi_jam',
+          ),
+          _ImportFormatTile(
+            title: 'Nota / Pesanan',
+            columns:
+                'nomor_nota, tanggal, pelanggan, whatsapp, layanan, jumlah, satuan, harga, total, dibayar, status',
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Import file langsung akan aktif setelah modul file picker dan parser Excel dipasang. Sementara format ini jadi patokan agar data lama bisa masuk rapi.',
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _BackupTile extends StatelessWidget {
@@ -119,6 +164,24 @@ class _BackupTile extends StatelessWidget {
           '$count data',
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+      ),
+    );
+  }
+}
+
+class _ImportFormatTile extends StatelessWidget {
+  const _ImportFormatTile({required this.title, required this.columns});
+
+  final String title;
+  final String columns;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.table_chart_outlined),
+        title: Text(title),
+        subtitle: Text(columns),
       ),
     );
   }

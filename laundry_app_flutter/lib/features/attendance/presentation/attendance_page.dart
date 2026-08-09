@@ -10,6 +10,7 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/presentation/auth_controller.dart';
 
 class AttendancePage extends ConsumerWidget {
   const AttendancePage({this.showMineOnly = false, super.key});
@@ -23,12 +24,25 @@ class AttendancePage extends ConsumerWidget {
         (state) => (attendance: state.attendance, employees: state.employees),
       ),
     );
+    final user = ref.watch(authControllerProvider).value?.user;
+    final currentEmployee = showMineOnly
+        ? data.employees
+                  .where((employee) => employee.id == user?.employeeId)
+                  .firstOrNull ??
+              data.employees
+                  .where(
+                    (employee) =>
+                        employee.username.isNotEmpty &&
+                        employee.username.toLowerCase() ==
+                            user?.name.toLowerCase(),
+                  )
+                  .firstOrNull
+        : data.employees.firstOrNull;
     final records = showMineOnly
         ? data.attendance
-              .where((record) => record.employeeId == 'employee-1')
+              .where((record) => record.employeeId == currentEmployee?.id)
               .toList()
         : data.attendance;
-    final currentEmployee = data.employees.first;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +52,15 @@ class AttendancePage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: ListView(
           children: [
-            if (showMineOnly) ...[
+            if (showMineOnly && currentEmployee == null) ...[
+              const AppStateView.empty(
+                title: 'Akun belum terhubung ke karyawan',
+                message:
+                    'Minta Owner cek Data Karyawan dan pastikan akun login ini tersambung ke data karyawan.',
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (showMineOnly && currentEmployee != null) ...[
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),

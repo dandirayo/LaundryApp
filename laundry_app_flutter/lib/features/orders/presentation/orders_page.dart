@@ -14,6 +14,7 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/presentation/auth_controller.dart';
 import 'order_whatsapp.dart';
 
 class OrdersPage extends ConsumerStatefulWidget {
@@ -36,6 +37,20 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
         (state) => (orders: state.orders, employees: state.employees),
       ),
     );
+    final user = ref.watch(authControllerProvider).value?.user;
+    final myEmployeeId =
+        data.employees
+            .where((employee) => employee.id == user?.employeeId)
+            .map((employee) => employee.id)
+            .firstOrNull ??
+        data.employees
+            .where(
+              (employee) =>
+                  employee.username.isNotEmpty &&
+                  employee.username.toLowerCase() == user?.name.toLowerCase(),
+            )
+            .map((employee) => employee.id)
+            .firstOrNull;
     final allOrders = data.orders;
     final strings = ref.strings;
     final orders = allOrders.where((order) {
@@ -46,7 +61,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       final statusMatch = _status == null || order.orderStatus == _status;
       final mineMatch =
           !widget.showMineOnly ||
-          order.assignedEmployeeId == 'employee-1' ||
+          order.assignedEmployeeId == myEmployeeId ||
           order.assignedEmployeeId.isEmpty;
       return queryMatch && statusMatch && mineMatch;
     }).toList();
@@ -123,14 +138,23 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
             const SizedBox(height: 12),
             Expanded(
               child: orders.isEmpty
-                  ? AppStateView.empty(
-                      title: strings.noOrdersTitle,
-                      message: strings.noOrdersMessage,
-                      actionLabel: strings.addOrder,
-                      onAction: () => context.go(AppRoutes.orderCreate),
+                  ? RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          const SizedBox(height: 80),
+                          AppStateView.empty(
+                            title: strings.noOrdersTitle,
+                            message: strings.noOrdersMessage,
+                            actionLabel: strings.addOrder,
+                            onAction: () => context.go(AppRoutes.orderCreate),
+                          ),
+                        ],
+                      ),
                     )
                   : RefreshIndicator(
-                      onRefresh: () async {},
+                      onRefresh: _refresh,
                       child: ListView.separated(
                         padding: const EdgeInsets.only(bottom: 24),
                         itemCount: orders.length,
@@ -166,6 +190,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _refresh() async {
+    ref.read(previewDataProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
   }
 
   Future<void> _showPaymentSheet(PreviewOrder order) async {

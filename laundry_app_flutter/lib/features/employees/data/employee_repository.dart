@@ -26,7 +26,9 @@ class EmployeeRepository {
     final client = _requireClient();
     final employeeRows = await client
         .from('employees')
-        .select('id, name, phone, position, is_active')
+        .select(
+          'id, name, phone, position, shift_start, shift_end, late_tolerance_minutes, is_active',
+        )
         .eq('role', 'EMPLOYEE')
         .order('name');
     final profileRows = await client
@@ -48,6 +50,9 @@ class EmployeeRepository {
           phone: (row['phone'] ?? '') as String,
           position: (row['position'] ?? 'Operator') as String,
           isActive: (row['is_active'] ?? true) as bool,
+          shiftStart: _formatTime(row['shift_start']?.toString() ?? '06:00'),
+          shiftEnd: _formatTime(row['shift_end']?.toString() ?? '14:00'),
+          lateToleranceMinutes: (row['late_tolerance_minutes'] ?? 120) as int,
           username: usernames[row['id']] ?? '',
         ),
     ];
@@ -59,6 +64,10 @@ class EmployeeRepository {
     required String name,
     required String phone,
     required String position,
+    required String shiftStart,
+    required String shiftEnd,
+    required int lateToleranceMinutes,
+    required bool isActive,
   }) async {
     final response = await _requireClient().functions.invoke(
       'create-employee-user',
@@ -68,6 +77,10 @@ class EmployeeRepository {
         'name': name.trim(),
         'phone': phone.trim(),
         'position': position.trim(),
+        'shift_start': _normalizeTime(shiftStart),
+        'shift_end': _normalizeTime(shiftEnd),
+        'late_tolerance_minutes': lateToleranceMinutes,
+        'is_active': isActive,
       },
     );
     final data = response.data;
@@ -89,6 +102,9 @@ class EmployeeRepository {
     required String name,
     required String phone,
     required String position,
+    required String shiftStart,
+    required String shiftEnd,
+    required int lateToleranceMinutes,
     required bool isActive,
   }) async {
     final client = _requireClient();
@@ -98,6 +114,9 @@ class EmployeeRepository {
           'name': name.trim(),
           'phone': phone.trim(),
           'position': position.trim(),
+          'shift_start': _normalizeTime(shiftStart),
+          'shift_end': _normalizeTime(shiftEnd),
+          'late_tolerance_minutes': lateToleranceMinutes,
           'is_active': isActive,
         })
         .eq('id', id);
@@ -120,5 +139,22 @@ class EmployeeRepository {
       );
     }
     return client;
+  }
+
+  String _normalizeTime(String value) {
+    final text = value.trim().replaceAll('.', ':');
+    final parts = text.split(':');
+    if (parts.length < 2) return text;
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatTime(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return '06.00';
+    final parts = text.split(':');
+    if (parts.length < 2) return text.replaceAll(':', '.');
+    return '${parts[0].padLeft(2, '0')}.${parts[1].padLeft(2, '0')}';
   }
 }

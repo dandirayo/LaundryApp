@@ -126,6 +126,10 @@ class ShiftsPage extends ConsumerWidget {
     PreviewShift? existingShift,
   }) async {
     final data = ref.read(previewDataProvider);
+    if (data.employees.isEmpty) {
+      showAppSnackBar('Tambahkan karyawan dulu sebelum membuat shift.');
+      return;
+    }
     var employeeId = existingShift?.employeeId ?? data.employees.first.id;
     var day = existingShift?.day ?? _days.first;
     final defaults = _defaultTimeForEmployee(employeeId);

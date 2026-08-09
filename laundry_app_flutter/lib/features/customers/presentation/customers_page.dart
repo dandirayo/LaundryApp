@@ -78,14 +78,23 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             const SizedBox(height: 16),
             Expanded(
               child: customers.isEmpty
-                  ? AppStateView.empty(
-                      title: strings.noCustomersTitle,
-                      message: strings.noCustomersMessage,
-                      actionLabel: strings.addCustomer,
-                      onAction: () => _showCustomerDialog(context),
+                  ? RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          const SizedBox(height: 80),
+                          AppStateView.empty(
+                            title: strings.noCustomersTitle,
+                            message: strings.noCustomersMessage,
+                            actionLabel: strings.addCustomer,
+                            onAction: () => _showCustomerDialog(context),
+                          ),
+                        ],
+                      ),
                     )
                   : RefreshIndicator(
-                      onRefresh: () async {},
+                      onRefresh: _refresh,
                       child: ListView.separated(
                         padding: const EdgeInsets.only(bottom: 24),
                         itemCount: customers.length,
@@ -111,7 +120,10 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                               leading: CircleAvatar(
                                 backgroundColor: AppColors.softMint,
                                 child: Text(
-                                  customer.name.characters.first.toUpperCase(),
+                                  customer.name.trim().isEmpty
+                                      ? '?'
+                                      : customer.name.characters.first
+                                            .toUpperCase(),
                                   style: const TextStyle(
                                     color: AppColors.primaryNavy,
                                     fontWeight: FontWeight.w800,
@@ -161,6 +173,11 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _refresh() async {
+    ref.read(previewDataProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
   }
 
   Future<void> _showCustomerDialog(
@@ -344,15 +361,12 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             .map(
               (contact) => _ImportedContact(
                 name: (contact.displayName ?? '').trim(),
-                phone:
-                    (contact.phones
-                            .firstWhere(
-                              (phone) => phone.number.trim().isNotEmpty,
-                            )
-                            .number)
-                        .trim(),
+                phone: contact.phones
+                    .map((phone) => phone.number.trim())
+                    .firstWhere((phone) => phone.isNotEmpty, orElse: () => ''),
               ),
             )
+            .where((contact) => contact.phone.isNotEmpty)
             .toList()
           ..sort((first, second) => first.name.compareTo(second.name));
 

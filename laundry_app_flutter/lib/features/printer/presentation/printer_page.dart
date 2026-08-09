@@ -39,14 +39,24 @@ class PrinterPage extends ConsumerWidget {
                 leading: Icon(Icons.print_outlined),
                 title: Text('Printer thermal belum dipilih'),
                 subtitle: Text(
-                  'Aplikasi tetap bisa preview struk, simpan PDF, dan share ringkasan.',
+                  'Plugin Bluetooth printer belum dipasang di APK. Preview struk tetap bisa dipakai.',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.extension_outlined),
+                title: Text('Plugin yang perlu dipasang'),
+                subtitle: Text(
+                  'Untuk test koneksi dan cetak fisik, aplikasi perlu plugin Flutter printer Bluetooth thermal seperti print_bluetooth_thermal atau esc_pos_printer_plus.',
                 ),
               ),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => showAppSnackBar(
-                'Test koneksi printer akan aktif saat plugin Bluetooth dipasang.',
+                'Test koneksi belum aktif. Pasang plugin Bluetooth printer dulu, lalu pilih perangkat printer.',
               ),
               icon: const Icon(Icons.bluetooth_searching),
               label: const Text('Test Koneksi'),

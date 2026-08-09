@@ -36,6 +36,14 @@ hilang:
 
 `supabase/migrations/202608090002_fix_profile_rls_and_employee_accounts.sql`
 
+Setelah itu jalankan juga migration pelengkap schema online:
+
+`supabase/migrations/202608090003_complete_online_schema.sql`
+
+Migration ini menambahkan tabel operasional seperti `cashbook_entries`,
+`inventory_items`, `inventory_movements`, `notifications`, dan
+`shop_settings`, sekaligus melengkapi shift/toleransi karyawan.
+
 ## 4. Masukkan Seed Katalog Awal
 
 Seed opsional berisi toko Idola Laundry dan contoh katalog bertingkat.
@@ -113,12 +121,33 @@ Setelah fungsi terpasang, buka `Lainnya > Data Karyawan > Tambah Karyawan`.
 Owner dapat mengisi nama, telepon, posisi, username, dan password awal.
 Karyawan kemudian login menggunakan username tersebut atau email internalnya.
 
+Jika Supabase CLI di Windows diblokir, deploy function dari mesin lain atau
+lewat workflow/server yang mengizinkan binary Supabase CLI. Aplikasi Flutter
+tidak boleh menyimpan `service_role_key`, jadi pembuatan user karyawan tetap
+harus lewat Edge Function.
+
+## 8. Build APK Kecil
+
+Untuk APK production kecil, gunakan release split per ABI:
+
+```powershell
+C:\Users\ASUS\dev\flutter_sdk\bin\flutter.bat build apk --release --split-per-abi `
+  --dart-define=SUPABASE_URL=https://PROJECT_REF.supabase.co `
+  --dart-define=SUPABASE_ANON_KEY=ANON_PUBLIC_KEY
+```
+
+Jika muncul `Application Control policy has blocked this file` untuk
+`gen_snapshot.EXE` atau `font-subset.exe`, berarti Windows memblokir proses
+AOT Flutter. Build release harus dijalankan setelah policy Windows tersebut
+diizinkan, atau dari komputer/CI lain yang tidak memblokir Flutter engine.
+
 ## Status Saat Ini
 
 - Supabase Auth sudah dibaca oleh app lewat tabel `profiles`.
 - Login menerima email Owner atau username karyawan.
 - Data dan akun login karyawan sudah menggunakan Supabase.
-- Schema database bisnis sudah disiapkan.
+- Schema database bisnis sudah disiapkan dan migration pelengkap tersedia.
+- Owner dapat menyimpan shift dan toleransi telat karyawan.
 - Repository data bisnis masih memakai preview/offline data dan akan dipindahkan bertahap:
   1. Services/katalog
   2. Customers

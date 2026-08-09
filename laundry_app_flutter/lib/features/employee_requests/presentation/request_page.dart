@@ -9,6 +9,7 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/presentation/auth_controller.dart';
 
 class RequestPage extends ConsumerWidget {
   const RequestPage({required this.typeLabel, super.key});
@@ -17,9 +18,20 @@ class RequestPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authControllerProvider).value?.user;
+    final employeeId = user?.employeeId;
     final requests = ref
-        .watch(previewDataProvider.select((state) => state.requests))
-        .where((request) => request.type == typeLabel)
+        .watch(
+          previewDataProvider.select(
+            (state) => (requests: state.requests, employees: state.employees),
+          ),
+        )
+        .requests
+        .where(
+          (request) =>
+              request.type == typeLabel &&
+              (employeeId == null || request.employeeId == employeeId),
+        )
         .toList();
 
     return Scaffold(
@@ -66,6 +78,37 @@ class RequestPage extends ConsumerWidget {
   }
 
   Future<void> _showRequestSheet(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(authControllerProvider).value?.user;
+    final data = ref.read(previewDataProvider);
+    final currentEmployee =
+        data.employees
+            .where((employee) => employee.id == user?.employeeId)
+            .firstOrNull ??
+        data.employees
+            .where(
+              (employee) =>
+                  employee.username.isNotEmpty &&
+                  employee.username.toLowerCase() == user?.name.toLowerCase(),
+            )
+            .firstOrNull;
+    if (currentEmployee == null) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Akun belum terhubung'),
+          content: const Text(
+            'Minta Owner cek Data Karyawan dan pastikan akun login ini terhubung ke karyawan aktif.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final reason = TextEditingController();
     final amount = TextEditingController(text: _isStockRequest ? '1' : '0');
     final formKey = GlobalKey<FormState>();
@@ -156,6 +199,7 @@ class RequestPage extends ConsumerWidget {
           type: typeLabel,
           reason: result.reason,
           amount: result.amount,
+          employeeId: currentEmployee.id,
         );
     showAppSnackBar('Request dikirim ke Owner.');
   }

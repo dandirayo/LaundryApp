@@ -22,7 +22,10 @@ class AppShell extends ConsumerWidget {
     final strings = ref.strings;
     final destinations = _destinationsFor(role, strings);
     final path = GoRouterState.of(context).uri.path;
-    final selectedIndex = _selectedIndex(path, destinations);
+    final selectedIndex = _selectedIndex(
+      path,
+      destinations,
+    ).clamp(0, destinations.length - 1).toInt();
 
     return LayoutBuilder(
       builder: (context, constraints) {

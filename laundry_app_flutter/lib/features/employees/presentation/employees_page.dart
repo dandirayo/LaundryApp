@@ -48,55 +48,68 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
               icon: const Icon(Icons.add),
               label: const Text('Karyawan'),
             ),
-      body: ResponsivePage(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, employees.isEmpty ? 24 : 96),
-        child: employees.isEmpty
-            ? const AppStateView.empty(
-                title: 'Karyawan belum ada',
-                message: 'Tambahkan data karyawan untuk shift dan absensi.',
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: employees.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final employee = employees[index];
-                  return Card(
-                    child: ListTile(
-                      onTap: () => _showEmployeeSheet(
-                        context,
-                        ref: ref,
-                        employee: employee,
-                      ),
-                      leading: const Icon(Icons.badge_outlined),
-                      title: Text(employee.name),
-                      subtitle: Text(
-                        [
-                          employee.position,
-                          employee.phone,
-                          if (employee.username.isNotEmpty)
-                            '@${employee.username}',
-                        ].where((value) => value.isNotEmpty).join(' - '),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(employee.isActive ? 'Aktif' : 'Nonaktif'),
-                          IconButton(
-                            tooltip: 'Edit karyawan',
-                            onPressed: () => _showEmployeeSheet(
-                              context,
-                              ref: ref,
-                              employee: employee,
-                            ),
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
-                        ],
-                      ),
+      body: RefreshIndicator(
+        onRefresh: () => _loadOnlineEmployees(showResult: true),
+        child: ResponsivePage(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, employees.isEmpty ? 24 : 96),
+          child: employees.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 80),
+                    AppStateView.empty(
+                      title: 'Karyawan belum ada',
+                      message:
+                          'Tambahkan data karyawan untuk shift dan absensi. Tarik ke bawah untuk refresh data Supabase.',
                     ),
-                  );
-                },
-              ),
+                  ],
+                )
+              : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: employees.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final employee = employees[index];
+                    return Card(
+                      child: ListTile(
+                        onTap: () => _showEmployeeSheet(
+                          context,
+                          ref: ref,
+                          employee: employee,
+                        ),
+                        leading: const Icon(Icons.badge_outlined),
+                        title: Text(employee.name),
+                        subtitle: Text(
+                          [
+                            employee.position,
+                            '${employee.shiftStart}-${employee.shiftEnd}',
+                            'Telat maks ${employee.lateToleranceMinutes} menit',
+                            employee.phone,
+                            if (employee.username.isNotEmpty)
+                              '@${employee.username}',
+                          ].where((value) => value.isNotEmpty).join(' - '),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(employee.isActive ? 'Aktif' : 'Nonaktif'),
+                            IconButton(
+                              tooltip: 'Edit karyawan',
+                              onPressed: () => _showEmployeeSheet(
+                                context,
+                                ref: ref,
+                                employee: employee,
+                              ),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -113,6 +126,13 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
     final phone = TextEditingController(text: employee?.phone ?? '');
     final position = TextEditingController(
       text: employee?.position ?? 'Operator',
+    );
+    final shiftStart = TextEditingController(
+      text: employee?.shiftStart ?? '06.00',
+    );
+    final shiftEnd = TextEditingController(text: employee?.shiftEnd ?? '14.00');
+    final lateTolerance = TextEditingController(
+      text: '${employee?.lateToleranceMinutes ?? 120}',
     );
     final username = TextEditingController(text: employee?.username ?? '');
     final password = TextEditingController();
@@ -152,6 +172,50 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
                 TextFormField(
                   controller: position,
                   decoration: const InputDecoration(labelText: 'Posisi'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: shiftStart,
+                        keyboardType: TextInputType.datetime,
+                        decoration: const InputDecoration(
+                          labelText: 'Mulai shift',
+                          helperText: 'Contoh 06.00',
+                        ),
+                        validator: _validateTime,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: shiftEnd,
+                        keyboardType: TextInputType.datetime,
+                        decoration: const InputDecoration(
+                          labelText: 'Selesai shift',
+                          helperText: 'Contoh 14.00',
+                        ),
+                        validator: _validateTime,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: lateTolerance,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Toleransi telat (menit)',
+                    helperText: 'Default 120 menit.',
+                  ),
+                  validator: (value) {
+                    final minutes = int.tryParse((value ?? '').trim());
+                    if (minutes == null || minutes < 0 || minutes > 480) {
+                      return 'Isi 0-480 menit.';
+                    }
+                    return null;
+                  },
                 ),
                 if (isOnline) ...[
                   const SizedBox(height: 12),
@@ -216,6 +280,11 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
                         name: name.text,
                         phone: phone.text,
                         position: position.text,
+                        shiftStart: shiftStart.text,
+                        shiftEnd: shiftEnd.text,
+                        lateToleranceMinutes: int.parse(
+                          lateTolerance.text.trim(),
+                        ),
                         isActive: isActive,
                         username: username.text,
                         password: password.text,
@@ -238,6 +307,9 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
     name.dispose();
     phone.dispose();
     position.dispose();
+    shiftStart.dispose();
+    shiftEnd.dispose();
+    lateTolerance.dispose();
     username.dispose();
     password.dispose();
 
@@ -257,6 +329,9 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
             name: result.name,
             phone: result.phone,
             position: result.position,
+            shiftStart: result.shiftStart,
+            shiftEnd: result.shiftEnd,
+            lateToleranceMinutes: result.lateToleranceMinutes,
             isActive: result.isActive,
           );
           if (!context.mounted) return;
@@ -266,6 +341,9 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
           name: result.name,
           phone: result.phone,
           position: result.position,
+          shiftStart: result.shiftStart,
+          shiftEnd: result.shiftEnd,
+          lateToleranceMinutes: result.lateToleranceMinutes,
           isActive: result.isActive,
         );
       } else {
@@ -277,6 +355,10 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
             name: result.name,
             phone: result.phone,
             position: result.position,
+            shiftStart: result.shiftStart,
+            shiftEnd: result.shiftEnd,
+            lateToleranceMinutes: result.lateToleranceMinutes,
+            isActive: result.isActive,
           );
           if (!context.mounted) return;
         }
@@ -285,9 +367,15 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
           name: result.name,
           phone: result.phone,
           position: result.position,
+          shiftStart: result.shiftStart,
+          shiftEnd: result.shiftEnd,
+          lateToleranceMinutes: result.lateToleranceMinutes,
           isActive: result.isActive,
           username: account?.username ?? result.username,
         );
+        if (isOnline) {
+          await _loadOnlineEmployees();
+        }
       }
       showAppSnackBar(
         isEditing
@@ -295,28 +383,79 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
             : 'Karyawan berhasil ditambahkan.',
       );
     } on Failure catch (error) {
-      showAppSnackBar(error.message);
+      if (context.mounted) {
+        await _showSaveErrorDialog(context, error.message);
+      }
     } on StateError catch (error) {
       showAppSnackBar(error.message);
     } catch (error) {
       final message = error.toString().contains('404')
           ? 'Fungsi akun karyawan belum dipasang di Supabase.'
           : 'Gagal menyimpan karyawan: $error';
-      showAppSnackBar(message);
+      if (context.mounted) {
+        await _showSaveErrorDialog(context, message);
+      }
     }
   }
 
-  Future<void> _loadOnlineEmployees() async {
+  Future<void> _loadOnlineEmployees({bool showResult = false}) async {
     final repository = EmployeeRepository();
-    if (!repository.isOnline) return;
+    if (!repository.isOnline) {
+      if (showResult) {
+        showAppSnackBar('Supabase belum dikonfigurasi.');
+      }
+      return;
+    }
     try {
       final employees = await repository.fetchEmployees();
       if (!mounted) return;
       ref.read(previewDataProvider.notifier).replaceEmployees(employees);
+      if (showResult) {
+        showAppSnackBar('Data karyawan diperbarui.');
+      }
     } catch (error) {
       if (!mounted) return;
-      showAppSnackBar('Data karyawan online belum dapat dimuat: $error');
+      if (showResult) {
+        showAppSnackBar('Data karyawan online belum dapat dimuat: $error');
+      }
     }
+  }
+
+  Future<void> _showSaveErrorDialog(BuildContext context, String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Karyawan belum tersimpan'),
+        content: Text(
+          '$message\n\nKalau ingin karyawan bisa login, pastikan Edge Function create-employee-user sudah dideploy di Supabase dan migration terbaru sudah dijalankan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _validateTime(String? value) {
+    final text = (value ?? '').trim().replaceAll('.', ':');
+    final match = RegExp(r'^(\d{1,2}):(\d{1,2})$').firstMatch(text);
+    if (match == null) {
+      return 'Format jam belum valid.';
+    }
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return 'Format jam belum valid.';
+    }
+    return null;
   }
 }
 
@@ -325,6 +464,9 @@ class _EmployeeInput {
     required this.name,
     required this.phone,
     required this.position,
+    required this.shiftStart,
+    required this.shiftEnd,
+    required this.lateToleranceMinutes,
     required this.isActive,
     required this.username,
     required this.password,
@@ -333,6 +475,9 @@ class _EmployeeInput {
   final String name;
   final String phone;
   final String position;
+  final String shiftStart;
+  final String shiftEnd;
+  final int lateToleranceMinutes;
   final bool isActive;
   final String username;
   final String password;

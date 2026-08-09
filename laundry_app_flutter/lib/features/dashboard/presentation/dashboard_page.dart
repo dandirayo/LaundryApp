@@ -37,31 +37,38 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: ListView(
-          children: [
-            Text(
-              '${strings.isEnglish ? 'Hello' : 'Halo'}, ${user?.name ?? (strings.isEnglish ? 'User' : 'Pengguna')}',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppColors.mainText,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.read(previewDataProvider);
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        },
+        child: ResponsivePage(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Text(
+                '${strings.isEnglish ? 'Hello' : 'Halo'}, ${user?.name ?? (strings.isEnglish ? 'User' : 'Pengguna')}',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.mainText,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${role.label} - ${today.toIndonesianDate()}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryText,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              Text(
+                '${role.label} - ${today.toIndonesianDate()}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            if (role == UserRole.owner)
-              const _OwnerDashboard()
-            else
-              const _EmployeeDashboard(),
-          ],
+              const SizedBox(height: 20),
+              if (role == UserRole.owner)
+                const _OwnerDashboard()
+              else
+                const _EmployeeDashboard(),
+            ],
+          ),
         ),
       ),
     );

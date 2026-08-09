@@ -243,6 +243,10 @@ class OrderDetailPage extends ConsumerWidget {
     PreviewOrder order,
     List<PreviewEmployee> employees,
   ) async {
+    if (employees.isEmpty) {
+      showAppSnackBar('Tambahkan karyawan dulu sebelum edit pesanan.');
+      return;
+    }
     var status = order.orderStatus;
     var employeeId = order.assignedEmployeeId.isEmpty
         ? employees.first.id
