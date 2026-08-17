@@ -170,7 +170,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                             ),
                             strings: strings,
                             onDetail: () => context.go('/orders/${order.id}'),
-                            onWhatsApp: () => _sendReadyPickupWhatsApp(order),
+                            onWhatsApp: orderHasReadyPickupWhatsApp(order)
+                                ? () => _sendReadyPickupWhatsApp(order)
+                                : null,
                             onPayment: order.remainingAmount <= 0
                                 ? null
                                 : () => _showPaymentSheet(order),
@@ -428,8 +430,8 @@ class _OrderCard extends StatelessWidget {
     required this.employeeName,
     required this.strings,
     required this.onDetail,
-    required this.onWhatsApp,
     required this.onStatus,
+    this.onWhatsApp,
     this.statusActionLabel,
     this.onPayment,
   });
@@ -438,7 +440,7 @@ class _OrderCard extends StatelessWidget {
   final String employeeName;
   final AppStrings strings;
   final VoidCallback onDetail;
-  final VoidCallback onWhatsApp;
+  final VoidCallback? onWhatsApp;
   final VoidCallback? onStatus;
   final String? statusActionLabel;
   final VoidCallback? onPayment;

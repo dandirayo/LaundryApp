@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/failure.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -9,9 +10,10 @@ import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
-import '../../../shared/preview_data.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../domain/customer.dart';
+import 'customer_controller.dart';
 
 class CustomersPage extends ConsumerStatefulWidget {
   const CustomersPage({super.key});
@@ -25,24 +27,17 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(
-      previewDataProvider.select(
-        (state) => (customers: state.customers, orders: state.orders),
-      ),
-    );
+    final customersAsync = ref.watch(customerControllerProvider);
     final role = ref.watch(authControllerProvider).value?.user?.role;
     final strings = ref.strings;
     final canImportContacts = role == UserRole.owner;
-    final canEditCustomers = role == UserRole.owner;
-    final customers = data.customers.where((customer) {
-      final text = '${customer.name} ${customer.phone} ${customer.address}'
-          .toLowerCase();
-      return text.contains(_query.toLowerCase());
-    }).toList();
+    final title = customersAsync.value == null
+        ? strings.customers
+        : strings.customersWithCount(customersAsync.value!.totalCount);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(strings.customers),
+        title: Text(title),
         actions: [
           if (canImportContacts)
             IconButton(
@@ -57,132 +52,45 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           ),
         ],
       ),
-      floatingActionButton: customers.isEmpty
+      floatingActionButton: customersAsync.value?.customers.isEmpty ?? true
           ? null
           : FloatingActionButton.extended(
               onPressed: () => _showCustomerDialog(context),
               icon: const Icon(Icons.add),
-              label: Text(strings.customers),
+              label: Text(strings.addCustomer),
             ),
-      body: ResponsivePage(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, customers.isEmpty ? 24 : 96),
-        child: Column(
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                hintText: strings.searchCustomers,
-                prefixIcon: const Icon(Icons.search),
-              ),
-              onChanged: (value) => setState(() => _query = value),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: customers.isEmpty
-                  ? RefreshIndicator(
-                      onRefresh: _refresh,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          const SizedBox(height: 80),
-                          AppStateView.empty(
-                            title: strings.noCustomersTitle,
-                            message: strings.noCustomersMessage,
-                            actionLabel: strings.addCustomer,
-                            onAction: () => _showCustomerDialog(context),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _refresh,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        itemCount: customers.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final customer = customers[index];
-                          final orders = data.orders
-                              .where((order) => order.customerId == customer.id)
-                              .toList();
-                          final totalKg = orders.fold<double>(
-                            0,
-                            (sum, order) => sum + order.laundryWeightKg,
-                          );
-                          return Card(
-                            child: ListTile(
-                              minTileHeight: 84,
-                              onTap: canEditCustomers
-                                  ? () => _showCustomerDialog(
-                                      context,
-                                      customer: customer,
-                                    )
-                                  : null,
-                              leading: CircleAvatar(
-                                backgroundColor: AppColors.softMint,
-                                child: Text(
-                                  customer.name.trim().isEmpty
-                                      ? '?'
-                                      : customer.name.characters.first
-                                            .toUpperCase(),
-                                  style: const TextStyle(
-                                    color: AppColors.primaryNavy,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                customer.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '${customer.phone}\n${customer.address.isEmpty ? strings.addressMissing : customer.address}\n${strings.visits(orders.length)} - ${totalKg.toStringAsFixed(1)} kg',
-                              ),
-                              isThreeLine: true,
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (canEditCustomers)
-                                    IconButton(
-                                      tooltip: strings.editCustomer,
-                                      onPressed: () => _showCustomerDialog(
-                                        context,
-                                        customer: customer,
-                                      ),
-                                      icon: const Icon(Icons.edit_outlined),
-                                    ),
-                                  IconButton(
-                                    tooltip: strings.phone,
-                                    onPressed: () => _showSnack(
-                                      strings.isEnglish
-                                          ? 'Phone action is ready to be connected to url_launcher.'
-                                          : 'Aksi telepon siap dihubungkan ke url_launcher.',
-                                    ),
-                                    icon: const Icon(Icons.call_outlined),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            ),
-          ],
+      body: customersAsync.when(
+        data: (state) => _CustomerListBody(
+          state: state,
+          query: _query,
+          onQueryChanged: (value) => setState(() => _query = value),
+          onRefresh: _refresh,
+          onAdd: () => _showCustomerDialog(context),
+          onEdit: role == UserRole.owner
+              ? (customer) => _showCustomerDialog(context, customer: customer)
+              : null,
+          onPhone: (customer) => _showSnack(
+            customer.hasPhone
+                ? '${strings.phone}: ${customer.phone}'
+                : strings.phoneMissing,
+          ),
+        ),
+        loading: () => const LoadingStateView(),
+        error: (error, _) => _CustomerErrorView(
+          message: _messageForError(error),
+          onRefresh: _refresh,
         ),
       ),
     );
   }
 
-  Future<void> _refresh() async {
-    ref.read(previewDataProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+  Future<void> _refresh() {
+    return ref.read(customerControllerProvider.notifier).refresh();
   }
 
   Future<void> _showCustomerDialog(
     BuildContext context, {
-    PreviewCustomer? customer,
+    Customer? customer,
   }) async {
     final isEditing = customer != null;
     final strings = ref.read(appLanguageProvider) == AppLanguage.en
@@ -214,8 +122,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               const SizedBox(height: 6),
               Text(
                 strings.isEnglish
-                    ? 'Only name and WhatsApp number are required. Other details are optional.'
-                    : 'Cukup isi nama dan nomor WA. Detail lain boleh menyusul.',
+                    ? 'Name is required. WhatsApp number can be added later.'
+                    : 'Nama wajib. Nomor WA bisa ditambahkan nanti.',
                 style: const TextStyle(color: AppColors.secondaryText),
               ),
               const SizedBox(height: 16),
@@ -234,12 +142,16 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: strings.isEnglish ? 'WhatsApp number' : 'Nomor WA',
+                  labelText: strings.isEnglish
+                      ? 'WhatsApp number (optional)'
+                      : 'Nomor WA (opsional)',
                   prefixIcon: const Icon(Icons.chat_outlined),
                 ),
-                validator: (value) => (value ?? '').trim().length < 8
-                    ? strings.invalidPhone
-                    : null,
+                validator: (value) {
+                  return Customer.isValidOptionalPhone(value ?? '')
+                      ? null
+                      : strings.invalidPhone;
+                },
               ),
               const SizedBox(height: 8),
               ExpansionTile(
@@ -306,9 +218,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       return;
     }
     try {
-      final notifier = ref.read(previewDataProvider.notifier);
+      final controller = ref.read(customerControllerProvider.notifier);
       if (isEditing) {
-        notifier.updateCustomer(
+        await controller.updateCustomer(
           id: customer.id,
           name: result.name,
           phone: result.phone,
@@ -316,7 +228,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           note: result.note,
         );
       } else {
-        notifier.addCustomer(
+        await controller.addCustomer(
           name: result.name,
           phone: result.phone,
           address: result.address,
@@ -326,9 +238,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       if (mounted) {
         _showSnack(isEditing ? strings.customerUpdated : strings.customerAdded);
       }
-    } on StateError catch (error) {
+    } catch (error) {
       if (mounted) {
-        _showSnack(error.message);
+        _showSnack(_messageForError(error));
       }
     }
   }
@@ -384,8 +296,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       return;
     }
     try {
-      ref
-          .read(previewDataProvider.notifier)
+      await ref
+          .read(customerControllerProvider.notifier)
           .addCustomer(
             name: selected.name,
             phone: selected.phone,
@@ -398,9 +310,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             : const AppStrings(AppLanguage.id);
         _showSnack(strings.imported(selected.name));
       }
-    } on StateError catch (error) {
+    } catch (error) {
       if (mounted) {
-        _showSnack(error.message);
+        _showSnack(_messageForError(error));
       }
     }
   }
@@ -476,6 +388,176 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   }
 }
 
+class _CustomerListBody extends ConsumerWidget {
+  const _CustomerListBody({
+    required this.state,
+    required this.query,
+    required this.onQueryChanged,
+    required this.onRefresh,
+    required this.onAdd,
+    required this.onPhone,
+    this.onEdit,
+  });
+
+  final CustomerListState state;
+  final String query;
+  final ValueChanged<String> onQueryChanged;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onAdd;
+  final ValueChanged<Customer>? onEdit;
+  final ValueChanged<Customer> onPhone;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.strings;
+    final customers = state.customers.where((customer) {
+      final text =
+          '${customer.name} ${customer.phone ?? ''} ${customer.address}'
+              .toLowerCase();
+      return text.contains(query.toLowerCase());
+    }).toList();
+
+    return ResponsivePage(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, customers.isEmpty ? 24 : 96),
+      child: Column(
+        children: [
+          TextField(
+            decoration: InputDecoration(
+              hintText: strings.searchCustomers,
+              prefixIcon: const Icon(Icons.search),
+            ),
+            onChanged: onQueryChanged,
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: customers.isEmpty
+                ? RefreshIndicator(
+                    onRefresh: onRefresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        AppStateView.empty(
+                          title: query.trim().isEmpty
+                              ? strings.noCustomersTitle
+                              : (strings.isEnglish
+                                    ? 'Customer not found'
+                                    : 'Pelanggan tidak ditemukan'),
+                          message: query.trim().isEmpty
+                              ? strings.noCustomersMessage
+                              : (strings.isEnglish
+                                    ? 'Try another name or phone number.'
+                                    : 'Coba nama atau nomor lain.'),
+                          actionLabel: query.trim().isEmpty
+                              ? strings.addCustomer
+                              : null,
+                          onAction: query.trim().isEmpty ? onAdd : null,
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: onRefresh,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      itemCount: customers.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final customer = customers[index];
+                        final phoneText = customer.hasPhone
+                            ? customer.phone!
+                            : strings.phoneMissingShort;
+                        final addressText = customer.address.isEmpty
+                            ? strings.addressMissing
+                            : customer.address;
+                        return Card(
+                          child: ListTile(
+                            minTileHeight: 84,
+                            onTap: onEdit == null
+                                ? null
+                                : () => onEdit!(customer),
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.softMint,
+                              child: Text(
+                                customer.name.trim().isEmpty
+                                    ? '?'
+                                    : customer.name.characters.first
+                                          .toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppColors.primaryNavy,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              customer.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text('$phoneText\n$addressText'),
+                            isThreeLine: true,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (onEdit != null)
+                                  IconButton(
+                                    tooltip: strings.editCustomer,
+                                    onPressed: () => onEdit!(customer),
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                                IconButton(
+                                  tooltip: customer.hasPhone
+                                      ? strings.phone
+                                      : strings.phoneMissing,
+                                  onPressed: customer.hasPhone
+                                      ? () => onPhone(customer)
+                                      : null,
+                                  icon: const Icon(Icons.call_outlined),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerErrorView extends StatelessWidget {
+  const _CustomerErrorView({required this.message, required this.onRefresh});
+
+  final String message;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsivePage(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 80),
+            AppStateView.error(
+              title: 'Data pelanggan belum bisa dimuat',
+              message: message,
+              actionLabel: 'Coba Lagi',
+              onAction: onRefresh,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CustomerInput {
   const _CustomerInput({
     required this.name,
@@ -495,4 +577,14 @@ class _ImportedContact {
 
   final String name;
   final String phone;
+}
+
+String _messageForError(Object error) {
+  if (error is Failure) {
+    return error.message;
+  }
+  if (error is StateError) {
+    return error.message;
+  }
+  return error.toString();
 }

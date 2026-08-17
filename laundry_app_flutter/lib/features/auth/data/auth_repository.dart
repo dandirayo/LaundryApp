@@ -184,7 +184,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final user = AppUser(
       userId: 'preview-${role.storageValue.toLowerCase()}',
       shopId: 'preview-shop-${_uuid.v4()}',
-      employeeId: role == UserRole.employee ? 'preview-employee-1' : null,
+      employeeId: role == UserRole.employee ? 'employee-1' : null,
       name: role == UserRole.owner ? 'Owner Idola' : 'Karyawan 1',
       role: role,
       isActive: true,

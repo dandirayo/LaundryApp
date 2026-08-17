@@ -11,6 +11,7 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'employee_request_controller.dart';
 
 class RequestReviewPage extends ConsumerStatefulWidget {
   const RequestReviewPage({super.key});
@@ -24,9 +25,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final allRequests = ref.watch(
-      previewDataProvider.select((state) => state.requests),
-    );
+    final requestState = ref.watch(employeeRequestControllerProvider);
+    final List<PreviewEmployeeRequest> allRequests =
+        requestState.value?.requests ??
+        ref.watch(previewDataProvider.select((state) => state.requests));
     final requests = allRequests.where((request) {
       return _statusFilter == null || request.status == _statusFilter;
     }).toList();
@@ -137,8 +139,12 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     }
     try {
       ref
-          .read(previewDataProvider.notifier)
-          .reviewRequest(request.id, status, reviewNote: note);
+          .read(employeeRequestControllerProvider.notifier)
+          .updateStatus(
+            requestId: request.id,
+            status: status,
+            reviewNote: note,
+          );
       _showMessage('Request ${status.label.toLowerCase()}.');
     } on StateError catch (error) {
       _showMessage(error.message);
@@ -174,8 +180,14 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     }
     try {
       ref
-          .read(previewDataProvider.notifier)
-          .payEmployeeRequest(requestId: request.id, method: method);
+          .read(employeeRequestControllerProvider.notifier)
+          .updateStatus(
+            requestId: request.id,
+            status: PreviewRequestStatus.paid,
+            reviewNote: request.reviewNote.isEmpty
+                ? 'Dibayar via $method.'
+                : '${request.reviewNote} Dibayar via $method.',
+          );
       _showMessage('Pembayaran request masuk Buku Kas.');
     } on StateError catch (error) {
       _showMessage(error.message);
@@ -198,7 +210,15 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       return;
     }
     try {
-      ref.read(previewDataProvider.notifier).completeRequest(request.id);
+      ref
+          .read(employeeRequestControllerProvider.notifier)
+          .updateStatus(
+            requestId: request.id,
+            status: PreviewRequestStatus.completed,
+            reviewNote: request.reviewNote.isEmpty
+                ? 'Ditandai selesai.'
+                : '${request.reviewNote} Ditandai selesai.',
+          );
       _showMessage('Request ditandai selesai.');
     } on StateError catch (error) {
       _showMessage(error.message);

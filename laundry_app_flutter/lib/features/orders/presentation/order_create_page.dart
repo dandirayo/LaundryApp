@@ -11,6 +11,7 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../customers/domain/customer.dart';
 import 'receipt_preview_sheet.dart';
 
 class OrderCreatePage extends ConsumerStatefulWidget {
@@ -435,11 +436,16 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               controller: phoneController,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
-                labelText: strings.isEnglish ? 'WhatsApp number' : 'Nomor WA',
+                labelText: strings.isEnglish
+                    ? 'WhatsApp number (optional)'
+                    : 'Nomor WA (opsional)',
                 prefixIcon: const Icon(Icons.chat_outlined),
               ),
-              validator: (value) =>
-                  (value ?? '').trim().length < 8 ? strings.invalidPhone : null,
+              validator: (value) {
+                return Customer.isValidOptionalPhone(value ?? '')
+                    ? null
+                    : strings.invalidPhone;
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(

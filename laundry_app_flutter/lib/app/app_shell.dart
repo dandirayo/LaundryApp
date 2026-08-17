@@ -9,6 +9,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/confirmation_dialog.dart';
 import '../features/auth/domain/user_role.dart';
 import '../features/auth/presentation/auth_controller.dart';
+import '../features/customers/presentation/customer_controller.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({required this.child, super.key});
@@ -20,7 +21,10 @@ class AppShell extends ConsumerWidget {
     final session = ref.watch(authControllerProvider).value;
     final role = session?.user?.role ?? UserRole.employee;
     final strings = ref.strings;
-    final destinations = _destinationsFor(role, strings);
+    final customerTotal = role == UserRole.owner
+        ? ref.watch(customerControllerProvider).value?.totalCount
+        : null;
+    final destinations = _destinationsFor(role, strings, customerTotal);
     final path = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(
       path,
@@ -91,7 +95,11 @@ class AppShell extends ConsumerWidget {
     context.go(destination.path);
   }
 
-  List<_ShellDestination> _destinationsFor(UserRole role, AppStrings strings) {
+  List<_ShellDestination> _destinationsFor(
+    UserRole role,
+    AppStrings strings,
+    int? customerTotal,
+  ) {
     if (role == UserRole.owner) {
       return [
         _ShellDestination(
@@ -107,7 +115,9 @@ class AppShell extends ConsumerWidget {
           selectedIcon: Icons.receipt_long,
         ),
         _ShellDestination(
-          label: strings.customers,
+          label: customerTotal == null
+              ? strings.customers
+              : strings.customersWithCount(customerTotal),
           path: AppRoutes.customers,
           icon: Icons.people_outline,
           selectedIcon: Icons.people,

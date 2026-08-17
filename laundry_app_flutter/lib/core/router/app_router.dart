@@ -148,6 +148,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 _withBackGuard(const RequestReviewPage()),
           ),
           GoRoute(
+            path: AppRoutes.requestsMine,
+            builder: (context, state) => _withBackGuard(const RequestPage()),
+          ),
+          GoRoute(
             path: AppRoutes.reports,
             builder: (context, state) => _withBackGuard(const ReportsPage()),
           ),
@@ -183,34 +187,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.stockRequest,
             builder: (context, state) =>
-                _withBackGuard(const RequestPage(typeLabel: 'Request Stok')),
+                _withBackGuard(const RequestPage(initialType: 'Request Stok')),
           ),
           GoRoute(
             path: AppRoutes.overtimeRequest,
-            builder: (context, state) =>
-                _withBackGuard(const RequestPage(typeLabel: 'Request Lembur')),
+            builder: (context, state) => _withBackGuard(
+              const RequestPage(initialType: 'Request Lembur'),
+            ),
           ),
           GoRoute(
             path: AppRoutes.shiftSwapRequest,
             builder: (context, state) => _withBackGuard(
-              const RequestPage(typeLabel: 'Request Tukar Shift'),
+              const RequestPage(initialType: 'Request Tukar Shift'),
             ),
           ),
           GoRoute(
             path: AppRoutes.leaveRequest,
             builder: (context, state) =>
-                _withBackGuard(const RequestPage(typeLabel: 'Request Izin')),
+                _withBackGuard(const RequestPage(initialType: 'Request Izin')),
           ),
           GoRoute(
             path: AppRoutes.incentiveRequest,
             builder: (context, state) => _withBackGuard(
-              const RequestPage(typeLabel: 'Request Insentif'),
+              const RequestPage(initialType: 'Request Insentif'),
             ),
           ),
           GoRoute(
             path: AppRoutes.cashAdvanceRequest,
-            builder: (context, state) =>
-                _withBackGuard(const RequestPage(typeLabel: 'Request Kasbon')),
+            builder: (context, state) => _withBackGuard(
+              const RequestPage(initialType: 'Request Kasbon'),
+            ),
           ),
           GoRoute(
             path: AppRoutes.changePin,

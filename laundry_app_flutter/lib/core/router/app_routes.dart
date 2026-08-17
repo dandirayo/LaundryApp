@@ -21,6 +21,7 @@ class AppRoutes {
   static const attendanceMine = '/attendance/me';
   static const payroll = '/payroll';
   static const requestReview = '/requests/review';
+  static const requestsMine = '/requests/me';
   static const reports = '/reports';
   static const cashbook = '/cashbook';
   static const expenses = '/expenses';
@@ -57,6 +58,7 @@ class AppRoutes {
     ordersMine,
     attendanceMine,
     shiftsMine,
+    requestsMine,
     stockRequest,
     overtimeRequest,
     shiftSwapRequest,

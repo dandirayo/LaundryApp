@@ -55,6 +55,7 @@ class OrderDetailPage extends ConsumerWidget {
     final payments = data.payments
         .where((payment) => payment.orderId == order.id)
         .toList();
+    final canSendWhatsApp = orderHasReadyPickupWhatsApp(order);
     final employeeName =
         data.employees
             .where((employee) => employee.id == order.assignedEmployeeId)
@@ -203,17 +204,19 @@ class OrderDetailPage extends ConsumerWidget {
               runSpacing: 10,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () async {
-                    final opened = await launchReadyPickupWhatsApp(order);
-                    if (!context.mounted) {
-                      return;
-                    }
-                    showAppSnackBar(
-                      opened
-                          ? 'WhatsApp dibuka dengan template siap ambil.'
-                          : 'WhatsApp tidak bisa dibuka di perangkat ini.',
-                    );
-                  },
+                  onPressed: canSendWhatsApp
+                      ? () async {
+                          final opened = await launchReadyPickupWhatsApp(order);
+                          if (!context.mounted) {
+                            return;
+                          }
+                          showAppSnackBar(
+                            opened
+                                ? 'WhatsApp dibuka dengan template siap ambil.'
+                                : 'WhatsApp tidak bisa dibuka di perangkat ini.',
+                          );
+                        }
+                      : null,
                   icon: const Icon(Icons.chat_outlined),
                   label: const Text('WhatsApp Siap Ambil'),
                 ),

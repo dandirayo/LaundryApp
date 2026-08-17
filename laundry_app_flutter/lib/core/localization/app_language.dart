@@ -122,6 +122,9 @@ class AppStrings {
   String get mySchedule => isEnglish ? 'My Schedule' : 'Jadwal Saya';
   String get addCustomer => isEnglish ? 'Add Customer' : 'Tambah Pelanggan';
   String get editCustomer => isEnglish ? 'Edit Customer' : 'Edit Pelanggan';
+  String customersWithCount(int count) =>
+      isEnglish ? 'Customers ($count)' : 'Pelanggan ($count)';
+  String get newCustomers => isEnglish ? 'New Customers' : 'Pelanggan Baru';
   String get importPhoneContacts =>
       isEnglish ? 'Import Phone Contacts' : 'Import kontak HP';
   String get searchCustomers => isEnglish
@@ -130,10 +133,15 @@ class AppStrings {
   String get noCustomersTitle =>
       isEnglish ? 'No customers yet' : 'Pelanggan belum ada';
   String get noCustomersMessage => isEnglish
-      ? 'Add customers so orders can use a valid customerId.'
-      : 'Tambahkan pelanggan agar pesanan bisa memakai customerId yang valid.';
+      ? 'Add the first customer to start creating orders.'
+      : 'Tambahkan pelanggan pertama untuk mulai membuat pesanan.';
   String get addressMissing =>
       isEnglish ? 'Address not filled' : 'Alamat belum diisi';
+  String get phoneMissingShort =>
+      isEnglish ? 'No phone number' : 'Tidak ada nomor telepon';
+  String get phoneMissing => isEnglish
+      ? 'Customer phone number is not available.'
+      : 'Nomor WhatsApp pelanggan belum tersedia.';
   String visits(int count) => isEnglish ? '$count visits' : '$count kunjungan';
   String get nameRequired =>
       isEnglish ? 'Name is required.' : 'Nama wajib diisi.';

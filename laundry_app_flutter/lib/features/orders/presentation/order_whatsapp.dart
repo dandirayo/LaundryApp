@@ -15,11 +15,18 @@ String readyPickupWhatsAppMessage(PreviewOrder order) {
       'Terima kasih.';
 }
 
+bool orderHasReadyPickupWhatsApp(PreviewOrder order) {
+  final phone = PreviewDataController.normalizeIndonesianPhone(
+    order.customerPhoneSnapshot,
+  ).replaceAll('+', '');
+  return phone.length >= 8;
+}
+
 Future<bool> launchReadyPickupWhatsApp(PreviewOrder order) {
   final phone = PreviewDataController.normalizeIndonesianPhone(
     order.customerPhoneSnapshot,
   ).replaceAll('+', '');
-  if (phone.isEmpty) {
+  if (phone.length < 8) {
     return Future.value(false);
   }
 

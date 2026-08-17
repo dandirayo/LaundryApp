@@ -1392,7 +1392,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }) {
     final normalizedPhone = normalizeIndonesianPhone(phone);
     final exists = state.customers.any(
-      (customer) => customer.normalizedPhone == normalizedPhone,
+      (customer) =>
+          normalizedPhone.isNotEmpty &&
+          customer.normalizedPhone == normalizedPhone,
     );
     if (exists) {
       throw StateError('Nomor telepon sudah terdaftar.');
@@ -1420,7 +1422,9 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     final normalizedPhone = normalizeIndonesianPhone(phone);
     final duplicate = state.customers.any(
       (customer) =>
-          customer.id != id && customer.normalizedPhone == normalizedPhone,
+          normalizedPhone.isNotEmpty &&
+          customer.id != id &&
+          customer.normalizedPhone == normalizedPhone,
     );
     if (duplicate) {
       throw StateError('Nomor telepon sudah terdaftar.');
@@ -2503,12 +2507,15 @@ class PreviewDataController extends Notifier<PreviewDataState> {
 
   static String normalizeIndonesianPhone(String value) {
     var phone = value.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (phone.replaceAll(RegExp(r'[^0-9]'), '').isEmpty) {
+      return '';
+    }
     if (phone.startsWith('+62')) {
       phone = phone.substring(1);
     } else if (phone.startsWith('0')) {
       phone = '62${phone.substring(1)}';
     }
-    return phone;
+    return phone.replaceAll(RegExp(r'[^0-9]'), '');
   }
 
   PreviewNotification _notification(

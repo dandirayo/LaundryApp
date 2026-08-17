@@ -168,34 +168,9 @@ class MorePage extends ConsumerWidget {
         title: strings.requests.toUpperCase(),
         items: [
           _MenuItem(
-            'Request Stok',
-            Icons.add_shopping_cart,
-            AppRoutes.stockRequest,
-          ),
-          _MenuItem(
-            'Request Lembur',
-            Icons.alarm_add_outlined,
-            AppRoutes.overtimeRequest,
-          ),
-          _MenuItem(
-            'Request Tukar Shift',
-            Icons.swap_horiz,
-            AppRoutes.shiftSwapRequest,
-          ),
-          _MenuItem(
-            'Request Izin',
-            Icons.event_busy_outlined,
-            AppRoutes.leaveRequest,
-          ),
-          _MenuItem(
-            'Request Insentif',
-            Icons.star_outline,
-            AppRoutes.incentiveRequest,
-          ),
-          _MenuItem(
-            'Request Kasbon',
-            Icons.payments_outlined,
-            AppRoutes.cashAdvanceRequest,
+            'Request Saya',
+            Icons.rule_folder_outlined,
+            AppRoutes.requestsMine,
           ),
         ],
       ),

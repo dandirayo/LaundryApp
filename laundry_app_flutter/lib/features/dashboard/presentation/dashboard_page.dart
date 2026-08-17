@@ -12,8 +12,11 @@ import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../core/widgets/summary_card.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/domain/app_user.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../customers/presentation/customer_controller.dart';
+import '../../employee_requests/presentation/employee_request_controller.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -40,6 +43,8 @@ class DashboardPage extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.read(previewDataProvider);
+          await ref.read(customerControllerProvider.notifier).refresh();
+          await ref.read(employeeRequestControllerProvider.notifier).refresh();
           await Future<void>.delayed(const Duration(milliseconds: 250));
         },
         child: ResponsivePage(
@@ -98,6 +103,10 @@ class _OwnerDashboard extends ConsumerWidget {
     final pending = data.requests
         .where((request) => request.status == PreviewRequestStatus.pending)
         .length;
+    final requestState = ref.watch(employeeRequestControllerProvider).value;
+    final pendingRequests = requestState?.pendingCount ?? pending;
+    final customerState = ref.watch(customerControllerProvider).value;
+    final customerTotal = customerState?.totalCount ?? data.customers.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,10 +121,8 @@ class _OwnerDashboard extends ConsumerWidget {
               onTap: () => context.go(AppRoutes.orders),
             ),
             SummaryCard(
-              label: strings.isEnglish
-                  ? 'Customers today'
-                  : 'Pelanggan hari ini',
-              value: '${data.customers.length}',
+              label: strings.isEnglish ? 'Total customers' : 'Total pelanggan',
+              value: '$customerTotal',
               icon: Icons.people,
               color: AppColors.softBlue,
               onTap: () => context.go(AppRoutes.customers),
@@ -168,13 +175,15 @@ class _OwnerDashboard extends ConsumerWidget {
             ),
             SummaryCard(
               label: strings.isEnglish ? 'Pending requests' : 'Request pending',
-              value: '$pending',
+              value: '$pendingRequests',
               icon: Icons.task_alt,
               color: AppColors.primaryBlue,
               onTap: () => context.go(AppRoutes.requestReview),
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        const _LatestCustomersSection(),
         const SizedBox(height: 24),
         _QuickActions(
           title: strings.isEnglish ? 'Quick actions' : 'Aksi cepat',
@@ -212,25 +221,138 @@ class _OwnerDashboard extends ConsumerWidget {
   }
 }
 
+class _LatestCustomersSection extends ConsumerWidget {
+  const _LatestCustomersSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.strings;
+    final customersAsync = ref.watch(customerControllerProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                strings.newCustomers,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => context.go(AppRoutes.customers),
+              icon: const Icon(Icons.arrow_forward),
+              label: Text(strings.isEnglish ? 'View All' : 'Lihat Semua'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        customersAsync.when(
+          data: (state) {
+            final latest = state.latest(limit: 5);
+            if (latest.isEmpty) {
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.people_outline),
+                  title: Text(strings.noCustomersTitle),
+                  subtitle: Text(strings.noCustomersMessage),
+                ),
+              );
+            }
+            return Column(
+              children: [
+                for (final customer in latest) ...[
+                  Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.softMint,
+                        child: Text(
+                          customer.name.trim().isEmpty
+                              ? '?'
+                              : customer.name.characters.first.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.primaryNavy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        customer.name,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: Text(
+                        customer.hasPhone
+                            ? customer.phone!
+                            : strings.phoneMissingShort,
+                      ),
+                      trailing: Text(
+                        customer.createdAt.toIndonesianDate(),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondaryText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onTap: () => context.go(AppRoutes.customers),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            );
+          },
+          loading: () => const SizedBox(
+            height: 88,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 3)),
+          ),
+          error: (error, _) => Card(
+            child: ListTile(
+              leading: const Icon(Icons.error_outline),
+              title: Text(
+                strings.isEnglish
+                    ? 'Customers could not be loaded'
+                    : 'Pelanggan belum bisa dimuat',
+              ),
+              subtitle: Text(error.toString()),
+              trailing: IconButton(
+                tooltip: strings.isEnglish ? 'Retry' : 'Coba lagi',
+                onPressed: () =>
+                    ref.read(customerControllerProvider.notifier).refresh(),
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EmployeeDashboard extends ConsumerWidget {
   const _EmployeeDashboard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
+    final user = ref.watch(authControllerProvider).value?.user;
+    final employeeId = _resolvePreviewEmployeeId(data, user);
+    final requestState = ref.watch(employeeRequestControllerProvider).value;
+    final requestSource = requestState?.requests ?? data.requests;
     final myOrders = data.orders
-        .where((order) => order.assignedEmployeeId == 'employee-1')
+        .where((order) => order.assignedEmployeeId == employeeId)
         .toList();
     final myAttendance = data.attendance
-        .where((entry) => entry.employeeId == 'employee-1')
+        .where((entry) => entry.employeeId == employeeId)
         .toList();
-    final myRequests = data.requests
-        .where((request) => request.employeeId == 'employee-1')
+    final myRequests = requestSource
+        .where((request) => request.employeeId == employeeId)
         .toList();
     final todayShift = data.shifts
         .where(
           (shift) =>
-              shift.employeeId == 'employee-1' &&
+              shift.employeeId == employeeId &&
               shift.day == _indonesianDay(DateTime.now()),
         )
         .firstOrNull;
@@ -345,6 +467,45 @@ String _indonesianDay(DateTime date) {
   };
 }
 
+String? _resolvePreviewEmployeeId(PreviewDataState data, AppUser? user) {
+  final employeeId = user?.employeeId;
+  if (employeeId != null &&
+      data.employees.any((employee) => employee.id == employeeId)) {
+    return employeeId;
+  }
+
+  if (user?.userId.startsWith('preview-') == true &&
+      employeeId == 'preview-employee-1' &&
+      data.employees.any((employee) => employee.id == 'employee-1')) {
+    return 'employee-1';
+  }
+
+  final normalizedName = user?.name.trim().toLowerCase();
+  if (normalizedName != null && normalizedName.isNotEmpty) {
+    final byUsername = data.employees
+        .where(
+          (employee) =>
+              employee.username.isNotEmpty &&
+              employee.username.trim().toLowerCase() == normalizedName,
+        )
+        .firstOrNull;
+    if (byUsername != null) {
+      return byUsername.id;
+    }
+
+    final byName = data.employees
+        .where(
+          (employee) => employee.name.trim().toLowerCase() == normalizedName,
+        )
+        .firstOrNull;
+    if (byName != null) {
+      return byName.id;
+    }
+  }
+
+  return employeeId;
+}
+
 class _QuickActions extends StatelessWidget {
   const _QuickActions({required this.title, required this.actions});
 
@@ -397,10 +558,14 @@ class _OperationalSummaryAction extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
-    final attentionCount =
+    final requestState = ref.watch(employeeRequestControllerProvider).value;
+    final pendingRequests =
+        requestState?.pendingCount ??
         data.requests
             .where((request) => request.status == PreviewRequestStatus.pending)
-            .length +
+            .length;
+    final attentionCount =
+        pendingRequests +
         data.orders
             .where((order) => order.orderStatus == PreviewOrderStatus.ready)
             .length +
@@ -408,7 +573,11 @@ class _OperationalSummaryAction extends ConsumerWidget {
 
     return IconButton(
       tooltip: 'Ringkasan operasional',
-      onPressed: () => _showOperationalSummary(context, data),
+      onPressed: () => _showOperationalSummary(
+        context,
+        data,
+        pendingRequests: pendingRequests,
+      ),
       icon: attentionCount == 0
           ? const Icon(Icons.insights_outlined)
           : Badge.count(
@@ -418,7 +587,11 @@ class _OperationalSummaryAction extends ConsumerWidget {
     );
   }
 
-  void _showOperationalSummary(BuildContext context, PreviewDataState data) {
+  void _showOperationalSummary(
+    BuildContext context,
+    PreviewDataState data, {
+    required int pendingRequests,
+  }) {
     showAppModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -435,7 +608,7 @@ class _OperationalSummaryAction extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _OperationalSummaryList(data: data),
+          _OperationalSummaryList(data: data, pendingRequests: pendingRequests),
         ],
       ),
     );
@@ -443,17 +616,18 @@ class _OperationalSummaryAction extends ConsumerWidget {
 }
 
 class _OperationalSummaryList extends StatelessWidget {
-  const _OperationalSummaryList({required this.data});
+  const _OperationalSummaryList({
+    required this.data,
+    required this.pendingRequests,
+  });
 
   final PreviewDataState data;
+  final int pendingRequests;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      (
-        'Perlu Perhatian',
-        '${data.requests.where((request) => request.status == PreviewRequestStatus.pending).length} request menunggu persetujuan.',
-      ),
+      ('Perlu Perhatian', '$pendingRequests request menunggu persetujuan.'),
       (
         'Aktivitas Terbaru',
         data.cashTransactions.isEmpty
