@@ -10,7 +10,9 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import 'attendance_controller.dart';
 
 class AttendancePage extends ConsumerWidget {
   const AttendancePage({this.showMineOnly = false, super.key});
@@ -19,24 +21,19 @@ class AttendancePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(
+    final preview = ref.watch(
       previewDataProvider.select(
         (state) => (attendance: state.attendance, employees: state.employees),
       ),
     );
+    final onlineAttendance = ref.watch(attendanceControllerProvider);
+    final data = (
+      attendance: onlineAttendance.value ?? preview.attendance,
+      employees: preview.employees,
+    );
     final user = ref.watch(authControllerProvider).value?.user;
     final currentEmployee = showMineOnly
-        ? data.employees
-                  .where((employee) => employee.id == user?.employeeId)
-                  .firstOrNull ??
-              data.employees
-                  .where(
-                    (employee) =>
-                        employee.username.isNotEmpty &&
-                        employee.username.toLowerCase() ==
-                            user?.name.toLowerCase(),
-                  )
-                  .firstOrNull
+        ? _resolveEmployee(data.employees, user)
         : data.employees.firstOrNull;
     final records = showMineOnly
         ? data.attendance
@@ -184,17 +181,17 @@ class AttendancePage extends ConsumerWidget {
     }
 
     try {
-      ref
-          .read(previewDataProvider.notifier)
-          .addAttendance(
-            employeeId: employee.id,
-            employeeName: employee.name,
+      await ref
+          .read(attendanceControllerProvider.notifier)
+          .add(
+            employee: employee,
             isCheckOut: isCheckOut,
             photoPath: photo.path,
+            photoBytes: await photo.readAsBytes(),
           );
       showAppSnackBar('Absen ${isCheckOut ? 'keluar' : 'masuk'} tersimpan.');
-    } on StateError catch (error) {
-      showAppSnackBar(error.message);
+    } catch (error) {
+      showAppSnackBar('Absensi gagal disimpan: $error');
     }
   }
 
@@ -219,4 +216,25 @@ class AttendancePage extends ConsumerWidget {
     final detail = hours > 0 ? '$hours jam $minutes menit' : '$minutes menit';
     return 'Terlambat $detail';
   }
+}
+
+PreviewEmployee? _resolveEmployee(
+  List<PreviewEmployee> employees,
+  AppUser? user,
+) {
+  final employeeId = user?.employeeId;
+  final existing = employees
+      .where((employee) => employee.id == employeeId)
+      .firstOrNull;
+  if (existing != null) return existing;
+  if (employeeId != null && user?.userId.startsWith('preview-') != true) {
+    return PreviewEmployee(
+      id: employeeId,
+      name: user?.name ?? 'Karyawan',
+      phone: user?.phone ?? '',
+      position: 'Karyawan',
+      isActive: true,
+    );
+  }
+  return null;
 }

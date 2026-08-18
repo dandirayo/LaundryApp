@@ -48,8 +48,19 @@ final class EmployeeRequestRepository {
     required String requestId,
     required PreviewRequestStatus status,
     required String reviewNote,
+    String paymentMethod = 'Tunai',
   }) async {
-    await _requireClient()
+    final client = _requireClient();
+    final request = status == PreviewRequestStatus.paid
+        ? await client
+              .from('employee_requests')
+              .select('id, type, reason, amount, employee_name')
+              .eq('id', requestId)
+              .eq('shop_id', shopId)
+              .single()
+        : null;
+
+    await client
         .from('employee_requests')
         .update({
           'status': _statusToStorage(status),
@@ -58,6 +69,23 @@ final class EmployeeRequestRepository {
         })
         .eq('id', requestId)
         .eq('shop_id', shopId);
+
+    if (status == PreviewRequestStatus.paid && request != null) {
+      final amount = (request['amount'] as num? ?? 0).toInt();
+      if (amount > 0) {
+        await client.from('cash_transactions').insert({
+          'shop_id': shopId,
+          'type': 'OUT',
+          'category': _cashCategoryForRequest(request['type'] as String?),
+          'description':
+              '${request['type'] ?? 'Request'} ${request['employee_name'] ?? 'Karyawan'} - ${request['reason'] ?? ''}',
+          'amount': amount,
+          'method': paymentMethod,
+          'reference_type': 'EMPLOYEE_REQUEST',
+          'reference_id': requestId,
+        });
+      }
+    }
   }
 
   RealtimeChannel subscribeToRequests({
@@ -94,6 +122,14 @@ final class EmployeeRequestRepository {
     }
     return client;
   }
+}
+
+String _cashCategoryForRequest(String? type) {
+  final value = type ?? '';
+  if (value.contains('Kasbon')) return 'Kasbon';
+  if (value.contains('Insentif')) return 'Insentif';
+  if (value.contains('Pengeluaran')) return 'Pengeluaran';
+  return 'Request Karyawan';
 }
 
 PreviewEmployeeRequest _requestFromMap(Map<String, dynamic> map) {

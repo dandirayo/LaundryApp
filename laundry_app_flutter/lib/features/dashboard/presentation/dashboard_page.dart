@@ -15,8 +15,13 @@ import '../../../shared/preview_data.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../attendance/presentation/attendance_controller.dart';
 import '../../customers/presentation/customer_controller.dart';
 import '../../employee_requests/presentation/employee_request_controller.dart';
+import '../../inventory/presentation/inventory_controller.dart';
+import '../../notifications/presentation/notification_controller.dart';
+import '../../orders/presentation/order_controller.dart';
+import '../../shifts/presentation/shift_controller.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -27,6 +32,14 @@ class DashboardPage extends ConsumerWidget {
     final role = user?.role ?? UserRole.employee;
     final strings = ref.strings;
     final today = DateTime.now();
+    final previewNotifications = ref.watch(
+      previewDataProvider.select((state) => state.notifications),
+    );
+    final notifications =
+        ref.watch(notificationControllerProvider).value ?? previewNotifications;
+    final unreadNotifications = notifications
+        .where((notification) => !notification.isRead)
+        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -36,7 +49,11 @@ class DashboardPage extends ConsumerWidget {
           IconButton(
             tooltip: strings.notifications,
             onPressed: () => context.go(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_none),
+            icon: Badge(
+              isLabelVisible: unreadNotifications > 0,
+              label: Text('$unreadNotifications'),
+              child: const Icon(Icons.notifications_none),
+            ),
           ),
         ],
       ),
@@ -45,6 +62,11 @@ class DashboardPage extends ConsumerWidget {
           ref.read(previewDataProvider);
           await ref.read(customerControllerProvider.notifier).refresh();
           await ref.read(employeeRequestControllerProvider.notifier).refresh();
+          await ref.read(orderControllerProvider.notifier).refresh();
+          await ref.read(inventoryControllerProvider.notifier).refresh();
+          await ref.read(shiftControllerProvider.notifier).refresh();
+          await ref.read(attendanceControllerProvider.notifier).refresh();
+          await ref.read(notificationControllerProvider.notifier).refresh();
           await Future<void>.delayed(const Duration(milliseconds: 250));
         },
         child: ResponsivePage(
@@ -86,9 +108,12 @@ class _OwnerDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
+    final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final inventory =
+        ref.watch(inventoryControllerProvider).value?.items ?? data.inventory;
     final strings = ref.strings;
     final today = DateTime.now();
-    final todayOrders = data.orders.where((order) {
+    final todayOrders = orders.where((order) {
       return order.receivedAt.year == today.year &&
           order.receivedAt.month == today.month &&
           order.receivedAt.day == today.day;
@@ -99,7 +124,7 @@ class _OwnerDashboard extends ConsumerWidget {
     final todayOut = data.cashTransactions
         .where((cash) => cash.type == 'OUT')
         .fold<int>(0, (sum, cash) => sum + cash.amount);
-    final lowStock = data.inventory.where((item) => item.isLowStock).length;
+    final lowStock = inventory.where((item) => item.isLowStock).length;
     final pending = data.requests
         .where((request) => request.status == PreviewRequestStatus.pending)
         .length;
@@ -339,17 +364,27 @@ class _EmployeeDashboard extends ConsumerWidget {
     final user = ref.watch(authControllerProvider).value?.user;
     final employeeId = _resolvePreviewEmployeeId(data, user);
     final requestState = ref.watch(employeeRequestControllerProvider).value;
+    final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final shifts =
+        ref.watch(shiftControllerProvider).value?.shifts ?? data.shifts;
+    final attendance =
+        ref.watch(attendanceControllerProvider).value ?? data.attendance;
     final requestSource = requestState?.requests ?? data.requests;
-    final myOrders = data.orders
+    final myOrders = orders
         .where((order) => order.assignedEmployeeId == employeeId)
         .toList();
-    final myAttendance = data.attendance
+    final myAttendance = attendance
         .where((entry) => entry.employeeId == employeeId)
         .toList();
     final myRequests = requestSource
-        .where((request) => request.employeeId == employeeId)
+        .where(
+          (request) =>
+              request.employeeId == employeeId &&
+              (request.status == PreviewRequestStatus.pending ||
+                  request.status == PreviewRequestStatus.approved),
+        )
         .toList();
-    final todayShift = data.shifts
+    final todayShift = shifts
         .where(
           (shift) =>
               shift.employeeId == employeeId &&
@@ -366,6 +401,8 @@ class _EmployeeDashboard extends ConsumerWidget {
               label: 'Shift hari ini',
               value: todayShift == null
                   ? '-'
+                  : todayShift.isDayOff
+                  ? 'Libur'
                   : '${todayShift.startTime}-${todayShift.endTime}',
               icon: Icons.calendar_today,
               color: AppColors.primaryBlue,
@@ -409,14 +446,9 @@ class _EmployeeDashboard extends ConsumerWidget {
               AppRoutes.ordersMine,
             ),
             _QuickAction(
-              'Request Stok',
-              Icons.add_shopping_cart,
-              AppRoutes.stockRequest,
-            ),
-            _QuickAction(
-              'Request Lembur',
-              Icons.alarm_add,
-              AppRoutes.overtimeRequest,
+              'Request Saya',
+              Icons.rule_folder_outlined,
+              AppRoutes.requestsMine,
             ),
             _QuickAction(
               'Lihat Jadwal',

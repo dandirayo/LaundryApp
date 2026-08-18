@@ -31,6 +31,7 @@ class _RequestPageState extends ConsumerState<RequestPage> {
     'Request Izin',
     'Request Insentif',
     'Request Kasbon',
+    'Request Pengeluaran',
   ];
 
   String _statusFilter = 'Semua';
@@ -60,7 +61,10 @@ class _RequestPageState extends ConsumerState<RequestPage> {
         .toList();
     final requests = allRequests.where((request) {
       final statusMatches =
-          _statusFilter == 'Semua' || request.status.label == _statusFilter;
+          _statusFilter == 'Semua' ||
+          request.status.label == _statusFilter ||
+          (_statusFilter == 'Selesai' &&
+              request.status == PreviewRequestStatus.paid);
       final typeMatches = _typeFilter == 'Semua' || request.type == _typeFilter;
       return statusMatches && typeMatches;
     }).toList();
@@ -174,7 +178,7 @@ class _RequestPageState extends ConsumerState<RequestPage> {
                         ? 'Belum ada request'
                         : 'Request tidak ditemukan',
                     message: allRequests.isEmpty
-                        ? 'Buat request stok, lembur, izin, tukar shift, insentif, atau kasbon dari satu halaman ini.'
+                        ? 'Buat request stok, lembur, izin, tukar shift, insentif, kasbon, atau pengeluaran dari satu halaman ini.'
                         : 'Ubah filter untuk melihat request lainnya.',
                     actionLabel: allRequests.isEmpty ? 'Buat request' : null,
                     onAction: allRequests.isEmpty
@@ -235,7 +239,8 @@ class _RequestPageState extends ConsumerState<RequestPage> {
         builder: (context, setModalState) {
           final requiresMoney =
               selectedType.contains('Kasbon') ||
-              selectedType.contains('Insentif');
+              selectedType.contains('Insentif') ||
+              selectedType.contains('Pengeluaran');
           final requiresQuantity = selectedType.contains('Stok');
           final showAmount = requiresMoney || requiresQuantity;
           return Form(

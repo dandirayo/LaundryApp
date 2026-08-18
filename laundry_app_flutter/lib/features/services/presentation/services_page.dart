@@ -10,6 +10,7 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'service_controller.dart';
 
 class ServicesPage extends ConsumerWidget {
   const ServicesPage({super.key});
@@ -33,9 +34,11 @@ class ServicesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final services = ref.watch(
+    final previewServices = ref.watch(
       previewDataProvider.select((state) => state.services),
     );
+    final services =
+        ref.watch(serviceControllerProvider).value ?? previewServices;
     final groupedServices = _groupServices(services);
     final strings = ref.strings;
 
@@ -379,9 +382,9 @@ class ServicesPage extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ref
-        .read(previewDataProvider.notifier)
-        .addService(
+    await ref
+        .read(serviceControllerProvider.notifier)
+        .add(
           name: result.name,
           itemName: result.itemName,
           sizeVariant: result.sizeVariant,

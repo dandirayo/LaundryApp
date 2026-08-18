@@ -30,7 +30,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
         requestState.value?.requests ??
         ref.watch(previewDataProvider.select((state) => state.requests));
     final requests = allRequests.where((request) {
-      return _statusFilter == null || request.status == _statusFilter;
+      return _statusFilter == null ||
+          request.status == _statusFilter ||
+          (_statusFilter == PreviewRequestStatus.completed &&
+              request.status == PreviewRequestStatus.paid);
     }).toList();
 
     return Scaffold(
@@ -138,7 +141,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       return;
     }
     try {
-      ref
+      await ref
           .read(employeeRequestControllerProvider.notifier)
           .updateStatus(
             requestId: request.id,
@@ -179,7 +182,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       return;
     }
     try {
-      ref
+      await ref
           .read(employeeRequestControllerProvider.notifier)
           .updateStatus(
             requestId: request.id,
@@ -187,6 +190,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
             reviewNote: request.reviewNote.isEmpty
                 ? 'Dibayar via $method.'
                 : '${request.reviewNote} Dibayar via $method.',
+            paymentMethod: method,
           );
       _showMessage('Pembayaran request masuk Buku Kas.');
     } on StateError catch (error) {
@@ -210,7 +214,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       return;
     }
     try {
-      ref
+      await ref
           .read(employeeRequestControllerProvider.notifier)
           .updateStatus(
             requestId: request.id,
@@ -319,7 +323,9 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   }
 
   bool _isMoneyRequest(PreviewEmployeeRequest request) {
-    return request.type.contains('Kasbon') || request.type.contains('Insentif');
+    return request.type.contains('Kasbon') ||
+        request.type.contains('Insentif') ||
+        request.type.contains('Pengeluaran');
   }
 }
 
@@ -341,7 +347,9 @@ class _RequestReviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMoneyRequest =
-        request.type.contains('Kasbon') || request.type.contains('Insentif');
+        request.type.contains('Kasbon') ||
+        request.type.contains('Insentif') ||
+        request.type.contains('Pengeluaran');
     final isStockRequest = request.type.contains('Stok');
     return Card(
       child: Padding(

@@ -15,6 +15,7 @@ import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/presentation/auth_controller.dart';
+import 'order_controller.dart';
 import 'order_whatsapp.dart';
 
 class OrdersPage extends ConsumerStatefulWidget {
@@ -32,10 +33,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(
+    final preview = ref.watch(
       previewDataProvider.select(
         (state) => (orders: state.orders, employees: state.employees),
       ),
+    );
+    final onlineOrders = ref.watch(orderControllerProvider);
+    final data = (
+      orders: onlineOrders.value ?? preview.orders,
+      employees: preview.employees,
     );
     final user = ref.watch(authControllerProvider).value?.user;
     final myEmployeeId =
@@ -195,8 +201,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
   }
 
   Future<void> _refresh() async {
-    ref.read(previewDataProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await ref.read(orderControllerProvider.notifier).refresh();
   }
 
   Future<void> _showPaymentSheet(PreviewOrder order) async {
@@ -297,8 +302,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       return;
     }
     try {
-      ref
-          .read(previewDataProvider.notifier)
+      await ref
+          .read(orderControllerProvider.notifier)
           .addPayment(
             orderId: order.id,
             amount: result.amount,
@@ -354,9 +359,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       if (!mounted) {
         return;
       }
-      ref
-          .read(previewDataProvider.notifier)
-          .updateOrderStatus(order.id, selected);
+      await ref
+          .read(orderControllerProvider.notifier)
+          .updateStatus(order.id, selected);
       if (!mounted) {
         return;
       }

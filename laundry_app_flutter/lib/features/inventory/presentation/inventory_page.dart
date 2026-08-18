@@ -9,17 +9,23 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'inventory_controller.dart';
 
 class InventoryPage extends ConsumerWidget {
   const InventoryPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(
+    final preview = ref.watch(
       previewDataProvider.select(
         (state) =>
             (inventory: state.inventory, movements: state.inventoryMovements),
       ),
+    );
+    final online = ref.watch(inventoryControllerProvider);
+    final data = (
+      inventory: online.value?.items ?? preview.inventory,
+      movements: online.value?.movements ?? preview.movements,
     );
 
     return Scaffold(
@@ -246,9 +252,9 @@ class InventoryPage extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ref
-        .read(previewDataProvider.notifier)
-        .addInventoryItem(
+    await ref
+        .read(inventoryControllerProvider.notifier)
+        .addItem(
           name: result.name,
           stock: result.stock,
           unit: result.unit,
@@ -326,9 +332,9 @@ class InventoryPage extends ConsumerWidget {
       return;
     }
     try {
-      ref
-          .read(previewDataProvider.notifier)
-          .adjustStock(
+      await ref
+          .read(inventoryControllerProvider.notifier)
+          .adjust(
             itemId: item.id,
             quantity: result.quantity,
             type: result.type,

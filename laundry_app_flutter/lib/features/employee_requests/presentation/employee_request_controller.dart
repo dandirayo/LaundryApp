@@ -86,6 +86,7 @@ class EmployeeRequestController
     required String requestId,
     required PreviewRequestStatus status,
     required String reviewNote,
+    String paymentMethod = 'Tunai',
   }) async {
     final online = _onlineContext(listen: false);
     if (online != null) {
@@ -94,11 +95,15 @@ class EmployeeRequestController
         requestId: requestId,
         status: status,
         reviewNote: reviewNote,
+        paymentMethod: paymentMethod,
       );
     } else {
       final notifier = ref.read(previewDataProvider.notifier);
       if (status == PreviewRequestStatus.paid) {
-        notifier.payEmployeeRequest(requestId: requestId, method: 'Tunai');
+        notifier.payEmployeeRequest(
+          requestId: requestId,
+          method: paymentMethod,
+        );
       } else if (status == PreviewRequestStatus.completed) {
         notifier.completeRequest(requestId);
       } else {

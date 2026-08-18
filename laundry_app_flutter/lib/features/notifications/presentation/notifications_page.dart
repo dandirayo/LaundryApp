@@ -7,15 +7,18 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'notification_controller.dart';
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(
+    final previewNotifications = ref.watch(
       previewDataProvider.select((state) => state.notifications),
     );
+    final online = ref.watch(notificationControllerProvider);
+    final notifications = online.value ?? previewNotifications;
 
     return Scaffold(
       appBar: AppBar(
@@ -25,8 +28,8 @@ class NotificationsPage extends ConsumerWidget {
             onPressed: notifications.isEmpty
                 ? null
                 : () => ref
-                      .read(previewDataProvider.notifier)
-                      .markAllNotificationsRead(),
+                      .read(notificationControllerProvider.notifier)
+                      .markAllRead(),
             child: const Text('Tandai semua'),
           ),
         ],
@@ -63,8 +66,8 @@ class NotificationsPage extends ConsumerWidget {
                       isThreeLine: true,
                       onTap: () {
                         ref
-                            .read(previewDataProvider.notifier)
-                            .markNotificationRead(notification.id);
+                            .read(notificationControllerProvider.notifier)
+                            .markRead(notification.id);
                         if (notification.actionRoute.isNotEmpty) {
                           context.go(notification.actionRoute);
                         }
@@ -73,8 +76,8 @@ class NotificationsPage extends ConsumerWidget {
                         tooltip: 'Hapus',
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () => ref
-                            .read(previewDataProvider.notifier)
-                            .deleteNotification(notification.id),
+                            .read(notificationControllerProvider.notifier)
+                            .delete(notification.id),
                       ),
                     ),
                   );

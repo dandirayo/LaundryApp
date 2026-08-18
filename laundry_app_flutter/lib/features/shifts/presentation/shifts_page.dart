@@ -8,6 +8,25 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../employees/data/employee_repository.dart';
+import 'shift_controller.dart';
+
+final shiftEmployeesProvider = FutureProvider<List<PreviewEmployee>>((
+  ref,
+) async {
+  final fallback = ref.read(previewDataProvider).employees;
+  final user = ref.watch(authControllerProvider).value?.user;
+  final repository = EmployeeRepository();
+  if (!repository.isOnline ||
+      user == null ||
+      user.shopId.startsWith('preview-shop')) {
+    return fallback;
+  }
+  final employees = await repository.fetchEmployees();
+  ref.read(previewDataProvider.notifier).replaceEmployees(employees);
+  return employees;
+});
 
 class ShiftsPage extends ConsumerWidget {
   const ShiftsPage({this.showMineOnly = false, super.key});
@@ -26,11 +45,18 @@ class ShiftsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final allShifts = ref.watch(
+    final previewShifts = ref.watch(
       previewDataProvider.select((state) => state.shifts),
     );
+    final shiftState = ref.watch(shiftControllerProvider);
+    final allShifts = shiftState.value?.shifts ?? previewShifts;
+    final employeeId = ref
+        .watch(authControllerProvider)
+        .value
+        ?.user
+        ?.employeeId;
     final shifts = showMineOnly
-        ? allShifts.where((shift) => shift.employeeId == 'employee-1').toList()
+        ? allShifts.where((shift) => shift.employeeId == employeeId).toList()
         : allShifts;
 
     return Scaffold(
@@ -59,7 +85,9 @@ class ShiftsPage extends ConsumerWidget {
           16,
           showMineOnly || shifts.isEmpty ? 24 : 96,
         ),
-        child: shifts.isEmpty
+        child: shiftState.isLoading && shifts.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : shifts.isEmpty
             ? AppStateView.empty(
                 title: 'Jadwal belum ada',
                 message: 'Tambahkan shift mingguan untuk karyawan.',
@@ -97,7 +125,9 @@ class ShiftsPage extends ConsumerWidget {
                                 leading: const Icon(Icons.schedule),
                                 title: Text(shift.employeeName),
                                 subtitle: Text(
-                                  '${shift.startTime}-${shift.endTime}',
+                                  shift.isDayOff
+                                      ? 'Libur'
+                                      : '${shift.startTime}-${shift.endTime}',
                                 ),
                                 trailing: showMineOnly
                                     ? null
@@ -125,14 +155,17 @@ class ShiftsPage extends ConsumerWidget {
     WidgetRef ref, {
     PreviewShift? existingShift,
   }) async {
-    final data = ref.read(previewDataProvider);
-    if (data.employees.isEmpty) {
+    final employees =
+        ref.read(shiftEmployeesProvider).value ??
+        ref.read(previewDataProvider).employees;
+    if (employees.isEmpty) {
       showAppSnackBar('Tambahkan karyawan dulu sebelum membuat shift.');
       return;
     }
-    var employeeId = existingShift?.employeeId ?? data.employees.first.id;
+    var employeeId = existingShift?.employeeId ?? employees.first.id;
     var day = existingShift?.day ?? _days.first;
-    final defaults = _defaultTimeForEmployee(employeeId);
+    var isDayOff = existingShift?.isDayOff ?? false;
+    final defaults = _defaultTimeForEmployee(employeeId, employees);
     final start = TextEditingController(
       text: existingShift?.startTime ?? defaults.$1,
     );
@@ -155,7 +188,7 @@ class ShiftsPage extends ConsumerWidget {
               DropdownButtonFormField<String>(
                 initialValue: employeeId,
                 items: [
-                  for (final employee in data.employees)
+                  for (final employee in employees)
                     DropdownMenuItem(
                       value: employee.id,
                       child: Text(employee.name),
@@ -164,7 +197,10 @@ class ShiftsPage extends ConsumerWidget {
                 onChanged: existingShift == null
                     ? (value) => setModalState(() {
                         employeeId = value ?? employeeId;
-                        final defaults = _defaultTimeForEmployee(employeeId);
+                        final defaults = _defaultTimeForEmployee(
+                          employeeId,
+                          employees,
+                        );
                         start.text = defaults.$1;
                         end.text = defaults.$2;
                       })
@@ -182,23 +218,31 @@ class ShiftsPage extends ConsumerWidget {
                 decoration: const InputDecoration(labelText: 'Hari'),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: start,
-                      decoration: const InputDecoration(labelText: 'Mulai'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: end,
-                      decoration: const InputDecoration(labelText: 'Selesai'),
-                    ),
-                  ),
-                ],
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hari libur'),
+                value: isDayOff,
+                onChanged: (value) => setModalState(() => isDayOff = value),
               ),
+              if (!isDayOff) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: start,
+                        decoration: const InputDecoration(labelText: 'Mulai'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: end,
+                        decoration: const InputDecoration(labelText: 'Selesai'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () {
@@ -208,6 +252,7 @@ class ShiftsPage extends ConsumerWidget {
                       day: day,
                       startTime: start.text,
                       endTime: end.text,
+                      isDayOff: isDayOff,
                     ),
                   );
                 },
@@ -252,29 +297,39 @@ class ShiftsPage extends ConsumerWidget {
         if (!confirmed || !context.mounted) {
           return;
         }
-        ref.read(previewDataProvider.notifier).deleteShift(result.deleteId!);
+        await ref
+            .read(shiftControllerProvider.notifier)
+            .delete(result.deleteId!);
         showAppSnackBar('Shift berhasil dihapus.');
         return;
       }
       if (existingShift == null) {
-        ref
-            .read(previewDataProvider.notifier)
-            .addShift(
+        final employee = employees.firstWhere(
+          (item) => item.id == result.employeeId,
+        );
+        await ref
+            .read(shiftControllerProvider.notifier)
+            .save(
               employeeId: result.employeeId,
+              employeeName: employee.name,
               day: result.day,
               startTime: result.startTime,
               endTime: result.endTime,
+              isDayOff: result.isDayOff,
             );
         showAppSnackBar('Shift berhasil ditambahkan.');
         return;
       }
-      ref
-          .read(previewDataProvider.notifier)
-          .updateShift(
+      await ref
+          .read(shiftControllerProvider.notifier)
+          .save(
             id: existingShift.id,
+            employeeId: existingShift.employeeId,
+            employeeName: existingShift.employeeName,
             day: result.day,
             startTime: result.startTime,
             endTime: result.endTime,
+            isDayOff: result.isDayOff,
           );
       showAppSnackBar('Shift berhasil diperbarui.');
     } on StateError catch (error) {
@@ -282,12 +337,14 @@ class ShiftsPage extends ConsumerWidget {
     }
   }
 
-  (String, String) _defaultTimeForEmployee(String employeeId) {
-    return switch (employeeId) {
-      'employee-1' => ('06.00', '14.00'),
-      'employee-2' => ('12.00', '20.00'),
-      _ => ('06.00', '14.00'),
-    };
+  (String, String) _defaultTimeForEmployee(
+    String employeeId,
+    List<PreviewEmployee> employees,
+  ) {
+    final employee = employees
+        .where((item) => item.id == employeeId)
+        .firstOrNull;
+    return (employee?.shiftStart ?? '06.00', employee?.shiftEnd ?? '14.00');
   }
 }
 
@@ -297,6 +354,7 @@ class _ShiftInput {
     required this.day,
     required this.startTime,
     required this.endTime,
+    required this.isDayOff,
   }) : deleteId = null;
 
   const _ShiftInput.delete(String id)
@@ -304,11 +362,13 @@ class _ShiftInput {
       day = '',
       startTime = '',
       endTime = '',
+      isDayOff = false,
       deleteId = id;
 
   final String employeeId;
   final String day;
   final String startTime;
   final String endTime;
+  final bool isDayOff;
   final String? deleteId;
 }

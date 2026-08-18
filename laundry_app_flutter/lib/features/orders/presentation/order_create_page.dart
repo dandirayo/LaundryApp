@@ -12,6 +12,9 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../customers/domain/customer.dart';
+import '../../customers/presentation/customer_controller.dart';
+import '../../services/presentation/service_controller.dart';
+import 'order_controller.dart';
 import 'receipt_preview_sheet.dart';
 
 class OrderCreatePage extends ConsumerStatefulWidget {
@@ -54,8 +57,27 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         ),
       ),
     );
-    final customers = data.customers;
-    final services = data.services
+    final onlineCustomers = ref
+        .watch(customerControllerProvider)
+        .value
+        ?.customers;
+    final customers = onlineCustomers == null
+        ? data.customers
+        : [
+            for (final customer in onlineCustomers)
+              PreviewCustomer(
+                id: customer.id,
+                name: customer.name,
+                phone: customer.phone ?? '',
+                normalizedPhone: customer.normalizedPhone ?? '',
+                address: customer.address,
+                note: customer.note,
+                createdAt: customer.createdAt,
+              ),
+          ];
+    final serviceSource =
+        ref.watch(serviceControllerProvider).value ?? data.services;
+    final services = serviceSource
         .where((service) => service.isActive)
         .toList();
     final employees = data.employees;
@@ -488,16 +510,34 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       return null;
     }
     try {
-      return ref
-          .read(previewDataProvider.notifier)
+      await ref
+          .read(customerControllerProvider.notifier)
           .addCustomer(
             name: result.name,
             phone: result.phone,
             address: result.address,
             note: '',
           );
-    } on StateError catch (error) {
-      showAppSnackBar(error.message);
+      final customers = ref.read(customerControllerProvider).value?.customers;
+      final created = customers
+          ?.where(
+            (customer) =>
+                customer.name.trim() == result.name.trim() &&
+                customer.phone == Customer.phoneFromInput(result.phone),
+          )
+          .firstOrNull;
+      if (created == null) return null;
+      return PreviewCustomer(
+        id: created.id,
+        name: created.name,
+        phone: created.phone ?? '',
+        normalizedPhone: created.normalizedPhone ?? '',
+        address: created.address,
+        note: created.note,
+        createdAt: created.createdAt,
+      );
+    } catch (error) {
+      showAppSnackBar(error.toString());
       return null;
     }
   }
@@ -555,13 +595,13 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       return;
     }
     try {
-      final order = ref
-          .read(previewDataProvider.notifier)
-          .createOrderWithItems(
+      final order = await ref
+          .read(orderControllerProvider.notifier)
+          .create(
             customerId: _customerId!,
             items: [
               for (final item in _items)
-                (serviceId: item.service.id, quantity: item.quantity),
+                (service: item.service, quantity: item.quantity),
             ],
             paidAmount: int.tryParse(_paidController.text) ?? 0,
             paymentMethod: _paymentMethod,
@@ -605,8 +645,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
             : '${order.orderNumber} berhasil dibuat.',
       );
       context.go('/orders/${order.id}');
-    } on StateError catch (error) {
-      showAppSnackBar(error.message);
+    } catch (error) {
+      showAppSnackBar('Pesanan gagal dibuat: $error');
     }
   }
 

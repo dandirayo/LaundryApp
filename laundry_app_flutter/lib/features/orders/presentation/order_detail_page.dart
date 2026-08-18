@@ -15,6 +15,7 @@ import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import 'order_controller.dart';
 import 'order_whatsapp.dart';
 import 'receipt_preview_sheet.dart';
 
@@ -38,7 +39,8 @@ class OrderDetailPage extends ConsumerWidget {
         ),
       ),
     );
-    final order = data.orders
+    final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final order = orders
         .where((entry) => entry.id == orderId)
         .cast<PreviewOrder?>()
         .firstOrNull;
