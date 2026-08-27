@@ -69,32 +69,43 @@ class DashboardPage extends ConsumerWidget {
           await ref.read(notificationControllerProvider.notifier).refresh();
           await Future<void>.delayed(const Duration(milliseconds: 250));
         },
-        child: ResponsivePage(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              Text(
-                '${strings.isEnglish ? 'Hello' : 'Halo'}, ${user?.name ?? (strings.isEnglish ? 'User' : 'Pengguna')}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.mainText,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ResponsivePage(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${strings.isEnglish ? 'Hello' : 'Halo'}, ${user?.name.split(' ').first ?? (strings.isEnglish ? 'User' : 'Pengguna')}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.mainText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${role.label} - ${today.toIndonesianDate()}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondaryText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${role.label} - ${today.toIndonesianDate()}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.secondaryText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (role == UserRole.owner)
-                const _OwnerDashboard()
-              else
-                const _EmployeeDashboard(),
-            ],
+                const SizedBox(height: 12),
+                if (role == UserRole.owner)
+                  const _OwnerDashboard()
+                else
+                  const _EmployeeDashboard(),
+              ],
+            ),
           ),
         ),
       ),
@@ -138,21 +149,21 @@ class _OwnerDashboard extends ConsumerWidget {
       children: [
         _SummaryGrid(
           cards: [
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Orders today' : 'Pesanan hari ini',
               value: '${todayOrders.length}',
               icon: Icons.receipt_long,
               color: AppColors.primaryBlue,
               onTap: () => context.go(AppRoutes.orders),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Total customers' : 'Total pelanggan',
               value: '$customerTotal',
               icon: Icons.people,
               color: AppColors.softBlue,
               onTap: () => context.go(AppRoutes.customers),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Total kilograms' : 'Total kilogram',
               value:
                   '${todayOrders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
@@ -160,14 +171,14 @@ class _OwnerDashboard extends ConsumerWidget {
               color: AppColors.success,
               onTap: () => context.go(AppRoutes.reports),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Income today' : 'Pemasukan hari ini',
               value: todayIncome.toRupiah(),
               icon: Icons.payments,
               color: AppColors.primaryNavy,
               onTap: () => context.go(AppRoutes.cashbook),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish
                   ? 'Expenses today'
                   : 'Pengeluaran hari ini',
@@ -176,14 +187,14 @@ class _OwnerDashboard extends ConsumerWidget {
               color: AppColors.error,
               onTap: () => context.go(AppRoutes.expenses),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Balance today' : 'Saldo hari ini',
               value: (todayIncome - todayOut).toRupiah(),
               icon: Icons.account_balance_wallet,
               color: AppColors.success,
               onTap: () => context.go(AppRoutes.cashbook),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Ready for pickup' : 'Siap diambil',
               value:
                   '${data.orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
@@ -191,14 +202,14 @@ class _OwnerDashboard extends ConsumerWidget {
               color: AppColors.warning,
               onTap: () => context.go(AppRoutes.orders),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Low stock' : 'Stok menipis',
               value: '$lowStock',
               icon: Icons.warning_amber_outlined,
               color: AppColors.warning,
               onTap: () => context.go(AppRoutes.inventory),
             ),
-            SummaryCard(
+            _MetricCard(
               label: strings.isEnglish ? 'Pending requests' : 'Request pending',
               value: '$pendingRequests',
               icon: Icons.task_alt,
@@ -207,9 +218,7 @@ class _OwnerDashboard extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const _LatestCustomersSection(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         _QuickActions(
           title: strings.isEnglish ? 'Quick actions' : 'Aksi cepat',
           actions: [
@@ -397,7 +406,7 @@ class _EmployeeDashboard extends ConsumerWidget {
       children: [
         _SummaryGrid(
           cards: [
-            SummaryCard(
+            _MetricCard(
               label: 'Shift hari ini',
               value: todayShift == null
                   ? '-'
@@ -408,21 +417,21 @@ class _EmployeeDashboard extends ConsumerWidget {
               color: AppColors.primaryBlue,
               onTap: () => context.go(AppRoutes.shiftsMine),
             ),
-            SummaryCard(
+            _MetricCard(
               label: 'Status absensi',
               value: myAttendance.isEmpty ? 'Belum' : 'Hadir',
               icon: Icons.fact_check,
               color: AppColors.warning,
               onTap: () => context.go(AppRoutes.attendanceMine),
             ),
-            SummaryCard(
+            _MetricCard(
               label: 'Pesanan saya',
               value: '${myOrders.length}',
               icon: Icons.assignment,
               color: AppColors.primaryNavy,
               onTap: () => context.go(AppRoutes.ordersMine),
             ),
-            SummaryCard(
+            _MetricCard(
               label: 'Request aktif',
               value: '${myRequests.length}',
               icon: Icons.pending_actions,
@@ -431,7 +440,7 @@ class _EmployeeDashboard extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         _QuickActions(
           title: 'Aksi cepat',
           actions: [
@@ -471,12 +480,12 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 680 ? 4 : 2;
+        final columns = constraints.maxWidth >= 680 ? 4 : 3;
         return GridView.count(
           crossAxisCount: columns,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: columns == 4 ? 1.15 : 1.05,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: columns == 4 ? 1.15 : 1.0,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: cards,
@@ -553,23 +562,55 @@ class _QuickActions extends StatelessWidget {
           title,
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final action in actions)
-              SizedBox(
-                width: 164,
-                child: OutlinedButton.icon(
-                  onPressed: () => context.go(action.route),
-                  icon: Icon(action.icon),
-                  label: Text(action.label),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.45,
+          ),
+          itemCount: actions.length,
+          itemBuilder: (context, index) {
+            final action = actions[index];
+            return InkWell(
+              onTap: () => context.go(action.route),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(action.icon, color: AppColors.primaryBlue, size: 20),
+                    const SizedBox(height: 4),
+                    Text(
+                      action.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                        color: AppColors.mainText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-          ],
+            );
+          },
         ),
       ],
     );
@@ -582,6 +623,75 @@ class _QuickAction {
   final String label;
   final IconData icon;
   final String route;
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: AppColors.outline.withValues(alpha: 0.6),
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    color: AppColors.primaryNavy,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _OperationalSummaryAction extends ConsumerWidget {

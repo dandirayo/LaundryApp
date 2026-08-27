@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION public.get_login_employees() RETURNS TABLE(id uuid, name text, username text) LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$ SELECT e.id, e.name, p.username FROM employees e JOIN profiles p ON p.employee_id = e.id WHERE e.is_active = true AND e.role = 'EMPLOYEE'; $$;
