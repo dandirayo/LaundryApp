@@ -9,13 +9,15 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'expense_controller.dart';
 
 class ExpensesPage extends ConsumerWidget {
   const ExpensesPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expenses = ref.watch(
+    final expenseState = ref.watch(expenseControllerProvider);
+    final List<PreviewExpense> expenses = expenseState.value?.expenses ?? ref.watch(
       previewDataProvider.select((state) => state.expenses),
     );
 
@@ -169,15 +171,19 @@ class ExpensesPage extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ref
-        .read(previewDataProvider.notifier)
-        .addExpense(
-          description: result.description,
-          category: result.category,
-          amount: result.amount,
-          method: result.method,
-        );
-    showAppSnackBar('Pengeluaran masuk Buku Kas.');
+    try {
+      await ref
+          .read(expenseControllerProvider.notifier)
+          .addExpense(
+            description: result.description,
+            category: result.category,
+            amount: result.amount,
+            method: result.method,
+          );
+      showAppSnackBar('Pengeluaran masuk Buku Kas.');
+    } catch (error) {
+      showAppSnackBar('Gagal menyimpan: $error');
+    }
   }
 }
 

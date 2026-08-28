@@ -92,7 +92,7 @@ class _ReceiptPaper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paid = payments.fold<int>(0, (sum, payment) => sum + payment.amount);
+    final paid = order.paidAmount;
     final previewWidth = paperWidth == 58 ? 296.0 : 380.0;
 
     return LayoutBuilder(

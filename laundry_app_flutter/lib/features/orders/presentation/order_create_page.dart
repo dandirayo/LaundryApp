@@ -9,7 +9,6 @@ import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
-import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../customers/domain/customer.dart';
 import '../../customers/presentation/customer_controller.dart';
@@ -31,7 +30,6 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _items = <_OrderDraftItem>[];
   var _mode = _OrderMode.kilo;
-  var _detailsExpanded = false;
   String? _customerId;
   String? _serviceId;
   String? _employeeId;
@@ -47,7 +45,6 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final data = ref.watch(
       previewDataProvider.select(
@@ -58,27 +55,51 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         ),
       ),
     );
-    final onlineCustomers = ref.watch(customerControllerProvider).value?.customers;
+    final onlineCustomers = ref
+        .watch(customerControllerProvider)
+        .value
+        ?.customers;
     final customers = onlineCustomers == null
         ? data.customers
-        : [for (final c in onlineCustomers) PreviewCustomer(id: c.id, name: c.name, phone: c.phone ?? "", normalizedPhone: c.normalizedPhone ?? "", address: c.address, note: c.note, createdAt: c.createdAt)];
-    
-    final serviceSource = ref.watch(serviceControllerProvider).value ?? data.services;
-    final services = serviceSource.where((service) => service.isActive).toList();
+        : [
+            for (final c in onlineCustomers)
+              PreviewCustomer(
+                id: c.id,
+                name: c.name,
+                phone: c.phone ?? "",
+                normalizedPhone: c.normalizedPhone ?? "",
+                address: c.address,
+                note: c.note,
+                createdAt: c.createdAt,
+              ),
+          ];
+
+    final serviceSource =
+        ref.watch(serviceControllerProvider).value ?? data.services;
+    final services = serviceSource
+        .where((service) => service.isActive)
+        .toList();
     final employees = data.employees;
-    
+
     final selectedEmployeeId = _employeeId ?? employees.firstOrNull?.id;
-    final selectedCustomer = customers.where((c) => c.id == _customerId).cast<PreviewCustomer?>().firstOrNull;
-    
-    final quickServices = services.where((service) {
-      final group = service.effectiveGroup.toLowerCase();
-      final unit = service.unit.toUpperCase();
-      return switch (_mode) {
-        _OrderMode.kilo || _OrderMode.mix => group == "kiloan" || unit == "KG",
-        _OrderMode.unit => group != "kiloan" && unit != "KG",
-      };
-    }).take(_mode == _OrderMode.unit ? 8 : 9).toList();
-    
+    final selectedCustomer = customers
+        .where((c) => c.id == _customerId)
+        .cast<PreviewCustomer?>()
+        .firstOrNull;
+
+    final quickServices = services
+        .where((service) {
+          final group = service.effectiveGroup.toLowerCase();
+          final unit = service.unit.toUpperCase();
+          return switch (_mode) {
+            _OrderMode.kilo ||
+            _OrderMode.mix => group == "kiloan" || unit == "KG",
+            _OrderMode.unit => group != "kiloan" && unit != "KG",
+          };
+        })
+        .take(_mode == _OrderMode.unit ? 8 : 9)
+        .toList();
+
     final total = _items.fold<int>(0, (sum, item) => sum + item.total);
     final strings = ref.strings;
 
@@ -92,130 +113,209 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       backgroundColor: AppColors.surface,
       body: customers.isEmpty || services.isEmpty || employees.isEmpty
           ? AppStateView.empty(
-              title: strings.isEnglish ? "Master data is incomplete" : "Data master belum lengkap",
-              message: strings.isEnglish ? "Add at least one customer, service, and employee." : "Tambahkan minimal satu pelanggan, layanan, dan karyawan.",
+              title: strings.isEnglish
+                  ? "Master data is incomplete"
+                  : "Data master belum lengkap",
+              message: strings.isEnglish
+                  ? "Add at least one customer, service, and employee."
+                  : "Tambahkan minimal satu pelanggan, layanan, dan karyawan.",
             )
           : Form(
               key: _formKey,
               child: Column(
                 children: [
-                  Container(
-                    color: AppColors.surface,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Column(
-                      children: [
-                        _buildCompactCustomerSelector(selectedCustomer, customers),
-                        const SizedBox(height: 12),
-                        _ModeSelector(
-                          selected: _mode,
-                          onChanged: (mode) => setState(() {
-                            _mode = mode;
-                            _serviceId = null;
-                            _quantityController.text = mode == _OrderMode.unit ? "1" : "3";
-                          }),
-                        ),
-                      ],
-                    ),
-                  ),
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.all(16),
                       children: [
-                        if (_items.isNotEmpty) ...[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Container(
+                          color: AppColors.surface,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Column(
                             children: [
-                              const Text("Keranjang Pesanan", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primaryNavy)),
-                              Text("${_items.length} Item", style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold)),
+                              _buildCompactCustomerSelector(
+                                selectedCustomer,
+                                customers,
+                              ),
+                              const SizedBox(height: 12),
+                              _ModeSelector(
+                                selected: _mode,
+                                onChanged: (mode) => setState(() {
+                                  _mode = mode;
+                                  _serviceId = null;
+                                  _quantityController.text =
+                                      mode == _OrderMode.unit ? "1" : "3";
+                                }),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          for (final item in _items)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _DraftItemTile(
-                                item: item,
-                                onDelete: () => setState(() => _items.remove(item)),
-                              ),
-                            ),
-                          const Divider(height: 32),
-                        ],
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(strings.isEnglish ? "Quick Services" : "Layanan Cepat", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primaryNavy)),
-                            TextButton.icon(
-                              onPressed: () async {
-                                final service = await _pickService(context, services);
-                                if (service != null && mounted) _selectServiceAndShowDialog(service);
-                              },
-                              icon: const Icon(Icons.search, size: 18),
-                              label: Text(strings.isEnglish ? "Lainnya" : "Lainnya"),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primaryBlue,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                minimumSize: Size.zero,
-                              ),
-                            )
-                          ],
                         ),
-                        const SizedBox(height: 12),
-                        if (quickServices.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              for (final service in quickServices)
-                                _ServiceQuickButton(
-                                  service: service,
-                                  selected: service.id == _serviceId,
-                                  onTap: () => _selectServiceAndShowDialog(service),
+                              if (_items.isNotEmpty) ...[
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      "Keranjang Pesanan",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: AppColors.primaryNavy,
+                                      ),
+                                    ),
+                                    Text(
+                                      "${_items.length} Item",
+                                      style: const TextStyle(
+                                        color: AppColors.primaryBlue,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                for (final item in _items)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: _DraftItemTile(
+                                      item: item,
+                                      onDelete: () =>
+                                          setState(() => _items.remove(item)),
+                                    ),
+                                  ),
+                                const Divider(height: 32),
+                              ],
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    strings.isEnglish
+                                        ? "Quick Services"
+                                        : "Layanan Cepat",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      color: AppColors.primaryNavy,
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () async {
+                                      final service = await _pickService(
+                                        context,
+                                        services,
+                                      );
+                                      if (service != null && mounted) {
+                                        _selectServiceAndShowDialog(service);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.search, size: 18),
+                                    label: Text(
+                                      strings.isEnglish ? "Lainnya" : "Lainnya",
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.primaryBlue,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      minimumSize: Size.zero,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              if (quickServices.isNotEmpty)
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final service in quickServices)
+                                      _ServiceQuickButton(
+                                        service: service,
+                                        selected: service.id == _serviceId,
+                                        onTap: () =>
+                                            _selectServiceAndShowDialog(
+                                              service,
+                                            ),
+                                      ),
+                                  ],
                                 ),
                             ],
                           ),
+                        ),
                       ],
                     ),
                   ),
-                  _buildStickyBottomBar(total, employees, selectedEmployeeId, strings),
+                  _buildStickyBottomBar(
+                    total,
+                    employees,
+                    selectedEmployeeId,
+                    strings,
+                  ),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildCompactCustomerSelector(PreviewCustomer? selected, List<PreviewCustomer> customers) {
+  Widget _buildCompactCustomerSelector(
+    PreviewCustomer? selected,
+    List<PreviewCustomer> customers,
+  ) {
     return Row(
       children: [
         Expanded(
           child: InkWell(
             onTap: () async {
               final customer = await _pickCustomer(context, customers);
-              if (customer != null && mounted) setState(() => _customerId = customer.id);
+              if (customer != null && mounted) {
+                setState(() => _customerId = customer.id);
+              }
             },
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.outline.withOpacity(0.2),
+                color: AppColors.outline.withValues(alpha: 0.2),
                 border: Border.all(color: AppColors.outline),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.person, color: AppColors.primaryNavy, size: 22),
+                  const Icon(
+                    Icons.person,
+                    color: AppColors.primaryNavy,
+                    size: 22,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      selected == null ? "Pilih Pelanggan..." : "${selected.name} (${selected.phone})",
+                      selected == null
+                          ? "Pilih Pelanggan..."
+                          : "${selected.name} (${selected.phone})",
                       style: TextStyle(
-                        fontWeight: selected == null ? FontWeight.normal : FontWeight.w700,
-                        color: selected == null ? AppColors.secondaryText : AppColors.primaryNavy,
+                        fontWeight: selected == null
+                            ? FontWeight.normal
+                            : FontWeight.w700,
+                        color: selected == null
+                            ? AppColors.secondaryText
+                            : AppColors.primaryNavy,
                         fontSize: 15,
                       ),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AppColors.secondaryText),
+                  const Icon(
+                    Icons.arrow_drop_down,
+                    color: AppColors.secondaryText,
+                  ),
                 ],
               ),
             ),
@@ -228,12 +328,20 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
           decoration: BoxDecoration(
             color: AppColors.primaryBlue,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: AppColors.primaryBlue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: IconButton(
             onPressed: () async {
               final customer = await _createQuickCustomer(context);
-              if (customer != null && mounted) setState(() => _customerId = customer.id);
+              if (customer != null && mounted) {
+                setState(() => _customerId = customer.id);
+              }
             },
             icon: const Icon(Icons.person_add, color: Colors.white),
           ),
@@ -242,13 +350,22 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     );
   }
 
-  Widget _buildStickyBottomBar(int total, List<PreviewEmployee> employees, String? selectedEmployeeId, AppStrings strings) {
+  Widget _buildStickyBottomBar(
+    int total,
+    List<PreviewEmployee> employees,
+    String? selectedEmployeeId,
+    AppStrings strings,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       decoration: BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
-          BoxShadow(color: AppColors.primaryNavy.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8)),
+          BoxShadow(
+            color: AppColors.primaryNavy.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -8),
+          ),
         ],
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -262,21 +379,41 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Total Tagihan", style: TextStyle(color: AppColors.secondaryText, fontSize: 13, fontWeight: FontWeight.w600)),
+                    const Text(
+                      "Total Tagihan",
+                      style: TextStyle(
+                        color: AppColors.secondaryText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     Text(
                       total.toRupiah(),
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppColors.primaryNavy),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                        color: AppColors.primaryNavy,
+                      ),
                     ),
                   ],
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: () => _showOptionalDetailsSheet(employees, selectedEmployeeId, strings),
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: const Text("Detail / DP", style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () => _showOptionalDetailsSheet(
+                    employees,
+                    selectedEmployeeId,
+                    strings,
+                  ),
+                  icon: const Icon(Icons.payments_outlined, size: 18),
+                  label: const Text(
+                    "Input DP",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.softBlue,
                     foregroundColor: AppColors.primaryNavy,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -288,12 +425,21 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               child: FilledButton.icon(
                 onPressed: _submit,
                 icon: const Icon(Icons.check_circle, size: 24),
-                label: const Text("SIMPAN PESANAN", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                label: const Text(
+                  "SIMPAN PESANAN",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primaryNavy,
-                  shadowColor: AppColors.primaryNavy.withOpacity(0.5),
+                  shadowColor: AppColors.primaryNavy.withValues(alpha: 0.5),
                   elevation: 8,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
@@ -309,11 +455,20 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(service.name, style: const TextStyle(color: AppColors.primaryNavy, fontWeight: FontWeight.w800)),
+        title: Text(
+          service.name,
+          style: const TextStyle(
+            color: AppColors.primaryNavy,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Tentukan jumlah/berat untuk layanan ini:", style: TextStyle(color: AppColors.secondaryText)),
+            const Text(
+              "Tentukan jumlah/berat untuk layanan ini:",
+              style: TextStyle(color: AppColors.secondaryText),
+            ),
             const SizedBox(height: 24),
             _QuantityStepper(
               controller: _quantityController,
@@ -325,8 +480,11 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Batal", style: TextStyle(color: AppColors.secondaryText))
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Batal",
+              style: TextStyle(color: AppColors.secondaryText),
+            ),
           ),
           FilledButton(
             onPressed: () {
@@ -335,16 +493,25 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text("Tambahkan", style: TextStyle(fontWeight: FontWeight.bold)),
-          )
+            child: const Text(
+              "Tambahkan",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  void _showOptionalDetailsSheet(List<PreviewEmployee> employees, String? selectedEmployeeId, AppStrings strings) {
+  void _showOptionalDetailsSheet(
+    List<PreviewEmployee> employees,
+    String? selectedEmployeeId,
+    AppStrings strings,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -357,7 +524,9 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
           ),
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24, right: 24, top: 24,
+            left: 24,
+            right: 24,
+            top: 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -365,26 +534,44 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Center(
-                  child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.outline, borderRadius: BorderRadius.circular(2))),
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.outline,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
-                Text("Detail Opsional", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: AppColors.primaryNavy)),
+                Text(
+                  "Detail Opsional",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryNavy,
+                  ),
+                ),
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _paidController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: "DP / Pembayaran Awal", 
+                    labelText: "DP / Pembayaran Awal",
                     prefixIcon: const Icon(Icons.payments_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _paymentMethod,
+                  initialValue: _paymentMethod,
                   items: const [
                     DropdownMenuItem(value: "Tunai", child: Text("Tunai")),
-                    DropdownMenuItem(value: "Transfer", child: Text("Transfer")),
+                    DropdownMenuItem(
+                      value: "Transfer",
+                      child: Text("Transfer"),
+                    ),
                     DropdownMenuItem(value: "QRIS", child: Text("QRIS")),
                   ],
                   onChanged: (value) {
@@ -392,26 +579,35 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                     setSheetState(() {});
                   },
                   decoration: InputDecoration(
-                    labelText: "Metode Pembayaran", 
-                    prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    labelText: "Metode Pembayaran",
+                    prefixIcon: const Icon(
+                      Icons.account_balance_wallet_outlined,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedEmployeeId,
+                  initialValue: selectedEmployeeId,
                   items: [
                     for (final employee in employees)
-                      DropdownMenuItem(value: employee.id, child: Text(employee.name)),
+                      DropdownMenuItem(
+                        value: employee.id,
+                        child: Text(employee.name),
+                      ),
                   ],
                   onChanged: (value) {
                     setState(() => _employeeId = value ?? selectedEmployeeId);
                     setSheetState(() {});
                   },
                   decoration: InputDecoration(
-                    labelText: "Pilih Kasir", 
+                    labelText: "Pilih Kasir",
                     prefixIcon: const Icon(Icons.badge_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -419,17 +615,22 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                   controller: _noteController,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    labelText: "Catatan Pesanan", 
+                    labelText: "Catatan Pesanan",
                     prefixIcon: const Icon(Icons.notes),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text("Cetak Struk Otomatis", style: TextStyle(fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    "Cetak Struk Otomatis",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   value: _showReceiptAfterSave,
-                  activeColor: AppColors.primaryNavy,
+                  activeThumbColor: AppColors.primaryNavy,
                   onChanged: (value) {
                     setState(() => _showReceiptAfterSave = value);
                     setSheetState(() {});
@@ -442,9 +643,17 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                     onPressed: () => Navigator.pop(context),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primaryNavy,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                    child: const Text("SELESAI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text(
+                      "SELESAI",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),

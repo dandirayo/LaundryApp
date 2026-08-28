@@ -20,7 +20,7 @@ class ServiceRepository {
         .eq('shop_id', shopId)
         .order('sort_order')
         .order('item_name');
-    return [for (final row in rows) _fromMap(row)];
+    return _deduplicateServices([for (final row in rows) _fromMap(row)]);
   }
 
   Future<void> add({
@@ -58,6 +58,22 @@ class ServiceRepository {
     }
     return client;
   }
+}
+
+List<PreviewService> _deduplicateServices(List<PreviewService> services) {
+  final unique = <String, PreviewService>{};
+  for (final service in services) {
+    final key = [
+      service.effectiveGroup,
+      service.effectiveCategory,
+      service.effectiveItem,
+      service.effectiveVariant,
+      service.unit,
+      service.price.toString(),
+    ].map((part) => part.trim().toLowerCase()).join('|');
+    unique.putIfAbsent(key, () => service);
+  }
+  return unique.values.toList();
 }
 
 PreviewService _fromMap(Map<String, dynamic> map) {

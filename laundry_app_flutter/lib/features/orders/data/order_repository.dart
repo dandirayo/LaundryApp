@@ -21,18 +21,35 @@ class OrderRepository {
     required String paymentMethod,
     required List<OrderCreateItem> items,
   }) async {
-    final response = await _requireClient().rpc(
-      'create_laundry_order',
-      params: {
-        'p_customer_id': customerId,
-        'p_assigned_employee_id': employeeId,
-        'p_note': note.trim(),
-        'p_due_at': dueAt.toUtc().toIso8601String(),
-        'p_paid_amount': paidAmount,
-        'p_payment_method': paymentMethod,
-        'p_items': [for (final item in items) item.toMap()],
-      },
-    );
+    late final dynamic response;
+    try {
+      response = await _requireClient().rpc(
+        'create_laundry_order',
+        params: {
+          'p_customer_id': customerId,
+          'p_assigned_employee_id': employeeId,
+          'p_note': note.trim(),
+          'p_due_at': dueAt.toUtc().toIso8601String(),
+          'p_paid_amount': paidAmount,
+          'p_payment_method': paymentMethod,
+          'p_items': [for (final item in items) item.toMap()],
+        },
+      );
+    } on PostgrestException catch (error) {
+      if (error.code == '23502' &&
+          error.message.contains('customer_phone_snapshot')) {
+        throw const Failure(
+          code: 'order-customer-phone-snapshot',
+          message:
+              'Pesanan belum dapat disimpan karena fungsi database masih memakai nomor pelanggan kosong sebagai null. Jalankan migrasi perbaikan pesanan terbaru di Supabase.',
+        );
+      }
+      throw Failure(
+        code: error.code ?? 'order-create-failed',
+        message: 'Pesanan gagal disimpan: ${error.message}',
+        details: error,
+      );
+    }
     final rows = response as List;
     final orderId = (rows.first as Map)['order_id'] as String;
     final orders = await fetch(shopId);

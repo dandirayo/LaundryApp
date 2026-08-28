@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'cashbook_controller.dart';
 
 class CashbookPage extends ConsumerStatefulWidget {
   const CashbookPage({super.key});
@@ -23,7 +24,9 @@ class _CashbookPageState extends ConsumerState<CashbookPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cash = ref.watch(
+    final cashbookState = ref.watch(cashbookControllerProvider);
+    final onlineTransactions = cashbookState.value?.transactions;
+    final previewCash = ref.watch(
       previewDataProvider.select(
         (state) => (
           cashTransactions: state.cashTransactions,
@@ -31,15 +34,17 @@ class _CashbookPageState extends ConsumerState<CashbookPage> {
         ),
       ),
     );
+    final allTransactions = onlineTransactions ?? previewCash.cashTransactions;
+    final legacySummaries = previewCash.legacyMonthlySummaries;
     final strings = ref.strings;
     final range = _rangeFor(_period);
-    final filteredCash = cash.cashTransactions
+    final filteredCash = allTransactions
         .where((entry) => _isWithinRange(entry.createdAt, range))
         .toList();
-    final legacySummaries = cash.legacyMonthlySummaries
+    final filteredLegacy = legacySummaries
         .where((summary) => _isMonthWithinRange(summary.month, range))
         .toList();
-    final openingBalance = cash.cashTransactions
+    final openingBalance = allTransactions
         .where((entry) => entry.createdAt.isBefore(range.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
     final income = filteredCash
@@ -105,7 +110,7 @@ class _CashbookPageState extends ConsumerState<CashbookPage> {
                 income: income,
                 outcome: outcome,
                 cash: filteredCash,
-                legacySummaries: legacySummaries,
+                legacySummaries: filteredLegacy,
               ),
           ],
         ),

@@ -8,6 +8,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../cashbook/presentation/cashbook_controller.dart';
+import '../../orders/presentation/order_controller.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -22,7 +24,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(
+    final previewData = ref.watch(
       previewDataProvider.select(
         (state) => (
           orders: state.orders,
@@ -31,12 +33,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         ),
       ),
     );
+    final onlineOrders = ref.watch(orderControllerProvider).value;
+    final onlineCash = ref.watch(cashbookControllerProvider).value?.transactions;
+    final allOrders = onlineOrders ?? previewData.orders;
+    final allCashTransactions = onlineCash ?? previewData.cashTransactions;
     final strings = ref.strings;
     final activeRange = _rangeFor(_period);
-    final orders = data.orders
+    final orders = allOrders
         .where((order) => _isWithinRange(order.receivedAt, activeRange))
         .toList();
-    final cashTransactions = data.cashTransactions
+    final cashTransactions = allCashTransactions
         .where((entry) => _isWithinRange(entry.createdAt, activeRange))
         .toList();
     final orderValue = orders.fold<int>(
@@ -54,11 +60,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final outcome = cashTransactions
         .where((entry) => entry.type == 'OUT')
         .fold<int>(0, (sum, entry) => sum + entry.amount);
-    final openingBalance = data.cashTransactions
+    final openingBalance = allCashTransactions
         .where((entry) => entry.createdAt.isBefore(activeRange.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
     final uniqueCustomers = orders.map((order) => order.customerId).toSet();
-    final legacySummaries = data.legacyMonthlySummaries
+    final legacySummaries = previewData.legacyMonthlySummaries
         .where((summary) => _isMonthWithinRange(summary.month, activeRange))
         .toList();
     final legacyIncome = legacySummaries.fold<int>(

@@ -12,6 +12,7 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import 'payroll_controller.dart';
 
 class PayrollPage extends ConsumerWidget {
   const PayrollPage({super.key});
@@ -23,11 +24,11 @@ class PayrollPage extends ConsumerWidget {
         (state) => (
           requests: state.requests,
           employees: state.employees,
-          cashTransactions: state.cashTransactions,
           weeklySalaryAmount: state.weeklySalaryAmount,
         ),
       ),
     );
+    final payrollState = ref.watch(payrollControllerProvider);
     final incentiveRequests = data.requests
         .where(
           (request) =>
@@ -36,6 +37,7 @@ class PayrollPage extends ConsumerWidget {
         )
         .toList();
     final periodStart = _startOfWeek(DateTime.now());
+    final periodEnd = periodStart.add(const Duration(days: 6));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Gaji & Insentif')),
@@ -65,12 +67,8 @@ class PayrollPage extends ConsumerWidget {
                 employee: employee,
                 amount: data.weeklySalaryAmount,
                 periodStart: periodStart,
-                isPaid: _isSalaryPaid(
-                  data.cashTransactions,
-                  employee.id,
-                  periodStart,
-                ),
-                onPay: () => _paySalary(context, ref, employee),
+                isPaid: payrollState.value?.isSalaryPaid(employee.id, periodStart) ?? false,
+                onPay: () => _paySalary(context, ref, employee, data.weeklySalaryAmount, periodStart, periodEnd),
               ),
               const SizedBox(height: 10),
             ],
@@ -112,22 +110,13 @@ class PayrollPage extends ConsumerWidget {
     );
   }
 
-  bool _isSalaryPaid(
-    List<PreviewCashTransaction> cashTransactions,
-    String employeeId,
-    DateTime periodStart,
-  ) {
-    final referenceId = _payrollReference(employeeId, periodStart);
-    return cashTransactions.any(
-      (cash) =>
-          cash.referenceType == 'PAYROLL' && cash.referenceId == referenceId,
-    );
-  }
-
   Future<void> _paySalary(
     BuildContext context,
     WidgetRef ref,
     PreviewEmployee employee,
+    int amount,
+    DateTime periodStart,
+    DateTime periodEnd,
   ) async {
     final method = await _showPaymentMethodSheet(context);
     if (method == null || !context.mounted) {
@@ -148,12 +137,18 @@ class PayrollPage extends ConsumerWidget {
       return;
     }
     try {
-      ref
-          .read(previewDataProvider.notifier)
-          .payWeeklySalary(employeeId: employee.id, method: method);
+      await ref
+          .read(payrollControllerProvider.notifier)
+          .paySalary(
+            employeeId: employee.id,
+            amount: amount,
+            method: method,
+            periodStart: periodStart,
+            periodEnd: periodEnd,
+          );
       showAppSnackBar('Gaji masuk Buku Kas.');
-    } on StateError catch (error) {
-      showAppSnackBar(error.message);
+    } catch (error) {
+      showAppSnackBar('Gagal bayar gaji: $error');
     }
   }
 
@@ -197,10 +192,6 @@ class PayrollPage extends ConsumerWidget {
   DateTime _startOfWeek(DateTime value) {
     final date = DateTime(value.year, value.month, value.day);
     return date.subtract(Duration(days: date.weekday - DateTime.monday));
-  }
-
-  String _payrollReference(String employeeId, DateTime periodStart) {
-    return 'PAYROLL-$employeeId-${periodStart.year}${periodStart.month.toString().padLeft(2, '0')}${periodStart.day.toString().padLeft(2, '0')}';
   }
 }
 
