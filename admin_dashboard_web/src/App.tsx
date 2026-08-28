@@ -235,43 +235,65 @@ function App() {
 
   async function loadProfile(userId: string) {
     setLoading(true); setMessage('')
-    const { data: row, error } = await supabase.from('profiles').select('id, shop_id, employee_id, full_name, role, is_active').eq('id', userId).single()
-    if (error || !row) { setMessage('Profil login tidak ditemukan di Supabase.'); setLoading(false); return }
-    if (row.role !== 'OWNER' || !row.is_active) { setMessage('Dashboard hanya untuk Owner aktif.'); setLoading(false); return }
-    setProfile(row as Profile)
-    await loadDashboard(row.shop_id)
-    setLoading(false)
+    try {
+      const { data: row, error } = await supabase.from('profiles').select('id, shop_id, employee_id, full_name, role, is_active').eq('id', userId).single()
+      if (error || !row) { setMessage('Akun Anda tidak terdaftar atau sesi telah berakhir.'); return }
+      if (row.role !== 'OWNER' || !row.is_active) { setMessage('Akses ditolak. Halaman ini hanya dapat diakses oleh Pemilik (Owner) aktif.'); return }
+      setProfile(row as Profile)
+      await loadDashboard(row.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal memuat profil.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function loadDashboard(shopId: string) {
-    const [employees, requests, orders, cash, customers, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
-      supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes, pin').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
-      supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
-      supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
-      supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
-      supabase.from('inventory_movements').select('id, item_id, item_name, type, quantity, note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
-      supabase.from('audit_logs').select('id, actor_role, action, entity_table, summary, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('shops').select('id, name, phone, address').eq('id', shopId).single(),
-    ])
-    setData({ employees: (employees.data ?? []) as Employee[], requests: (requests.data ?? []) as EmployeeRequest[], orders: (orders.data ?? []) as Order[], cash: (cash.data ?? []) as CashTransaction[], customers: (customers.data ?? []) as Customer[], inventory: (inventory.data ?? []) as InventoryItem[], shifts: (shifts.data ?? []) as WeeklyShift[], inventoryMovements: (inventoryMovements.data ?? []) as InventoryMovement[], auditLogs: (auditLogs.data ?? []) as AuditLog[], shop: (shop.data ?? null) as Shop | null })
-    const firstError = [employees.error, requests.error, orders.error, cash.error, customers.error, inventory.error, shifts.error, inventoryMovements.error, auditLogs.error, shop.error].find(Boolean)
-    if (firstError) setMessage(`Sebagian data gagal dimuat: ${firstError.message}`)
+    try {
+      const [employees, requests, orders, cash, customers, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
+        supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes, pin').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
+        supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
+        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
+        supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
+        supabase.from('inventory_movements').select('id, item_id, item_name, type, quantity, note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
+        supabase.from('audit_logs').select('id, actor_role, action, entity_table, summary, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('shops').select('id, name, phone, address').eq('id', shopId).single(),
+      ])
+      setData({ employees: (employees.data ?? []) as Employee[], requests: (requests.data ?? []) as EmployeeRequest[], orders: (orders.data ?? []) as Order[], cash: (cash.data ?? []) as CashTransaction[], customers: (customers.data ?? []) as Customer[], inventory: (inventory.data ?? []) as InventoryItem[], shifts: (shifts.data ?? []) as WeeklyShift[], inventoryMovements: (inventoryMovements.data ?? []) as InventoryMovement[], auditLogs: (auditLogs.data ?? []) as AuditLog[], shop: (shop.data ?? null) as Shop | null })
+      const firstError = [employees.error, requests.error, orders.error, cash.error, customers.error, inventory.error, shifts.error, inventoryMovements.error, auditLogs.error, shop.error].find(Boolean)
+      if (firstError) setMessage(`Sebagian data gagal dimuat: ${firstError.message}`)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal memuat data dashboard.')
+    }
   }
 
   async function signIn(event: FormEvent) {
     event.preventDefault()
     if (!supabaseEnabled) { setMessage('Konfigurasi Supabase belum tersedia.'); return }
     setLoading(true); setMessage('')
-    const login = email.trim().toLowerCase()
-    const { error } = await supabase.auth.signInWithPassword({ email: login.includes('@') ? login : `${login}@idola.local`, password })
-    if (error) setMessage(error.message)
-    setLoading(false)
+    try {
+      const login = email.trim().toLowerCase()
+      const { error } = await supabase.auth.signInWithPassword({ email: login.includes('@') ? login : `${login}@idola.local`, password })
+      if (error) setMessage(error.message)
+    } catch (e: any) {
+      setMessage(e.message || 'Proses masuk gagal.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  async function signOut() { await supabase.auth.signOut(); setProfile(null); setData(demoData) }
+  async function signOut() {
+    try {
+      await supabase.auth.signOut()
+    } catch (e: any) {
+      setMessage(e.message || 'Proses keluar gagal.')
+    } finally {
+      setProfile(null); setData(demoData)
+    }
+  }
 
   async function reviewRequest(request: EmployeeRequest, status: 'approved' | 'rejected' | 'completed' | 'paid') {
     if (!profile) return
@@ -279,88 +301,130 @@ function App() {
     const note = window.prompt(requiredNote ? 'Alasan penolakan (wajib)' : 'Catatan Owner (opsional)', request.review_note)
     if (note === null || (requiredNote && !note.trim())) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('employee_requests').update({ status, review_note: note.trim() || statusLabel(status), reviewed_at: new Date().toISOString() }).eq('id', request.id).eq('shop_id', profile.shop_id)
-    if (!error && status === 'paid' && request.amount > 0) {
-      const cash = await supabase.from('cash_transactions').insert({
-        shop_id: profile.shop_id,
-        type: 'OUT',
-        category: cashCategoryForRequest(request.type),
-        description: `${request.type} ${request.employee_name} - ${request.reason}`,
-        amount: request.amount,
-        method: 'Tunai',
-        reference_type: 'EMPLOYEE_REQUEST',
-        reference_id: request.id,
-      })
-      if (cash.error) setMessage(cash.error.message)
+    try {
+      const { error } = await supabase.from('employee_requests').update({ status, review_note: note.trim() || statusLabel(status), reviewed_at: new Date().toISOString() }).eq('id', request.id).eq('shop_id', profile.shop_id)
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      if (status === 'paid' && request.amount > 0) {
+        const cash = await supabase.from('cash_transactions').insert({
+          shop_id: profile.shop_id,
+          type: 'OUT',
+          category: cashCategoryForRequest(request.type),
+          description: `${request.type} ${request.employee_name} - ${request.reason}`,
+          amount: request.amount,
+          method: 'Tunai',
+          reference_type: 'EMPLOYEE_REQUEST',
+          reference_id: request.id,
+        })
+        if (cash.error) {
+          setMessage(cash.error.message)
+          return
+        }
+      }
+      await loadDashboard(profile.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal merespons request.')
+    } finally {
+      setLoading(false)
     }
-    if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
-    setLoading(false)
   }
 
   async function saveEmployee(values: EmployeeFormValues) {
     if (!profile) { setMessage('Masuk sebagai Owner dulu sebelum menyimpan karyawan.'); setEmployeeEditor(null); return }
     setLoading(true); setMessage('')
-    if (employeeEditor === 'new') {
-      const { data: result, error } = await supabase.functions.invoke('create-employee-user', { body: values })
-      if (error || result?.error) setMessage(result?.error ?? error?.message ?? 'Karyawan gagal dibuat.')
-      else { setEmployeeEditor(null); setMessage(`Karyawan ${values.name} berhasil dibuat.`); await loadDashboard(profile.shop_id) }
-    } else if (employeeEditor) {
-      const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active, pin: values.pin }).eq('id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
-      if (!error) await supabase.from('profiles').update({ full_name: values.name, phone: values.phone, is_active: values.is_active }).eq('employee_id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
-      if (error) setMessage(error.message); else { setEmployeeEditor(null); setMessage(`Data ${values.name} berhasil disimpan.`); await loadDashboard(profile.shop_id) }
+    try {
+      if (employeeEditor === 'new') {
+        const { data: result, error } = await supabase.functions.invoke('create-employee-user', { body: values })
+        if (error || result?.error) setMessage(result?.error ?? error?.message ?? 'Karyawan gagal dibuat.')
+        else { setEmployeeEditor(null); setMessage(`Karyawan ${values.name} berhasil dibuat.`); await loadDashboard(profile.shop_id) }
+      } else if (employeeEditor) {
+        const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active, pin: values.pin }).eq('id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
+        if (!error) await supabase.from('profiles').update({ full_name: values.name, phone: values.phone, is_active: values.is_active }).eq('employee_id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
+        if (error) setMessage(error.message); else { setEmployeeEditor(null); setMessage(`Data ${values.name} berhasil disimpan.`); await loadDashboard(profile.shop_id) }
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menyimpan data karyawan.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function saveCustomer(values: CustomerFormValues) {
     if (!profile) return
     setLoading(true); setMessage('')
-    if (customerEditor === 'new') {
-      const { error } = await supabase.from('customers').insert({ ...values, shop_id: profile.shop_id })
-      if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
-    } else if (customerEditor) {
-      const { error } = await supabase.from('customers').update(values).eq('id', (customerEditor as Customer).id).eq('shop_id', profile.shop_id)
-      if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
+    try {
+      if (customerEditor === 'new') {
+        const { error } = await supabase.from('customers').insert({ ...values, shop_id: profile.shop_id })
+        if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
+      } else if (customerEditor) {
+        const { error } = await supabase.from('customers').update(values).eq('id', (customerEditor as Customer).id).eq('shop_id', profile.shop_id)
+        if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menyimpan data pelanggan.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function deleteCustomer(customer: Customer) {
     if (!profile || !window.confirm(`Hapus pelanggan ${customer.name}?`)) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('customers').delete().eq('id', customer.id).eq('shop_id', profile.shop_id)
-    if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', customer.id).eq('shop_id', profile.shop_id)
+      if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus pelanggan.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function addInventoryItem(values: InventoryFormValues) {
     if (!profile) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('inventory_items').insert({ ...values, shop_id: profile.shop_id })
-    if (error) setMessage(error.message); else { setInventoryEditor(false); await loadDashboard(profile.shop_id) }
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('inventory_items').insert({ ...values, shop_id: profile.shop_id })
+      if (error) setMessage(error.message); else { setInventoryEditor(false); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menambahkan barang.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function adjustStock(values: StockAdjustmentValues) {
     if (!profile || !stockAdjuster) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.rpc('adjust_inventory_stock', {
-      p_item_id: stockAdjuster.id,
-      p_quantity: values.quantity,
-      p_type: values.type,
-      p_note: values.note,
-    })
-    if (error) setMessage(error.message)
-    else { setStockAdjuster(null); await loadDashboard(profile.shop_id) }
-    setLoading(false)
+    try {
+      const { error } = await supabase.rpc('adjust_inventory_stock', {
+        p_item_id: stockAdjuster.id,
+        p_quantity: values.quantity,
+        p_type: values.type,
+        p_note: values.note,
+      })
+      if (error) setMessage(error.message)
+      else { setStockAdjuster(null); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal mengubah stok.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function updateOrderStatus(order: Order, status: string) {
     if (!profile || order.order_status === status) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('orders').update({ order_status: status, updated_at: new Date().toISOString() }).eq('id', order.id).eq('shop_id', profile.shop_id)
-    if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('orders').update({ order_status: status, updated_at: new Date().toISOString() }).eq('id', order.id).eq('shop_id', profile.shop_id)
+      if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal memperbarui status pesanan.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function recordPayment(order: Order) {
@@ -372,9 +436,14 @@ function App() {
     if (!Number.isFinite(amount) || amount <= 0) { setMessage('Nominal pembayaran tidak valid.'); return }
     const method = window.prompt('Metode pembayaran', 'Tunai') || 'Tunai'
     setLoading(true); setMessage('')
-    const { error } = await supabase.rpc('record_order_payment', { p_order_id: order.id, p_amount: Math.round(amount), p_method: method })
-    if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
-    setLoading(false)
+    try {
+      const { error } = await supabase.rpc('record_order_payment', { p_order_id: order.id, p_amount: Math.round(amount), p_method: method })
+      if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal mencatat pembayaran.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function saveShift(values: ShiftFormValues) {
@@ -382,37 +451,57 @@ function App() {
     const employee = data.employees.find((item) => item.id === values.employee_id)
     if (!employee) { setMessage('Karyawan shift tidak ditemukan.'); return }
     setLoading(true); setMessage('')
-    const payload = { shop_id: profile.shop_id, employee_id: employee.id, employee_name: employee.name, day_of_week: values.day_of_week, start_time: values.start_time, end_time: values.end_time, is_day_off: values.is_day_off }
-    const query = shiftEditor === 'new'
-      ? supabase.from('weekly_shifts').upsert(payload, { onConflict: 'shop_id,employee_id,day_of_week' })
-      : supabase.from('weekly_shifts').update(payload).eq('id', (shiftEditor as WeeklyShift).id).eq('shop_id', profile.shop_id)
-    const { error } = await query
-    if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
-    setLoading(false)
+    try {
+      const payload = { shop_id: profile.shop_id, employee_id: employee.id, employee_name: employee.name, day_of_week: values.day_of_week, start_time: values.start_time, end_time: values.end_time, is_day_off: values.is_day_off }
+      const query = shiftEditor === 'new'
+        ? supabase.from('weekly_shifts').upsert(payload, { onConflict: 'shop_id,employee_id,day_of_week' })
+        : supabase.from('weekly_shifts').update(payload).eq('id', (shiftEditor as WeeklyShift).id).eq('shop_id', profile.shop_id)
+      const { error } = await query
+      if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menyimpan jadwal.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function deleteShift(shift: WeeklyShift) {
     if (!profile || !window.confirm(`Hapus shift ${shift.employee_name} pada ${dayLabel(shift.day_of_week)}?`)) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('weekly_shifts').delete().eq('id', shift.id).eq('shop_id', profile.shop_id)
-    if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('weekly_shifts').delete().eq('id', shift.id).eq('shop_id', profile.shop_id)
+      if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus jadwal.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function addCashTransaction(values: CashFormValues) {
     if (!profile) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('cash_transactions').insert({ ...values, shop_id: profile.shop_id, reference_type: 'MANUAL' })
-    if (error) setMessage(error.message); else { setCashEditor(false); await loadDashboard(profile.shop_id) }
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('cash_transactions').insert({ ...values, shop_id: profile.shop_id, reference_type: 'MANUAL' })
+      if (error) setMessage(error.message); else { setCashEditor(false); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menyimpan kas.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function saveShop(values: ShopFormValues) {
     if (!profile) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.from('shops').update(values).eq('id', profile.shop_id)
-    if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
-    setLoading(false)
+    try {
+      const { error } = await supabase.from('shops').update(values).eq('id', profile.shop_id)
+      if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menyimpan pengaturan toko.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function exportCashCsv() {

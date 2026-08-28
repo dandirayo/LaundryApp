@@ -48,7 +48,7 @@ class AppStrings {
       isEnglish ? 'Sign in to Idola Laundry' : 'Masuk Idola Laundry';
   String get signInDescription => isEnglish
       ? 'Use your registered Owner or employee account to continue.'
-      : 'Gunakan akun Owner atau karyawan yang sudah terdaftar.';
+      : 'Masuk dengan akun Pemilik atau Karyawan yang telah terdaftar.';
   String get signIn => isEnglish ? 'Sign In' : 'Masuk';
   String get previewOwner => isEnglish ? 'Preview Owner' : 'Preview Owner';
   String get previewEmployee =>
@@ -61,10 +61,10 @@ class AppStrings {
       isEnglish ? 'Password is required.' : 'Password wajib diisi.';
   String get supabasePreviewNotice => isEnglish
       ? 'Supabase is not configured yet. Online login cannot be used.'
-      : 'Supabase belum dikonfigurasi. Login online belum bisa digunakan.';
+      : 'Sistem sedang offline. Silakan masuk menggunakan mode lokal/offline.';
   String get supabaseMissingNotice => isEnglish
       ? 'Supabase is not configured yet. Fill dart-define before signing in.'
-      : 'Supabase belum dikonfigurasi. Isi dart-define sebelum login.';
+      : 'Koneksi database online belum dikonfigurasi. Gunakan mode lokal/offline.';
   String get today => isEnglish ? 'Today' : 'Hari ini';
   String get yesterday => isEnglish ? 'Yesterday' : 'Kemarin';
   String get thisWeek => isEnglish ? 'This week' : 'Minggu ini';
@@ -134,7 +134,7 @@ class AppStrings {
       isEnglish ? 'No customers yet' : 'Pelanggan belum ada';
   String get noCustomersMessage => isEnglish
       ? 'Add the first customer to start creating orders.'
-      : 'Tambahkan pelanggan pertama untuk mulai membuat pesanan.';
+      : 'Silakan daftarkan pelanggan baru untuk mulai membuat pesanan pertama.';
   String get addressMissing =>
       isEnglish ? 'Address not filled' : 'Alamat belum diisi';
   String get phoneMissingShort =>
@@ -157,7 +157,7 @@ class AppStrings {
   String imported(String value) =>
       isEnglish ? '$value imported successfully.' : '$value berhasil diimport.';
 
-  String get addOrder => isEnglish ? 'Add Order' : 'Tambah pesanan';
+  String get addOrder => isEnglish ? 'Add Order' : 'Buat Pesanan Baru';
   String get searchOrders => isEnglish
       ? 'Search order number or customer'
       : 'Cari nomor pesanan atau pelanggan';
@@ -174,7 +174,7 @@ class AppStrings {
       isEnglish ? 'Payment added to Cashbook.' : 'Pembayaran masuk Buku Kas.';
   String get whatsappReady => isEnglish
       ? 'WhatsApp opened with pickup-ready template.'
-      : 'WhatsApp dibuka dengan template siap ambil.';
+      : 'Pesan WhatsApp siap kirim berhasil disiapkan.';
   String get whatsappUnavailable => isEnglish
       ? 'WhatsApp cannot be opened on this device.'
       : 'WhatsApp tidak bisa dibuka di perangkat ini.';

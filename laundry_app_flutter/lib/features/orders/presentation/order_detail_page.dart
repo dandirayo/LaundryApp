@@ -334,8 +334,8 @@ class OrderDetailPage extends ConsumerWidget {
       return;
     }
     try {
-      ref
-          .read(previewDataProvider.notifier)
+      await ref
+          .read(orderControllerProvider.notifier)
           .updateOrderDetails(
             orderId: order.id,
             status: result.status,
@@ -343,8 +343,9 @@ class OrderDetailPage extends ConsumerWidget {
             note: result.note,
           );
       showAppSnackBar('Pesanan berhasil diperbarui.');
-    } on StateError catch (error) {
-      showAppSnackBar(error.message);
+    } catch (error) {
+      final message = error is StateError ? error.message : 'Gagal memperbarui pesanan: $error';
+      showAppSnackBar(message);
     }
   }
 
@@ -357,12 +358,16 @@ class OrderDetailPage extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    ref.read(previewDataProvider.notifier).deleteOrder(order.id);
-    if (!context.mounted) {
-      return;
+    try {
+      await ref.read(orderControllerProvider.notifier).delete(order.id);
+      if (!context.mounted) {
+        return;
+      }
+      showAppSnackBar('${order.orderNumber} dihapus.');
+      context.go('/orders');
+    } catch (error) {
+      showAppSnackBar('Gagal menghapus pesanan: $error');
     }
-    showAppSnackBar('${order.orderNumber} dihapus.');
-    context.go('/orders');
   }
 
   Future<bool> _showDeleteCountdownDialog(

@@ -86,6 +86,11 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   Future<void> updateStatus(String orderId, PreviewOrderStatus status) async {
     final shopId = _shopId();
     if (shopId != null) {
+      final orders = state.value ?? const [];
+      final order = orders.firstWhere((o) => o.id == orderId);
+      if (status == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
+        throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
+      }
       await _repository.updateStatus(
         shopId: shopId,
         orderId: orderId,
@@ -94,6 +99,50 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
       await refresh();
     } else {
       ref.read(previewDataProvider.notifier).updateOrderStatus(orderId, status);
+    }
+  }
+
+  Future<void> updateOrderDetails({
+    required String orderId,
+    required PreviewOrderStatus status,
+    required String employeeId,
+    required String note,
+  }) async {
+    final shopId = _shopId();
+    if (shopId != null) {
+      final orders = state.value ?? const [];
+      final order = orders.firstWhere((o) => o.id == orderId);
+      if (status == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
+        throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
+      }
+      await _repository.updateDetails(
+        shopId: shopId,
+        orderId: orderId,
+        status: status,
+        employeeId: _isUuid(employeeId) ? employeeId : null,
+        note: note,
+      );
+      await refresh();
+    } else {
+      ref.read(previewDataProvider.notifier).updateOrderDetails(
+            orderId: orderId,
+            status: status,
+            employeeId: employeeId,
+            note: note,
+          );
+    }
+  }
+
+  Future<void> delete(String orderId) async {
+    final shopId = _shopId();
+    if (shopId != null) {
+      await _repository.delete(
+        shopId: shopId,
+        orderId: orderId,
+      );
+      await refresh();
+    } else {
+      ref.read(previewDataProvider.notifier).deleteOrder(orderId);
     }
   }
 

@@ -187,6 +187,17 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                       item: item,
                                       onDelete: () =>
                                           setState(() => _items.remove(item)),
+                                      onQuantityChanged: (newQty) {
+                                        setState(() {
+                                          final index = _items.indexOf(item);
+                                          if (index != -1) {
+                                            _items[index] = _OrderDraftItem(
+                                              service: item.service,
+                                              quantity: newQty,
+                                            );
+                                          }
+                                        });
+                                      },
                                     ),
                                   ),
                                 const Divider(height: 32),
@@ -212,7 +223,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                         services,
                                       );
                                       if (service != null && mounted) {
-                                        _selectServiceAndShowDialog(service);
+                                        _selectService(service);
+                                        _addItem(service);
                                       }
                                     },
                                     icon: const Icon(Icons.search, size: 18),
@@ -239,10 +251,10 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                       _ServiceQuickButton(
                                         service: service,
                                         selected: service.id == _serviceId,
-                                        onTap: () =>
-                                            _selectServiceAndShowDialog(
-                                              service,
-                                            ),
+                                        onTap: () {
+                                          _selectService(service);
+                                          _addItem(service);
+                                        },
                                       ),
                                   ],
                                 ),
@@ -405,7 +417,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                   ),
                   icon: const Icon(Icons.payments_outlined, size: 18),
                   label: const Text(
-                    "Input DP",
+                    "Pembayaran & Kasir",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   style: FilledButton.styleFrom(
@@ -426,7 +438,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 onPressed: _submit,
                 icon: const Icon(Icons.check_circle, size: 24),
                 label: const Text(
-                  "SIMPAN PESANAN",
+                  "SIMPAN & CETAK NOTA",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -545,7 +557,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  "Detail Opsional",
+                  "Informasi Pembayaran & Kasir",
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: AppColors.primaryNavy,
@@ -556,7 +568,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                   controller: _paidController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: "DP / Pembayaran Awal",
+                    labelText: "Nominal Bayar / Uang Muka (DP)",
                     prefixIcon: const Icon(Icons.payments_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1661,13 +1673,22 @@ class _OrderDraftItem {
 }
 
 class _DraftItemTile extends StatelessWidget {
-  const _DraftItemTile({required this.item, required this.onDelete});
+  const _DraftItemTile({
+    required this.item,
+    required this.onDelete,
+    required this.onQuantityChanged,
+  });
 
   final _OrderDraftItem item;
   final VoidCallback onDelete;
+  final ValueChanged<double> onQuantityChanged;
 
   @override
   Widget build(BuildContext context) {
+    final isKilo = item.service.unit.toUpperCase() == 'KG';
+    final min = isKilo ? 3.0 : 1.0;
+    final step = isKilo ? 0.5 : 1.0;
+
     return Card(
       child: ListTile(
         title: Text(
@@ -1675,11 +1696,26 @@ class _DraftItemTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         subtitle: Text(
-          '${item.quantity.toStringAsFixed(1)} ${item.service.unit} x ${item.service.price.toRupiah()}',
+          '${item.quantity.toStringAsFixed(isKilo ? 1 : 0)} ${item.service.unit} x ${item.service.price.toRupiah()}',
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, size: 22, color: AppColors.primaryBlue),
+              onPressed: item.quantity <= min
+                  ? null
+                  : () => onQuantityChanged(item.quantity - step),
+            ),
+            Text(
+              isKilo ? item.quantity.toStringAsFixed(1) : item.quantity.round().toString(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 22, color: AppColors.primaryBlue),
+              onPressed: () => onQuantityChanged(item.quantity + step),
+            ),
+            const SizedBox(width: 8),
             Text(
               item.total.toRupiah(),
               style: const TextStyle(fontWeight: FontWeight.w800),
@@ -1687,7 +1723,7 @@ class _DraftItemTile extends StatelessWidget {
             IconButton(
               tooltip: 'Hapus item',
               onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
             ),
           ],
         ),

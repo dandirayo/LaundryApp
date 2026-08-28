@@ -172,7 +172,7 @@ class AttendancePage extends ConsumerWidget {
       maxWidth: 1600,
     );
     if (photo == null || !context.mounted) {
-      showAppSnackBar('Absen dibatalkan. Foto kamera belakang wajib diambil.');
+      showAppSnackBar('Absensi dibatalkan. Anda wajib mengambil foto area kerja dengan kamera belakang sebagai bukti.');
       return;
     }
     await waitForTransientUiDismissal();
@@ -189,7 +189,9 @@ class AttendancePage extends ConsumerWidget {
             photoPath: photo.path,
             photoBytes: await photo.readAsBytes(),
           );
-      showAppSnackBar('Absen ${isCheckOut ? 'keluar' : 'masuk'} tersimpan.');
+      showAppSnackBar(isCheckOut
+          ? 'Absen keluar berhasil dicatat. Terima kasih atas kerja keras Anda hari ini!'
+          : 'Absen masuk berhasil dicatat. Selamat bekerja dan melayani pelanggan!');
     } catch (error) {
       showAppSnackBar('Absensi gagal disimpan: $error');
     }

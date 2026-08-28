@@ -83,6 +83,38 @@ class OrderRepository {
         .eq('shop_id', shopId);
   }
 
+  Future<void> updateDetails({
+    required String shopId,
+    required String orderId,
+    required PreviewOrderStatus status,
+    required String? employeeId,
+    required String note,
+  }) async {
+    await _requireClient()
+        .from('orders')
+        .update({
+          'order_status': _statusToStorage(status),
+          'assigned_employee_id': employeeId,
+          'note': note.trim(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', orderId)
+        .eq('shop_id', shopId);
+  }
+
+  Future<void> delete({
+    required String shopId,
+    required String orderId,
+  }) async {
+    await _requireClient()
+        .from('orders')
+        .update({
+          'deleted_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', orderId)
+        .eq('shop_id', shopId);
+  }
+
   Future<void> addPayment({
     required String orderId,
     required int amount,

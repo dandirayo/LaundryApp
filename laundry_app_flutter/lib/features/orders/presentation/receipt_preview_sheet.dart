@@ -134,13 +134,13 @@ class _ReceiptPaper extends StatelessWidget {
                       _center(shopName.toUpperCase(), bold: true),
                       _center(shopAddress),
                       _line(),
-                      _row('No', order.orderNumber),
+                      _row('No. Nota', order.orderNumber),
                       _row(
-                        'Masuk',
+                        'Tgl Masuk',
                         '${order.receivedAt.toIndonesianDate()} ${order.receivedAt.toIndonesianTime()}',
                       ),
                       _row('Pelanggan', order.customerNameSnapshot),
-                      _row('Petugas', employeeName),
+                      _row('Kasir', employeeName),
                       _line(),
                       for (final item in order.items) ...[
                         Text(item.serviceNameSnapshot),
@@ -155,8 +155,8 @@ class _ReceiptPaper extends StatelessWidget {
                       _row('Sisa', order.remainingAmount.toRupiah()),
                       _row('Status', order.paymentStatus.label),
                       _line(),
-                      _center('Terima kasih'),
-                      _center('Simpan struk ini sebagai bukti.'),
+                      _center('Terima Kasih Atas Kepercayaan Anda'),
+                      _center('Harap simpan nota ini sebagai bukti pengambilan.'),
                     ],
                   ),
                 ),
@@ -177,9 +177,10 @@ class _ReceiptPaper extends StatelessWidget {
   }
 
   Widget _line() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Text('--------------------------------'),
+    final charCount = paperWidth == 58 ? 32 : 48;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text('-' * charCount),
     );
   }
 
