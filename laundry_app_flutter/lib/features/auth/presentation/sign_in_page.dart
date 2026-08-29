@@ -26,12 +26,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  
+
   bool _rememberAccount = false;
   bool _autoLoginAttempted = false;
   bool _isOwnerMode = false;
   String _pin = '';
-  
+
   List<Map<String, dynamic>> _employees = [];
   Map<String, dynamic>? _selectedEmployee;
 
@@ -89,11 +89,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final username = _selectedEmployee!['username'] as String;
     final email = username.contains('@') ? username : '$username@idola.local';
 
-    ref.read(authControllerProvider.notifier).signInWithEmailPassword(
-      email: email,
-      password: _pin,
-    );
-    
+    ref
+        .read(authControllerProvider.notifier)
+        .signInWithEmailPassword(email: email, password: _pin);
+
     // Kosongkan PIN agar siap diketik ulang jika gagal
     setState(() => _pin = '');
   }
@@ -132,7 +131,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 24,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -146,7 +148,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Toggle Peran (Owner / Karyawan)
                         Container(
                           height: 44,
@@ -160,14 +162,16 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                                 child: _RoleTab(
                                   title: 'Owner',
                                   isSelected: _isOwnerMode,
-                                  onTap: () => setState(() => _isOwnerMode = true),
+                                  onTap: () =>
+                                      setState(() => _isOwnerMode = true),
                                 ),
                               ),
                               Expanded(
                                 child: _RoleTab(
                                   title: 'Karyawan',
                                   isSelected: !_isOwnerMode,
-                                  onTap: () => setState(() => _isOwnerMode = false),
+                                  onTap: () =>
+                                      setState(() => _isOwnerMode = false),
                                 ),
                               ),
                             ],
@@ -228,10 +232,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             decoration: BoxDecoration(
               color: AppColors.softBlue.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.outline.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: AppColors.outline.withValues(alpha: 0.5),
+              ),
             ),
             child: DropdownButtonFormField<Map<String, dynamic>>(
-              value: _selectedEmployee,
+              initialValue: _selectedEmployee,
               decoration: InputDecoration(
                 labelText: 'Pilih Karyawan',
                 labelStyle: const TextStyle(
@@ -240,7 +246,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.2,
                 ),
-                prefixIcon: const Icon(Icons.badge_outlined, color: AppColors.gold, size: 22),
+                prefixIcon: const Icon(
+                  Icons.badge_outlined,
+                  color: AppColors.gold,
+                  size: 22,
+                ),
                 filled: true,
                 fillColor: Colors.transparent,
                 border: OutlineInputBorder(
@@ -255,9 +265,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryBlue),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primaryBlue,
+              ),
               dropdownColor: AppColors.surface,
               borderRadius: BorderRadius.circular(14),
               style: const TextStyle(
@@ -287,7 +303,8 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 14, height: 14,
+                  width: 14,
+                  height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: AppColors.primaryBlue,
@@ -338,7 +355,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   width: 2.5,
                 ),
                 boxShadow: isFilled
-                    ? [BoxShadow(color: AppColors.gold.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))]
+                    ? [
+                        BoxShadow(
+                          color: AppColors.gold.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
                     : [],
               ),
             );
@@ -357,7 +380,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                const Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: AppColors.error,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   error.contains('Invalid login credentials')
@@ -398,10 +425,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             const SizedBox(width: 64, height: 64), // Empty space
-            _NumpadButton(
-              text: '0',
-              onTap: () => _onPinKeyTapped('0'),
-            ),
+            _NumpadButton(text: '0', onTap: () => _onPinKeyTapped('0')),
             _NumpadButton(
               icon: Icons.backspace_outlined,
               onTap: _onPinBackspace,
@@ -454,11 +478,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               value: _rememberAccount,
               onChanged: isLoading
                   ? null
-                  : (value) => setState(() => _rememberAccount = value ?? false),
+                  : (value) =>
+                        setState(() => _rememberAccount = value ?? false),
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
               title: const Text('Simpan akun'),
-              subtitle: const Text('Username & password tersimpan untuk otomatis.'),
+              subtitle: const Text(
+                'Username & password tersimpan untuk otomatis.',
+              ),
             ),
           ),
           if (error != null) ...[
@@ -477,7 +504,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             icon: isLoading
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.login),
             label: Text(strings.signIn),
@@ -491,16 +521,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final storage = ref.read(secureStorageProvider);
     final remember = await storage.read(key: _rememberAccountKey);
     if (!mounted || remember != 'true') return;
-    
+
     _loginController.text = await storage.read(key: _savedLoginKey) ?? '';
     _passwordController.text = await storage.read(key: _savedPasswordKey) ?? '';
     if (!mounted) return;
-    
+
     setState(() {
       _rememberAccount = true;
-      _isOwnerMode = true; // Auto-switch to owner if they have saved credentials
+      _isOwnerMode =
+          true; // Auto-switch to owner if they have saved credentials
     });
-    
+
     if (!_autoLoginAttempted &&
         _loginController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty) {
@@ -515,8 +546,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final storage = ref.read(secureStorageProvider);
     if (_rememberAccount) {
       await storage.write(key: _rememberAccountKey, value: 'true');
-      await storage.write(key: _savedLoginKey, value: _loginController.text.trim());
-      await storage.write(key: _savedPasswordKey, value: _passwordController.text);
+      await storage.write(
+        key: _savedLoginKey,
+        value: _loginController.text.trim(),
+      );
+      await storage.write(
+        key: _savedPasswordKey,
+        value: _passwordController.text,
+      );
       return;
     }
     await storage.delete(key: _rememberAccountKey);
@@ -528,16 +565,18 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     if (!_formKey.currentState!.validate()) return;
     await _saveAccountPreference();
     if (!mounted) return;
-    
+
     String loginEmail = _loginController.text.trim();
     if (!loginEmail.contains('@')) {
       loginEmail = '$loginEmail@idola.local';
     }
 
-    ref.read(authControllerProvider.notifier).signInWithEmailPassword(
-      email: loginEmail,
-      password: _passwordController.text,
-    );
+    ref
+        .read(authControllerProvider.notifier)
+        .signInWithEmailPassword(
+          email: loginEmail,
+          password: _passwordController.text,
+        );
   }
 }
 
@@ -546,7 +585,11 @@ class _RoleTab extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _RoleTab({required this.title, required this.isSelected, required this.onTap});
+  const _RoleTab({
+    required this.title,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -559,7 +602,13 @@ class _RoleTab extends StatelessWidget {
           color: isSelected ? AppColors.primaryNavy : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
-              ? [BoxShadow(color: AppColors.primaryNavy.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryNavy.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
               : [],
         ),
         alignment: Alignment.center,

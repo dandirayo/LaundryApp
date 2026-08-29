@@ -15,21 +15,23 @@ final payrollControllerProvider =
     );
 
 class PayrollState {
-  const PayrollState({
-    required this.payments,
-    required this.isOnline,
-  });
+  const PayrollState({required this.payments, required this.isOnline});
 
   final List<PayrollPayment> payments;
   final bool isOnline;
 
   bool isSalaryPaid(String employeeId, DateTime periodStart) {
-    final periodDate = DateTime(periodStart.year, periodStart.month, periodStart.day);
-    return payments.any((p) =>
-      p.employeeId == employeeId &&
-      p.periodStart.year == periodDate.year &&
-      p.periodStart.month == periodDate.month &&
-      p.periodStart.day == periodDate.day
+    final periodDate = DateTime(
+      periodStart.year,
+      periodStart.month,
+      periodStart.day,
+    );
+    return payments.any(
+      (p) =>
+          p.employeeId == employeeId &&
+          p.periodStart.year == periodDate.year &&
+          p.periodStart.month == periodDate.month &&
+          p.periodStart.day == periodDate.day,
     );
   }
 }
@@ -38,6 +40,7 @@ class PayrollController extends AsyncNotifier<PayrollState> {
   late PayrollRepository _repository;
   RealtimeChannel? _channel;
   bool _refreshQueued = false;
+  final Set<String> _paymentsInFlight = <String>{};
 
   @override
   Future<PayrollState> build() async {
@@ -57,25 +60,33 @@ class PayrollController extends AsyncNotifier<PayrollState> {
     required DateTime periodStart,
     required DateTime periodEnd,
   }) async {
-    final shopId = _onlineShopId();
-    if (shopId != null) {
-      final user = ref.read(authControllerProvider).value?.user;
-      await _repository.paySalary(
-        shopId: shopId,
-        employeeId: employeeId,
-        amount: amount,
-        method: method,
-        periodStart: periodStart,
-        periodEnd: periodEnd,
-        paidBy: user?.userId,
-      );
-    } else {
-      ref.read(previewDataProvider.notifier).payWeeklySalary(
-        employeeId: employeeId,
-        method: method,
-      );
+    final paymentKey =
+        '$employeeId:${periodStart.year}-${periodStart.month}-${periodStart.day}';
+    if (!_paymentsInFlight.add(paymentKey)) {
+      throw StateError('Pembayaran gaji ini sedang diproses.');
     }
-    await refresh();
+    try {
+      final shopId = _onlineShopId();
+      if (shopId != null) {
+        final user = ref.read(authControllerProvider).value?.user;
+        await _repository.paySalary(
+          shopId: shopId,
+          employeeId: employeeId,
+          amount: amount,
+          method: method,
+          periodStart: periodStart,
+          periodEnd: periodEnd,
+          paidBy: user?.userId,
+        );
+      } else {
+        ref
+            .read(previewDataProvider.notifier)
+            .payWeeklySalary(employeeId: employeeId, method: method);
+      }
+      await refresh();
+    } finally {
+      _paymentsInFlight.remove(paymentKey);
+    }
   }
 
   Future<PayrollState> _load({required bool subscribe}) async {
@@ -93,7 +104,9 @@ class PayrollController extends AsyncNotifier<PayrollState> {
               id: t.id,
               employeeId: _extractEmployeeId(t.referenceId),
               periodStart: _extractPeriodStart(t.referenceId),
-              periodEnd: _extractPeriodStart(t.referenceId).add(const Duration(days: 6)),
+              periodEnd: _extractPeriodStart(
+                t.referenceId,
+              ).add(const Duration(days: 6)),
               amount: t.amount,
               method: t.method,
               paidAt: t.createdAt,
@@ -110,10 +123,7 @@ class PayrollController extends AsyncNotifier<PayrollState> {
       );
     }
     final payments = await _repository.fetch(shopId: shopId);
-    return PayrollState(
-      payments: payments,
-      isOnline: true,
-    );
+    return PayrollState(payments: payments, isOnline: true);
   }
 
   String? _onlineShopId() {
@@ -140,8 +150,9 @@ class PayrollController extends AsyncNotifier<PayrollState> {
       final dateStr = parts.last;
       if (dateStr.length == 8) {
         return DateTime.tryParse(
-          '${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}'
-        ) ?? DateTime.now();
+              '${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}',
+            ) ??
+            DateTime.now();
       }
     }
     return DateTime.now();

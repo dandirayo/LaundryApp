@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/user_error_message.dart';
+
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
@@ -158,7 +160,10 @@ class _RequestPageState extends ConsumerState<RequestPage> {
                 SliverToBoxAdapter(
                   child: AppStateView.error(
                     title: 'Request belum dapat dimuat',
-                    message: requestState.error.toString(),
+                    message: userErrorMessage(
+                      requestState.error,
+                      fallback: 'Request belum dapat dimuat. Coba lagi.',
+                    ),
                     actionLabel: 'Coba lagi',
                     onAction: () => ref
                         .read(employeeRequestControllerProvider.notifier)
@@ -325,7 +330,14 @@ class _RequestPageState extends ConsumerState<RequestPage> {
           );
       if (context.mounted) showAppSnackBar('Request dikirim ke Owner.');
     } catch (error) {
-      if (context.mounted) showAppSnackBar('Request gagal dikirim: $error');
+      if (context.mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback: 'Request gagal dikirim. Periksa data lalu coba lagi.',
+          ),
+        );
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/errors/user_error_message.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
@@ -30,11 +31,13 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _items = <_OrderDraftItem>[];
   var _mode = _OrderMode.kilo;
+  String? _selectedQuantityUnit;
   String? _customerId;
   String? _serviceId;
   String? _employeeId;
   String _paymentMethod = 'Tunai';
   var _showReceiptAfterSave = true;
+  var _isSubmitting = false;
 
   @override
   void dispose() {
@@ -145,6 +148,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                 onChanged: (mode) => setState(() {
                                   _mode = mode;
                                   _serviceId = null;
+                                  _selectedQuantityUnit = null;
                                   _quantityController.text =
                                       mode == _OrderMode.unit ? "1" : "3";
                                 }),
@@ -435,10 +439,15 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               width: double.infinity,
               height: 56,
               child: FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.check_circle, size: 24),
-                label: const Text(
-                  "SIMPAN & CETAK NOTA",
+                onPressed: _isSubmitting ? null : _submit,
+                icon: _isSubmitting
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle, size: 24),
+                label: Text(
+                  _isSubmitting ? "MENYIMPAN..." : "SIMPAN & CETAK NOTA",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -457,64 +466,6 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _selectServiceAndShowDialog(PreviewService service) {
-    _selectService(service);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          service.name,
-          style: const TextStyle(
-            color: AppColors.primaryNavy,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Tentukan jumlah/berat untuk layanan ini:",
-              style: TextStyle(color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: 24),
-            _QuantityStepper(
-              controller: _quantityController,
-              unit: service.unit,
-              isKilo: service.unit.toUpperCase() == "KG",
-              onChanged: () {},
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              "Batal",
-              style: TextStyle(color: AppColors.secondaryText),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _addItem(service);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              "Tambahkan",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -826,14 +777,18 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
 
   void _selectService(PreviewService service) {
     final quantity = double.tryParse(_quantityController.text) ?? 0;
+    final unit = service.unit.toUpperCase();
     setState(() {
       _serviceId = service.id;
-      if (service.unit.toUpperCase() == 'KG' && quantity < 3) {
+      if (_selectedQuantityUnit != unit) {
+        _quantityController.text = unit == 'KG' ? '3' : '1';
+      } else if (unit == 'KG' && quantity < 3) {
         _quantityController.text = '3';
       }
-      if (service.unit.toUpperCase() != 'KG' && quantity <= 0) {
+      if (unit != 'KG' && quantity <= 0) {
         _quantityController.text = '1';
       }
+      _selectedQuantityUnit = unit;
     });
   }
 
@@ -865,6 +820,9 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) {
+      return;
+    }
     final missingSteps = _missingOrderSteps();
     if (missingSteps.isNotEmpty) {
       await _showMissingStepsDialog(missingSteps);
@@ -876,6 +834,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       ]);
       return;
     }
+    setState(() => _isSubmitting = true);
     try {
       final order = await ref
           .read(orderControllerProvider.notifier)
@@ -928,7 +887,19 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       );
       context.go('/orders/${order.id}');
     } catch (error) {
-      showAppSnackBar('Pesanan gagal dibuat: $error');
+      if (mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback:
+                'Pesanan gagal disimpan. Periksa data pelanggan dan layanan.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -998,108 +969,6 @@ class _QuickCustomerInput {
   final String name;
   final String phone;
   final String address;
-}
-
-class _QuickHeader extends StatelessWidget {
-  const _QuickHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.softBlue,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.bolt_outlined, color: AppColors.primaryNavy),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.primaryNavy,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CustomerQuickButton extends StatelessWidget {
-  const _CustomerQuickButton({
-    required this.customer,
-    required this.hasError,
-    required this.errorText,
-    required this.onPick,
-    required this.onAdd,
-  });
-
-  final PreviewCustomer? customer;
-  final bool hasError;
-  final String? errorText;
-  final VoidCallback onPick;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = customer;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: onPick,
-                icon: const Icon(Icons.search),
-                label: Text(
-                  selected == null
-                      ? 'Pelanggan Lama'
-                      : '${selected.name} - ${selected.phone}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Pelanggan Baru'),
-              ),
-            ),
-          ],
-        ),
-        if (hasError && errorText != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            errorText!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ],
-      ],
-    );
-  }
 }
 
 class _ModeSelector extends StatelessWidget {
@@ -1236,99 +1105,6 @@ class _ServiceButtonContent extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ],
-    );
-  }
-}
-
-class _QuantityStepper extends StatelessWidget {
-  const _QuantityStepper({
-    required this.controller,
-    required this.unit,
-    required this.isKilo,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String unit;
-  final bool isKilo;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = isKilo ? 'Berat kg' : 'Jumlah';
-    final step = isKilo ? 0.5 : 1.0;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconButton.filledTonal(
-          tooltip: 'Kurangi',
-          onPressed: () => _change(-step),
-          icon: const Icon(Icons.remove),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(labelText: '$label ($unit)'),
-            onChanged: (_) => onChanged(),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton.filled(
-          tooltip: 'Tambah',
-          onPressed: () => _change(step),
-          icon: const Icon(Icons.add),
-        ),
-      ],
-    );
-  }
-
-  void _change(double delta) {
-    final current = double.tryParse(controller.text) ?? 0;
-    final min = isKilo ? 3.0 : 1.0;
-    final next = (current + delta).clamp(min, 999.0);
-    controller.text = isKilo
-        ? next.toStringAsFixed(1)
-        : next.round().toString();
-    onChanged();
-  }
-}
-
-class _TotalBar extends StatelessWidget {
-  const _TotalBar({required this.total});
-
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.lightGold,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.receipt_long_outlined, color: AppColors.primaryNavy),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Total sementara',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          Text(
-            total.toRupiah(),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.primaryNavy,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1702,17 +1478,27 @@ class _DraftItemTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline, size: 22, color: AppColors.primaryBlue),
+              icon: const Icon(
+                Icons.remove_circle_outline,
+                size: 22,
+                color: AppColors.primaryBlue,
+              ),
               onPressed: item.quantity <= min
                   ? null
                   : () => onQuantityChanged(item.quantity - step),
             ),
             Text(
-              isKilo ? item.quantity.toStringAsFixed(1) : item.quantity.round().toString(),
+              isKilo
+                  ? item.quantity.toStringAsFixed(1)
+                  : item.quantity.round().toString(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 22, color: AppColors.primaryBlue),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                size: 22,
+                color: AppColors.primaryBlue,
+              ),
               onPressed: () => onQuantityChanged(item.quantity + step),
             ),
             const SizedBox(width: 8),
@@ -1727,61 +1513,6 @@ class _DraftItemTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _EmptyItemsCard extends StatelessWidget {
-  const _EmptyItemsCard({required this.strings});
-
-  final AppStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            const Icon(Icons.shopping_basket_outlined),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                strings.isEnglish
-                    ? 'Add kilo, item, or both in this order.'
-                    : 'Tambahkan kiloan, satuan, atau keduanya dalam pesanan ini.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StepTitle extends StatelessWidget {
-  const _StepTitle({required this.number, required this.title});
-
-  final int number;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 14, child: Text('$number')),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ],
       ),
     );
   }

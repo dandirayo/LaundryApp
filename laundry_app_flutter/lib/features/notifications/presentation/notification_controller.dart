@@ -19,12 +19,17 @@ final notificationControllerProvider =
 class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
   late NotificationRepository _repository;
   RealtimeChannel? _channel;
+  String? _subscribedShopId;
   bool _refreshQueued = false;
+  bool _disposed = false;
 
   @override
   Future<List<PreviewNotification>> build() async {
     _repository = ref.watch(notificationRepositoryProvider);
-    ref.onDispose(_removeChannel);
+    ref.onDispose(() {
+      _disposed = true;
+      _removeChannel();
+    });
     return _load(subscribe: true);
   }
 
@@ -63,8 +68,13 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
 
   Future<List<PreviewNotification>> _load({required bool subscribe}) async {
     final shopId = _shopId();
-    if (shopId == null) return ref.read(previewDataProvider).notifications;
-    if (subscribe && _channel == null) {
+    if (shopId == null) {
+      _removeChannel();
+      return ref.read(previewDataProvider).notifications;
+    }
+    if (subscribe && (_channel == null || _subscribedShopId != shopId)) {
+      _removeChannel();
+      _subscribedShopId = shopId;
       _channel = _repository.subscribe(
         shopId: shopId,
         onChanged: _queueRefresh,
@@ -84,12 +94,12 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
   }
 
   void _queueRefresh() {
-    if (_refreshQueued) return;
+    if (_disposed || _refreshQueued) return;
     _refreshQueued = true;
     unawaited(
       Future<void>.delayed(const Duration(milliseconds: 150), () async {
         _refreshQueued = false;
-        await refresh();
+        if (!_disposed) await refresh();
       }),
     );
   }
@@ -97,6 +107,17 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
   void _removeChannel() {
     final channel = _channel;
     _channel = null;
-    if (channel != null) unawaited(_repository.removeChannel(channel));
+    _subscribedShopId = null;
+    if (channel != null) {
+      unawaited(_removeChannelSafely(channel));
+    }
+  }
+
+  Future<void> _removeChannelSafely(RealtimeChannel channel) async {
+    try {
+      await _repository.removeChannel(channel);
+    } catch (_) {
+      // Cleanup is best-effort during logout/provider disposal.
+    }
   }
 }

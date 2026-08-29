@@ -63,8 +63,8 @@ class AppStrings {
       ? 'Supabase is not configured yet. Online login cannot be used.'
       : 'Sistem sedang offline. Silakan masuk menggunakan mode lokal/offline.';
   String get supabaseMissingNotice => isEnglish
-      ? 'Supabase is not configured yet. Fill dart-define before signing in.'
-      : 'Koneksi database online belum dikonfigurasi. Gunakan mode lokal/offline.';
+      ? 'Online service is not ready. Use local/offline mode for now.'
+      : 'Layanan online belum siap. Gunakan mode lokal/offline untuk sementara.';
   String get today => isEnglish ? 'Today' : 'Hari ini';
   String get yesterday => isEnglish ? 'Yesterday' : 'Kemarin';
   String get thisWeek => isEnglish ? 'This week' : 'Minggu ini';
@@ -78,8 +78,8 @@ class AppStrings {
   String get logoutTitle =>
       isEnglish ? 'Sign out of account?' : 'Keluar dari akun?';
   String get logoutMessage => isEnglish
-      ? 'Session, sensitive providers, auth cache, and subscriptions will be cleared.'
-      : 'Session, provider sensitif, cache auth, dan subscription akan dibersihkan.';
+      ? 'You will need to sign in again to access this account.'
+      : 'Anda perlu masuk kembali untuk mengakses akun ini.';
 
   String get search => isEnglish ? 'Search' : 'Cari';
   String get save => isEnglish ? 'Save' : 'Simpan';

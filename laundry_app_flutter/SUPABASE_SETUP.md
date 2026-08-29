@@ -1,5 +1,15 @@
 # Supabase Setup Idola Laundry
 
+## Canonical Supabase Source
+
+Satu-satunya source migration production adalah:
+
+`/supabase/migrations`
+
+Semua perintah CLI di dokumen ini dijalankan dari root repository
+`C:\Users\ASUS\Documents\GitHub\LaundryApp`. Folder lama
+`/laundry_app_flutter/supabase` tidak boleh dibuat kembali.
+
 ## 1. Buat Project Supabase
 
 1. Buka Supabase Dashboard.
@@ -15,36 +25,87 @@ Ambil keduanya dari `Project Settings > API`.
 Di terminal PowerShell, gunakan `supabase.cmd` agar tidak kena blokir `supabase.ps1`.
 
 ```powershell
+Set-Location C:\Users\ASUS\Documents\GitHub\LaundryApp
 supabase.cmd login
-supabase.cmd link --project-ref PROJECT_REF_KAMU
+supabase.cmd link --project-ref sqydcdhvsmmkvlpsjzgx
 ```
 
-`PROJECT_REF_KAMU` adalah kode di URL project Supabase, misalnya:
-`https://abcxyz.supabase.co` berarti project ref `abcxyz`.
+## 3. Repair Database Production Saat Ini
 
-## 3. Push Schema
+Migration history remote saat audit masih kosong walaupun schema lama sudah
+ada. Karena itu **jangan langsung menjalankan `supabase db push`**: CLI akan
+mencoba mengulang seluruh baseline migration.
+
+Untuk repair production pertama kali, buka Supabase Dashboard > project
+`Idola Laundry` > SQL Editor > New Query, paste seluruh isi file:
+
+`/supabase/migrations/20260829051637_repair_database_consistency.sql`
+
+Klik Run. Setelah berhasil, paste dan Run seluruh isi:
+
+`/supabase/verification/20260829_verify_database_repair.sql`
+
+Semua baris pada result set pertama harus berstatus `PASS`.
+
+Alternatif CLI PowerShell yang menjalankan dua file yang sama:
 
 ```powershell
+Set-Location C:\Users\ASUS\Documents\GitHub\LaundryApp
+supabase.cmd login
+supabase.cmd link --project-ref sqydcdhvsmmkvlpsjzgx
+supabase.cmd db query --linked --file ".\supabase\migrations\20260829051637_repair_database_consistency.sql"
+supabase.cmd db query --linked --file ".\supabase\verification\20260829_verify_database_repair.sql"
+```
+
+Perintah verification harus menampilkan `PASS` untuk setiap check. Jangan
+menjalankan `migration repair` bila query repair gagal atau masih ada hasil
+`FAIL`.
+
+Sesudah SQL dan verifikasi berhasil, sinkronkan migration history:
+
+```powershell
+Set-Location C:\Users\ASUS\Documents\GitHub\LaundryApp
+supabase.cmd migration repair --linked --status applied `
+  202607260001 202608090002 202608090003 202608140001 `
+  202608170001 202608170002 202608280001 202608280003 `
+  20260829051637
+supabase.cmd migration list --linked
+```
+
+Kolom Local dan Remote harus berisi versi yang sama. Mulai sesudah rekonsiliasi
+ini, migration baru dapat dikirim dengan alur aman berikut:
+
+```powershell
+supabase.cmd db push --dry-run
 supabase.cmd db push
 ```
 
-Ini menjalankan migration di folder `supabase/migrations`.
+`db push --dry-run` harus ditinjau lebih dahulu dan hanya boleh menampilkan
+migration baru yang memang belum applied.
 
-Untuk project yang schema awalnya sudah pernah dijalankan manual, buka SQL
-Editor lalu jalankan isi file berikut agar error `stack depth limit exceeded`
-hilang:
+### Schema cache PostgREST
 
-`supabase/migrations/202608090002_fix_profile_rls_and_employee_accounts.sql`
+Migration repair sudah menjalankan `NOTIFY pgrst, 'reload schema'`. Jika APK
+masih menampilkan `PGRST205` setelah SQL sukses, jalankan sekali lagi di SQL
+Editor:
 
-Setelah itu jalankan juga migration pelengkap schema online:
+```sql
+NOTIFY pgrst, 'reload schema';
+```
 
-`supabase/migrations/202608090003_complete_online_schema.sql`
+Lalu tutup dan buka ulang APK.
 
-Migration ini menambahkan tabel operasional seperti `cashbook_entries`,
-`inventory_items`, `inventory_movements`, `notifications`, dan
-`shop_settings`, sekaligus melengkapi shift/toleransi karyawan.
+## 4. Baseline Schema untuk Project Baru
 
-## 4. Masukkan Seed Katalog Awal
+Untuk project baru yang benar-benar kosong, jalankan dari root repository:
+
+```powershell
+supabase.cmd link --project-ref PROJECT_REF_BARU
+supabase.cmd db push --dry-run
+supabase.cmd db push
+```
+
+## 5. Masukkan Seed Katalog Awal
 
 Seed opsional berisi toko Idola Laundry dan contoh katalog bertingkat.
 
@@ -52,7 +113,7 @@ Seed opsional berisi toko Idola Laundry dan contoh katalog bertingkat.
 supabase.cmd db seed
 ```
 
-## 5. Buat User Login Pertama
+## 6. Buat User Login Pertama
 
 Di Supabase Dashboard:
 
@@ -94,7 +155,7 @@ insert into public.profiles (
   phone = excluded.phone;
 ```
 
-## 6. Run Flutter Dengan Supabase
+## 7. Run Flutter Dengan Supabase
 
 ```powershell
 C:\Users\ASUS\dev\flutter_sdk\bin\flutter.bat run -d RRCT2017K6N `
@@ -104,7 +165,7 @@ C:\Users\ASUS\dev\flutter_sdk\bin\flutter.bat run -d RRCT2017K6N `
 
 Kalau `SUPABASE_URL` dan `SUPABASE_ANON_KEY` kosong, app tetap masuk mode preview/offline.
 
-## 7. Pasang Fungsi Pembuatan Akun Karyawan
+## 8. Pasang Fungsi Pembuatan Akun Karyawan
 
 Owner membuat akun karyawan melalui Edge Function supaya secret key Supabase
 tidak pernah masuk ke APK.
@@ -115,7 +176,11 @@ supabase.cmd functions deploy create-employee-user
 
 Kode fungsi berada di:
 
-`supabase/functions/create-employee-user/index.ts`
+`/supabase/functions/create-employee-user/index.ts`
+
+Password awal hanya dikirim ke Supabase Auth oleh Edge Function. Jangan
+menambahkan atau memakai kolom `employees.pin`; dashboard dan APK tidak boleh
+membaca kredensial plaintext dari tabel bisnis.
 
 Setelah fungsi terpasang, buka `Lainnya > Data Karyawan > Tambah Karyawan`.
 Owner dapat mengisi nama, telepon, posisi, username, dan password awal.
@@ -126,7 +191,7 @@ lewat workflow/server yang mengizinkan binary Supabase CLI. Aplikasi Flutter
 tidak boleh menyimpan `service_role_key`, jadi pembuatan user karyawan tetap
 harus lewat Edge Function.
 
-## 8. Build APK Kecil
+## 9. Build APK Kecil
 
 Untuk APK production kecil, gunakan release split per ABI:
 
@@ -148,9 +213,6 @@ diizinkan, atau dari komputer/CI lain yang tidak memblokir Flutter engine.
 - Data dan akun login karyawan sudah menggunakan Supabase.
 - Schema database bisnis sudah disiapkan dan migration pelengkap tersedia.
 - Owner dapat menyimpan shift dan toleransi telat karyawan.
-- Repository data bisnis masih memakai preview/offline data dan akan dipindahkan bertahap:
-  1. Services/katalog
-  2. Customers
-  3. Orders + items + payments
-  4. Cashbook
-  5. Attendance dan request karyawan
+- `cash_transactions` adalah satu-satunya ledger kas yang dipakai aplikasi.
+  `cashbook_entries` hanya dipertahankan sebagai data legacy dan tidak boleh
+  menerima write baru dari role aplikasi.

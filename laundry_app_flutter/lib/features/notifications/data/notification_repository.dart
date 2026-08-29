@@ -12,13 +12,32 @@ class NotificationRepository {
   bool get isOnline => _client != null;
 
   Future<List<PreviewNotification>> fetch(String shopId) async {
+    late final List<Map<String, dynamic>> rows;
+    try {
+      rows = await _fetchRows(shopId, includeReferences: true);
+    } on PostgrestException catch (error) {
+      // Keep deployed clients usable while the additive Chat 3 migration is
+      // waiting to be applied. RLS remains active on the legacy query.
+      if (error.code != '42703') rethrow;
+      rows = await _fetchRows(shopId, includeReferences: false);
+    }
+    return [for (final row in rows) _fromMap(row)];
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRows(
+    String shopId, {
+    required bool includeReferences,
+  }) async {
+    final columns = includeReferences
+        ? 'id, target_profile_id, title, message, type, action_route, reference_type, reference_id, is_read, created_at'
+        : 'id, target_profile_id, title, message, type, action_route, is_read, created_at';
     final rows = await _requireClient()
         .from('notifications')
-        .select('id, title, message, type, action_route, is_read, created_at')
+        .select(columns)
         .eq('shop_id', shopId)
         .order('created_at', ascending: false)
         .limit(100);
-    return [for (final row in rows) _fromMap(row)];
+    return rows;
   }
 
   Future<void> markRead(String id) async {
@@ -93,5 +112,8 @@ PreviewNotification _fromMap(Map<String, dynamic> map) {
         DateTime.now(),
     isRead: (map['is_read'] ?? false) as bool,
     actionRoute: (map['action_route'] ?? '') as String,
+    targetProfileId: map['target_profile_id'] as String?,
+    referenceType: (map['reference_type'] ?? '') as String,
+    referenceId: map['reference_id'] as String?,
   );
 }

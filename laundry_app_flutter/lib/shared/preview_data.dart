@@ -634,6 +634,9 @@ class PreviewNotification {
     required this.createdAt,
     required this.isRead,
     required this.actionRoute,
+    this.targetProfileId,
+    this.referenceType = '',
+    this.referenceId,
   });
 
   final String id;
@@ -643,6 +646,9 @@ class PreviewNotification {
   final DateTime createdAt;
   final bool isRead;
   final String actionRoute;
+  final String? targetProfileId;
+  final String referenceType;
+  final String? referenceId;
 
   PreviewNotification copyWith({bool? isRead}) {
     return PreviewNotification(
@@ -653,6 +659,9 @@ class PreviewNotification {
       createdAt: createdAt,
       isRead: isRead ?? this.isRead,
       actionRoute: actionRoute,
+      targetProfileId: targetProfileId,
+      referenceType: referenceType,
+      referenceId: referenceId,
     );
   }
 }

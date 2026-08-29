@@ -41,12 +41,12 @@ class OrderRepository {
         throw const Failure(
           code: 'order-customer-phone-snapshot',
           message:
-              'Pesanan belum dapat disimpan karena fungsi database masih memakai nomor pelanggan kosong sebagai null. Jalankan migrasi perbaikan pesanan terbaru di Supabase.',
+              'Data pelanggan belum siap digunakan. Tutup lalu buka aplikasi, kemudian coba lagi.',
         );
       }
       throw Failure(
         code: error.code ?? 'order-create-failed',
-        message: 'Pesanan gagal disimpan: ${error.message}',
+        message: 'Pesanan belum dapat disimpan. Periksa data lalu coba lagi.',
         details: error,
       );
     }
@@ -102,15 +102,10 @@ class OrderRepository {
         .eq('shop_id', shopId);
   }
 
-  Future<void> delete({
-    required String shopId,
-    required String orderId,
-  }) async {
+  Future<void> delete({required String shopId, required String orderId}) async {
     await _requireClient()
         .from('orders')
-        .update({
-          'deleted_at': DateTime.now().toUtc().toIso8601String(),
-        })
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', orderId)
         .eq('shop_id', shopId);
   }
@@ -143,6 +138,28 @@ class OrderRepository {
           ),
           callback: (_) => onChanged(),
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'order_items',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'payments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
         .subscribe();
   }
 
@@ -164,6 +181,7 @@ class OrderRepository {
 
 class OrderCreateItem {
   const OrderCreateItem({
+    required this.serviceId,
     required this.serviceName,
     required this.category,
     required this.unit,
@@ -172,6 +190,7 @@ class OrderCreateItem {
     required this.subtotal,
   });
 
+  final String serviceId;
   final String serviceName;
   final String category;
   final String unit;
@@ -180,6 +199,7 @@ class OrderCreateItem {
   final int subtotal;
 
   Map<String, dynamic> toMap() => {
+    'service_id': serviceId,
     'service_name': serviceName,
     'category': category,
     'unit': unit,

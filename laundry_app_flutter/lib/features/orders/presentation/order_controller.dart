@@ -56,6 +56,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
         items: [
           for (final item in items)
             OrderCreateItem(
+              serviceId: item.service.id,
               serviceName: item.service.name,
               category: item.service.category,
               unit: item.service.unit,
@@ -124,7 +125,9 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
       );
       await refresh();
     } else {
-      ref.read(previewDataProvider.notifier).updateOrderDetails(
+      ref
+          .read(previewDataProvider.notifier)
+          .updateOrderDetails(
             orderId: orderId,
             status: status,
             employeeId: employeeId,
@@ -136,10 +139,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   Future<void> delete(String orderId) async {
     final shopId = _shopId();
     if (shopId != null) {
-      await _repository.delete(
-        shopId: shopId,
-        orderId: orderId,
-      );
+      await _repository.delete(shopId: shopId, orderId: orderId);
       await refresh();
     } else {
       ref.read(previewDataProvider.notifier).deleteOrder(orderId);

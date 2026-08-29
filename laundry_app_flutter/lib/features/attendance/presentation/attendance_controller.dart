@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/preview_data.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -17,15 +19,23 @@ final attendanceControllerProvider =
 
 class AttendanceController extends AsyncNotifier<List<PreviewAttendance>> {
   late AttendanceRepository _repository;
+  RealtimeChannel? _channel;
+  String? _subscribedShopId;
+  bool _refreshQueued = false;
+  bool _disposed = false;
 
   @override
   Future<List<PreviewAttendance>> build() async {
     _repository = ref.watch(attendanceRepositoryProvider);
-    return _load();
+    ref.onDispose(() {
+      _disposed = true;
+      _removeChannel();
+    });
+    return _load(subscribe: true);
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(_load);
+    state = await AsyncValue.guard(() => _load(subscribe: false));
   }
 
   Future<void> add({
@@ -59,14 +69,41 @@ class AttendanceController extends AsyncNotifier<List<PreviewAttendance>> {
     }
   }
 
-  Future<List<PreviewAttendance>> _load() async {
+  Future<List<PreviewAttendance>> _load({required bool subscribe}) async {
     final user = ref.read(authControllerProvider).value?.user;
     if (!_repository.isOnline ||
         user == null ||
         user.shopId.startsWith('preview-shop')) {
+      _removeChannel();
       return ref.read(previewDataProvider).attendance;
     }
+    if (subscribe && (_channel == null || _subscribedShopId != user.shopId)) {
+      _removeChannel();
+      _subscribedShopId = user.shopId;
+      _channel = _repository.subscribe(
+        shopId: user.shopId,
+        onChanged: _queueRefresh,
+      );
+    }
     return _repository.fetch(user.shopId);
+  }
+
+  void _queueRefresh() {
+    if (_disposed || _refreshQueued) return;
+    _refreshQueued = true;
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 150), () async {
+        _refreshQueued = false;
+        if (!_disposed) await refresh();
+      }),
+    );
+  }
+
+  void _removeChannel() {
+    final channel = _channel;
+    _channel = null;
+    _subscribedShopId = null;
+    if (channel != null) unawaited(_repository.removeChannel(channel));
   }
 
   int _lateMinutes(PreviewEmployee employee) {

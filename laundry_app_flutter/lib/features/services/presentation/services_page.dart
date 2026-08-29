@@ -30,7 +30,7 @@ class ServicesPage extends ConsumerWidget {
     'Layanan Tambahan',
   ];
 
-  static const _units = ['KG', 'ITEM', 'PAIR', 'PIECE', 'SET'];
+  static const _units = ['KG', 'M2', 'ITEM', 'PAIR', 'PIECE', 'SET'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

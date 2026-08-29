@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/user_error_message.dart';
+
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -17,9 +19,9 @@ class ExpensesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expenseState = ref.watch(expenseControllerProvider);
-    final List<PreviewExpense> expenses = expenseState.value?.expenses ?? ref.watch(
-      previewDataProvider.select((state) => state.expenses),
-    );
+    final List<PreviewExpense> expenses =
+        expenseState.value?.expenses ??
+        ref.watch(previewDataProvider.select((state) => state.expenses));
 
     return Scaffold(
       appBar: AppBar(
@@ -182,7 +184,15 @@ class ExpensesPage extends ConsumerWidget {
           );
       showAppSnackBar('Pengeluaran masuk Buku Kas.');
     } catch (error) {
-      showAppSnackBar('Gagal menyimpan: $error');
+      if (context.mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback:
+                'Pengeluaran gagal disimpan. Periksa nominal dan coba lagi.',
+          ),
+        );
+      }
     }
   }
 }

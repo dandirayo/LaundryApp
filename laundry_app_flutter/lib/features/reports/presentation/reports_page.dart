@@ -34,7 +34,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ),
     );
     final onlineOrders = ref.watch(orderControllerProvider).value;
-    final onlineCash = ref.watch(cashbookControllerProvider).value?.transactions;
+    final onlineCash = ref
+        .watch(cashbookControllerProvider)
+        .value
+        ?.transactions;
     final allOrders = onlineOrders ?? previewData.orders;
     final allCashTransactions = onlineCash ?? previewData.cashTransactions;
     final strings = ref.strings;
@@ -60,6 +63,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final outcome = cashTransactions
         .where((entry) => entry.type == 'OUT')
         .fold<int>(0, (sum, entry) => sum + entry.amount);
+    final incomeByMethod = _totalsByMethod(cashTransactions, 'IN');
+    final outcomeByMethod = _totalsByMethod(cashTransactions, 'OUT');
     final openingBalance = allCashTransactions
         .where((entry) => entry.createdAt.isBefore(activeRange.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
@@ -126,6 +131,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           'Buah',
                           '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PIECE')).toStringAsFixed(1)} buah',
                         ),
+                        _Metric(
+                          'Meter persegi',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M2')).toStringAsFixed(1)} m2',
+                        ),
                         _Metric('Nilai pesanan', orderValue.toRupiah()),
                         _Metric('Pembayaran diterima', paid.toRupiah()),
                         _Metric('Sisa tagihan', remaining.toRupiah()),
@@ -139,7 +148,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                       children: [
                         _Metric('Saldo awal', openingBalance.toRupiah()),
                         _Metric('Total uang masuk', income.toRupiah()),
+                        _MethodBreakdown(
+                          title: 'Uang masuk per metode',
+                          totals: incomeByMethod,
+                        ),
                         _Metric('Total uang keluar', outcome.toRupiah()),
+                        _MethodBreakdown(
+                          title: 'Uang keluar per metode',
+                          totals: outcomeByMethod,
+                        ),
                         _Metric(
                           'Saldo akhir',
                           (openingBalance + income - outcome).toRupiah(),
@@ -344,6 +361,39 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   int _cashEffect(PreviewCashTransaction entry) {
     return entry.type == 'IN' ? entry.amount : -entry.amount;
   }
+
+  Map<String, int> _totalsByMethod(
+    List<PreviewCashTransaction> transactions,
+    String type,
+  ) {
+    final totals = <String, int>{
+      'Tunai': 0,
+      'Transfer': 0,
+      'QRIS': 0,
+      'Lainnya': 0,
+    };
+    for (final entry in transactions.where((entry) => entry.type == type)) {
+      final method = _normalizeMethod(entry.method);
+      totals[method] = (totals[method] ?? 0) + entry.amount;
+    }
+    return totals;
+  }
+
+  String _normalizeMethod(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.contains('tunai') || normalized == 'cash') {
+      return 'Tunai';
+    }
+    if (normalized.contains('transfer') ||
+        normalized.contains('tf') ||
+        normalized.contains('bank')) {
+      return 'Transfer';
+    }
+    if (normalized.contains('qris') || normalized.contains('qr')) {
+      return 'QRIS';
+    }
+    return 'Lainnya';
+  }
 }
 
 enum _ReportPeriod {
@@ -450,6 +500,47 @@ class _Metric extends StatelessWidget {
         trailing: Text(
           value,
           style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+}
+
+class _MethodBreakdown extends StatelessWidget {
+  const _MethodBreakdown({required this.title, required this.totals});
+
+  final String title;
+  final Map<String, int> totals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final entry in totals.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(entry.key)),
+                    Text(
+                      entry.value.toRupiah(),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

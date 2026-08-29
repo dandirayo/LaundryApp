@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -145,7 +146,7 @@ class _ReceiptPaper extends StatelessWidget {
                       for (final item in order.items) ...[
                         Text(item.serviceNameSnapshot),
                         _row(
-                          '${item.quantity.toStringAsFixed(1)} ${item.unit} x ${item.price.toRupiah()}',
+                          '${formatQuantityForUnit(item.quantity, item.unit)} x ${item.price.toRupiah()}',
                           item.total.toRupiah(),
                         ),
                       ],
@@ -156,7 +157,9 @@ class _ReceiptPaper extends StatelessWidget {
                       _row('Status', order.paymentStatus.label),
                       _line(),
                       _center('Terima Kasih Atas Kepercayaan Anda'),
-                      _center('Harap simpan nota ini sebagai bukti pengambilan.'),
+                      _center(
+                        'Harap simpan nota ini sebagai bukti pengambilan.',
+                      ),
                     ],
                   ),
                 ),

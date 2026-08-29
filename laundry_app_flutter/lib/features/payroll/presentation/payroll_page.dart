@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/errors/user_error_message.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/router/app_routes.dart';
@@ -9,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
+import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
@@ -45,6 +47,20 @@ class PayrollPage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: ListView(
           children: [
+            if (payrollState.hasError) ...[
+              AppStateView.error(
+                title: 'Data penggajian belum dapat dimuat',
+                message: userErrorMessage(
+                  payrollState.error,
+                  fallback:
+                      'Data penggajian belum tersedia. Hubungi admin sistem.',
+                ),
+                actionLabel: 'Coba lagi',
+                onAction: () =>
+                    ref.read(payrollControllerProvider.notifier).refresh(),
+              ),
+              const SizedBox(height: 12),
+            ],
             const Card(
               child: ListTile(
                 leading: Icon(Icons.payments_outlined),
@@ -67,8 +83,20 @@ class PayrollPage extends ConsumerWidget {
                 employee: employee,
                 amount: data.weeklySalaryAmount,
                 periodStart: periodStart,
-                isPaid: payrollState.value?.isSalaryPaid(employee.id, periodStart) ?? false,
-                onPay: () => _paySalary(context, ref, employee, data.weeklySalaryAmount, periodStart, periodEnd),
+                isPaid:
+                    payrollState.value?.isSalaryPaid(
+                      employee.id,
+                      periodStart,
+                    ) ??
+                    false,
+                onPay: () => _paySalary(
+                  context,
+                  ref,
+                  employee,
+                  data.weeklySalaryAmount,
+                  periodStart,
+                  periodEnd,
+                ),
               ),
               const SizedBox(height: 10),
             ],
@@ -148,7 +176,14 @@ class PayrollPage extends ConsumerWidget {
           );
       showAppSnackBar('Gaji masuk Buku Kas.');
     } catch (error) {
-      showAppSnackBar('Gagal bayar gaji: $error');
+      if (context.mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback: 'Pembayaran gaji belum berhasil dicatat. Coba lagi.',
+          ),
+        );
+      }
     }
   }
 

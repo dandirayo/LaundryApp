@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -548,7 +549,7 @@ class _OrderCard extends StatelessWidget {
       units[item.unit] = (units[item.unit] ?? 0) + item.quantity;
     }
     return units.entries
-        .map((entry) => '${entry.value.toStringAsFixed(1)} ${entry.key}')
+        .map((entry) => formatQuantityForUnit(entry.value, entry.key))
         .join(' + ');
   }
 }

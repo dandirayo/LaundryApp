@@ -34,7 +34,7 @@ class ExpenseRepository {
       'category': category,
       'amount': amount,
       'method': method,
-      if (createdBy != null) 'created_by': createdBy,
+      'created_by': ?createdBy,
     });
   }
 
@@ -81,6 +81,8 @@ PreviewExpense _fromMap(Map<String, dynamic> map) {
     category: (map['category'] ?? 'Operasional') as String,
     amount: (map['amount'] as num? ?? 0).toInt(),
     method: (map['method'] ?? 'Tunai') as String,
-    createdAt: DateTime.tryParse((map['created_at'] ?? '') as String)?.toLocal() ?? DateTime.now(),
+    createdAt:
+        DateTime.tryParse((map['created_at'] ?? '') as String)?.toLocal() ??
+        DateTime.now(),
   );
 }

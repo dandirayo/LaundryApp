@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -134,7 +135,7 @@ class OrderDetailPage extends ConsumerWidget {
                         contentPadding: EdgeInsets.zero,
                         title: Text(item.serviceNameSnapshot),
                         subtitle: Text(
-                          '${item.quantity.toStringAsFixed(1)} ${item.unit} x ${item.price.toRupiah()}',
+                          '${formatQuantityForUnit(item.quantity, item.unit)} x ${item.price.toRupiah()}',
                         ),
                         trailing: Text(
                           item.total.toRupiah(),
@@ -344,7 +345,9 @@ class OrderDetailPage extends ConsumerWidget {
           );
       showAppSnackBar('Pesanan berhasil diperbarui.');
     } catch (error) {
-      final message = error is StateError ? error.message : 'Gagal memperbarui pesanan: $error';
+      final message = error is StateError
+          ? error.message
+          : 'Gagal memperbarui pesanan: $error';
       showAppSnackBar(message);
     }
   }

@@ -63,7 +63,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Pesanan Saya'), findsOneWidget);
-    expect(find.text('Tambah pesanan'), findsOneWidget);
+    expect(find.text('Buat Pesanan Baru'), findsOneWidget);
   });
 }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/errors/user_error_message.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
@@ -172,7 +174,9 @@ class AttendancePage extends ConsumerWidget {
       maxWidth: 1600,
     );
     if (photo == null || !context.mounted) {
-      showAppSnackBar('Absensi dibatalkan. Anda wajib mengambil foto area kerja dengan kamera belakang sebagai bukti.');
+      showAppSnackBar(
+        'Absensi dibatalkan. Anda wajib mengambil foto area kerja dengan kamera belakang sebagai bukti.',
+      );
       return;
     }
     await waitForTransientUiDismissal();
@@ -189,11 +193,20 @@ class AttendancePage extends ConsumerWidget {
             photoPath: photo.path,
             photoBytes: await photo.readAsBytes(),
           );
-      showAppSnackBar(isCheckOut
-          ? 'Absen keluar berhasil dicatat. Terima kasih atas kerja keras Anda hari ini!'
-          : 'Absen masuk berhasil dicatat. Selamat bekerja dan melayani pelanggan!');
+      showAppSnackBar(
+        isCheckOut
+            ? 'Absen keluar berhasil dicatat. Terima kasih atas kerja keras Anda hari ini!'
+            : 'Absen masuk berhasil dicatat. Selamat bekerja dan melayani pelanggan!',
+      );
     } catch (error) {
-      showAppSnackBar('Absensi gagal disimpan: $error');
+      if (context.mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback: 'Absensi gagal disimpan. Periksa foto lalu coba lagi.',
+          ),
+        );
+      }
     }
   }
 

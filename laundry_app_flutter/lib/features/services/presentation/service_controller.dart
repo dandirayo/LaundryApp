@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/preview_data.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -15,15 +18,19 @@ final serviceControllerProvider =
 
 class ServiceController extends AsyncNotifier<List<PreviewService>> {
   late ServiceRepository _repository;
+  RealtimeChannel? _channel;
+  String? _subscribedShopId;
+  bool _refreshQueued = false;
 
   @override
   Future<List<PreviewService>> build() async {
     _repository = ref.watch(serviceRepositoryProvider);
-    return _load();
+    ref.onDispose(_removeChannel);
+    return _load(subscribe: true);
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(_load);
+    state = await AsyncValue.guard(() => _load(subscribe: false));
   }
 
   Future<void> add({
@@ -69,10 +76,39 @@ class ServiceController extends AsyncNotifier<List<PreviewService>> {
     }
   }
 
-  Future<List<PreviewService>> _load() async {
+  Future<List<PreviewService>> _load({required bool subscribe}) async {
     final shopId = _shopId();
-    if (shopId == null) return ref.read(previewDataProvider).services;
+    if (shopId == null) {
+      _removeChannel();
+      return ref.read(previewDataProvider).services;
+    }
+    if (subscribe && (_channel == null || _subscribedShopId != shopId)) {
+      _removeChannel();
+      _subscribedShopId = shopId;
+      _channel = _repository.subscribe(
+        shopId: shopId,
+        onChanged: _queueRefresh,
+      );
+    }
     return _repository.fetch(shopId);
+  }
+
+  void _queueRefresh() {
+    if (_refreshQueued) return;
+    _refreshQueued = true;
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 150), () async {
+        _refreshQueued = false;
+        await refresh();
+      }),
+    );
+  }
+
+  void _removeChannel() {
+    final channel = _channel;
+    _channel = null;
+    _subscribedShopId = null;
+    if (channel != null) unawaited(_repository.removeChannel(channel));
   }
 
   String? _shopId() {

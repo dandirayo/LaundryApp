@@ -42,7 +42,6 @@ type Employee = {
   shift_start: string
   shift_end: string
   late_tolerance_minutes: number
-  pin: string
 }
 
 type EmployeeRequest = {
@@ -144,8 +143,8 @@ const tabs = [
 
 const demoData: DashboardData = {
   employees: [
-    { id: 'emp-1', name: 'Ratna', phone: '081234567891', position: 'Operator', is_active: true, shift_start: '06:00', shift_end: '14:00', late_tolerance_minutes: 15, pin: '1234' },
-    { id: 'emp-2', name: 'Dimas', phone: '081234567892', position: 'Kasir', is_active: true, shift_start: '12:00', shift_end: '20:00', late_tolerance_minutes: 15, pin: '5678' },
+    { id: 'emp-1', name: 'Ratna', phone: '081234567891', position: 'Operator', is_active: true, shift_start: '06:00', shift_end: '14:00', late_tolerance_minutes: 15 },
+    { id: 'emp-2', name: 'Dimas', phone: '081234567892', position: 'Kasir', is_active: true, shift_start: '12:00', shift_end: '20:00', late_tolerance_minutes: 15 },
   ],
   requests: [
     { id: 'req-1', employee_name: 'Ratna', type: 'Request Stok', reason: 'Deterjen cair hampir habis', amount: 2, status: 'pending', created_at: new Date().toISOString(), review_note: '' },
@@ -251,11 +250,11 @@ function App() {
   async function loadDashboard(shopId: string) {
     try {
       const [employees, requests, orders, cash, customers, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
-        supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes, pin').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
+        supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
         supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
         supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
         supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-        supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
         supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
         supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
         supabase.from('inventory_movements').select('id, item_id, item_name, type, quantity, note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
@@ -302,26 +301,15 @@ function App() {
     if (note === null || (requiredNote && !note.trim())) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('employee_requests').update({ status, review_note: note.trim() || statusLabel(status), reviewed_at: new Date().toISOString() }).eq('id', request.id).eq('shop_id', profile.shop_id)
+      const { error } = await supabase.from('employee_requests').update({
+        status,
+        review_note: note.trim() || statusLabel(status),
+        reviewed_at: new Date().toISOString(),
+        ...(status === 'paid' ? { payment_method: 'Tunai' } : {}),
+      }).eq('id', request.id).eq('shop_id', profile.shop_id)
       if (error) {
         setMessage(error.message)
         return
-      }
-      if (status === 'paid' && request.amount > 0) {
-        const cash = await supabase.from('cash_transactions').insert({
-          shop_id: profile.shop_id,
-          type: 'OUT',
-          category: cashCategoryForRequest(request.type),
-          description: `${request.type} ${request.employee_name} - ${request.reason}`,
-          amount: request.amount,
-          method: 'Tunai',
-          reference_type: 'EMPLOYEE_REQUEST',
-          reference_id: request.id,
-        })
-        if (cash.error) {
-          setMessage(cash.error.message)
-          return
-        }
       }
       await loadDashboard(profile.shop_id)
     } catch (e: any) {
@@ -340,7 +328,7 @@ function App() {
         if (error || result?.error) setMessage(result?.error ?? error?.message ?? 'Karyawan gagal dibuat.')
         else { setEmployeeEditor(null); setMessage(`Karyawan ${values.name} berhasil dibuat.`); await loadDashboard(profile.shop_id) }
       } else if (employeeEditor) {
-        const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active, pin: values.pin }).eq('id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
+        const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active }).eq('id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
         if (!error) await supabase.from('profiles').update({ full_name: values.name, phone: values.phone, is_active: values.is_active }).eq('employee_id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
         if (error) setMessage(error.message); else { setEmployeeEditor(null); setMessage(`Data ${values.name} berhasil disimpan.`); await loadDashboard(profile.shop_id) }
       }
@@ -373,7 +361,10 @@ function App() {
     if (!profile || !window.confirm(`Hapus pelanggan ${customer.name}?`)) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('customers').delete().eq('id', customer.id).eq('shop_id', profile.shop_id)
+      const { error } = await supabase.from('customers').update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: profile.id,
+      }).eq('id', customer.id).eq('shop_id', profile.shop_id)
       if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
     } catch (e: any) {
       setMessage(e.message || 'Gagal menghapus pelanggan.')
@@ -606,7 +597,7 @@ function CustomerForm({ customer, loading, onSubmit }: { customer: Customer | nu
 }
 
 function TeamPanel({ view, setView, employees, shifts, onAdd, onEdit, onAddShift, onEditShift }: { view: 'employees' | 'shifts'; setView: (value: 'employees' | 'shifts') => void; employees: Employee[]; shifts: WeeklyShift[]; onAdd: () => void; onEdit: (employee: Employee) => void; onAddShift: () => void; onEditShift: (shift: WeeklyShift) => void }) {
-  return <section><SegmentedControl value={view} items={[['employees', 'Karyawan'], ['shifts', 'Jadwal Mingguan']]} onChange={setView} /><section className="wide-panel"><PanelHeader title={view === 'employees' ? 'Karyawan & Akun' : 'Jadwal Shift Mingguan'} description={view === 'employees' ? 'Tambah akun, ubah data, dan aktifkan karyawan.' : 'Atur jam kerja atau hari libur setiap karyawan.'} action={view === 'employees' ? 'Tambah Karyawan' : 'Tambah Shift'} onAction={view === 'employees' ? onAdd : onAddShift} />{view === 'employees' ? <div className="table-list">{employees.map((employee) => <div className="table-row" key={employee.id}><div><strong>{employee.name}</strong><span>{employee.position} - {employee.phone || 'Tanpa nomor telepon'}</span></div><div className="row-meta"><StatusBadge label={employee.is_active ? 'Aktif' : 'Nonaktif'} /><div className="pin-badge">PIN: {employee.pin || '----'}</div><button className="icon-button" type="button" title="Edit karyawan" onClick={() => onEdit(employee)}><Pencil size={16} /></button></div></div>)}</div> : <WeeklyShiftGrid shifts={shifts} onEdit={onEditShift} />}</section></section>
+  return <section><SegmentedControl value={view} items={[['employees', 'Karyawan'], ['shifts', 'Jadwal Mingguan']]} onChange={setView} /><section className="wide-panel"><PanelHeader title={view === 'employees' ? 'Karyawan & Akun' : 'Jadwal Shift Mingguan'} description={view === 'employees' ? 'Tambah akun, ubah data, dan aktifkan karyawan.' : 'Atur jam kerja atau hari libur setiap karyawan.'} action={view === 'employees' ? 'Tambah Karyawan' : 'Tambah Shift'} onAction={view === 'employees' ? onAdd : onAddShift} />{view === 'employees' ? <div className="table-list">{employees.map((employee) => <div className="table-row" key={employee.id}><div><strong>{employee.name}</strong><span>{employee.position} - {employee.phone || 'Tanpa nomor telepon'}</span></div><div className="row-meta"><StatusBadge label={employee.is_active ? 'Aktif' : 'Nonaktif'} /><button className="icon-button" type="button" title="Edit karyawan" onClick={() => onEdit(employee)}><Pencil size={16} /></button></div></div>)}</div> : <WeeklyShiftGrid shifts={shifts} onEdit={onEditShift} />}</section></section>
 }
 
 function WeeklyShiftGrid({ shifts, onEdit }: { shifts: WeeklyShift[]; onEdit: (shift: WeeklyShift) => void }) {
@@ -624,11 +615,11 @@ function ReportsPanel({ cash, metrics, auditLogs, onAddCash, onExport }: { cash:
 
 function SettingsPanel({ shop, loading, onSave }: { shop: Shop | null; loading: boolean; onSave: (values: ShopFormValues) => Promise<void> }) { return <section className="two-column"><article className="wide-panel"><PanelHeader title="Pengaturan Toko" description="Profil ini dipakai bersama oleh dashboard dan aplikasi Android." />{shop ? <ShopForm shop={shop} loading={loading} onSubmit={onSave} /> : <div className="empty-state">Data toko belum dimuat.</div>}</article><article className="side-panel"><PanelHeader title="Keamanan & Sinkronisasi" description="Kontrol akses Supabase." /><Checklist items={['Login Owner dan karyawan', 'Pembatasan data per shop_id', 'Notifikasi request tertarget', 'Audit perubahan operasional', 'Realtime lintas perangkat']} /></article></section> }
 
-type EmployeeFormValues = { username?: string; password?: string; name: string; phone: string; position: string; shift_start: string; shift_end: string; late_tolerance_minutes: number; is_active: boolean; pin: string }
+type EmployeeFormValues = { username?: string; password?: string; name: string; phone: string; position: string; shift_start: string; shift_end: string; late_tolerance_minutes: number; is_active: boolean }
 function EmployeeForm({ employee, loading, onSubmit }: { employee: Employee | null; loading: boolean; onSubmit: (values: EmployeeFormValues) => Promise<void> }) {
-  const [values, setValues] = useState<EmployeeFormValues>({ username: '', password: '', name: employee?.name ?? '', phone: employee?.phone ?? '', position: employee?.position ?? 'Operator', shift_start: shortTime(employee?.shift_start ?? '06:00'), shift_end: shortTime(employee?.shift_end ?? '14:00'), late_tolerance_minutes: employee?.late_tolerance_minutes ?? 15, is_active: employee?.is_active ?? true, pin: employee?.pin ?? '' })
+  const [values, setValues] = useState<EmployeeFormValues>({ username: '', password: '', name: employee?.name ?? '', phone: employee?.phone ?? '', position: employee?.position ?? 'Operator', shift_start: shortTime(employee?.shift_start ?? '06:00'), shift_end: shortTime(employee?.shift_end ?? '14:00'), late_tolerance_minutes: employee?.late_tolerance_minutes ?? 15, is_active: employee?.is_active ?? true })
   const change = (key: keyof EmployeeFormValues, value: string | number | boolean) => setValues((current) => ({ ...current, [key]: value }))
-  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}>{!employee ? <div className="form-grid"><label>Username<input value={values.username} onChange={(event) => change('username', event.target.value)} minLength={3} required /></label><label>Password awal<input type="password" value={values.password} onChange={(event) => change('password', event.target.value)} minLength={8} required /></label></div> : null}<div className="form-grid"><label>Nama<input value={values.name} onChange={(event) => change('name', event.target.value)} required /></label><label>Nomor telepon<input value={values.phone} onChange={(event) => change('phone', event.target.value)} /></label></div><div className="form-grid"><label>Posisi<input value={values.position} onChange={(event) => change('position', event.target.value)} required /></label><label>PIN (4 digit)<input value={values.pin} onChange={(event) => change('pin', event.target.value)} maxLength={4} pattern="\d{4}" title="PIN harus 4 angka" required /></label></div><div className="form-grid"><label>Mulai shift<input type="time" value={values.shift_start} onChange={(event) => change('shift_start', event.target.value)} required /></label><label>Selesai shift<input type="time" value={values.shift_end} onChange={(event) => change('shift_end', event.target.value)} required /></label></div><label>Toleransi terlambat (menit)<input type="number" min="0" max="480" value={values.late_tolerance_minutes} onChange={(event) => change('late_tolerance_minutes', Number(event.target.value))} required /></label><label className="toggle-row"><input type="checkbox" checked={values.is_active} onChange={(event) => change('is_active', event.target.checked)} />Karyawan aktif</label><button className="primary-button" disabled={loading} type="submit"><CheckCircle2 size={18} />{loading ? 'Menyimpan...' : 'Simpan'}</button></form>
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}>{!employee ? <div className="form-grid"><label>Username<input value={values.username} onChange={(event) => change('username', event.target.value)} minLength={3} required /></label><label>Password awal<input type="password" value={values.password} onChange={(event) => change('password', event.target.value)} minLength={8} required /></label></div> : null}<div className="form-grid"><label>Nama<input value={values.name} onChange={(event) => change('name', event.target.value)} required /></label><label>Nomor telepon<input value={values.phone} onChange={(event) => change('phone', event.target.value)} /></label></div><label>Posisi<input value={values.position} onChange={(event) => change('position', event.target.value)} required /></label><div className="form-grid"><label>Mulai shift<input type="time" value={values.shift_start} onChange={(event) => change('shift_start', event.target.value)} required /></label><label>Selesai shift<input type="time" value={values.shift_end} onChange={(event) => change('shift_end', event.target.value)} required /></label></div><label>Toleransi terlambat (menit)<input type="number" min="0" max="480" value={values.late_tolerance_minutes} onChange={(event) => change('late_tolerance_minutes', Number(event.target.value))} required /></label><label className="toggle-row"><input type="checkbox" checked={values.is_active} onChange={(event) => change('is_active', event.target.checked)} />Karyawan aktif</label><button className="primary-button" disabled={loading} type="submit"><CheckCircle2 size={18} />{loading ? 'Menyimpan...' : 'Simpan'}</button></form>
 }
 
 type InventoryFormValues = { name: string; stock: number; unit: string; min_stock: number; purchase_price: number; note: string; is_active: boolean }
@@ -676,6 +667,5 @@ function shortTime(value: string) { return value.slice(0, 5) }
 function statusLabel(status: string) { return status === 'approved' ? 'Disetujui Owner.' : status === 'rejected' ? 'Ditolak Owner.' : status === 'paid' ? 'Sudah dibayar.' : 'Sudah diselesaikan.' }
 function dayLabel(day: number) { return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][day - 1] ?? 'Hari' }
 function isMoneyRequest(type: string) { return type.includes('Kasbon') || type.includes('Insentif') || type.includes('Pengeluaran') }
-function cashCategoryForRequest(type: string) { return type.includes('Kasbon') ? 'Kasbon' : type.includes('Insentif') ? 'Insentif' : type.includes('Pengeluaran') ? 'Pengeluaran' : 'Request Karyawan' }
 
 export default App

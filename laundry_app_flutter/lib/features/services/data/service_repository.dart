@@ -48,6 +48,30 @@ class ServiceRepository {
     });
   }
 
+  RealtimeChannel subscribe({
+    required String shopId,
+    required void Function() onChanged,
+  }) {
+    return _requireClient()
+        .channel('public:services:$shopId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'services',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .subscribe();
+  }
+
+  Future<void> removeChannel(RealtimeChannel channel) async {
+    await _requireClient().removeChannel(channel);
+  }
+
   SupabaseClient _requireClient() {
     final client = _client;
     if (client == null) {

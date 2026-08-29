@@ -3,6 +3,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
+import '../../../core/errors/user_error_message.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -13,6 +14,7 @@ import '../../../core/widgets/responsive_page.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/customer.dart';
+import '../domain/contact_import.dart';
 import 'customer_controller.dart';
 
 class CustomersPage extends ConsumerStatefulWidget {
@@ -30,7 +32,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     final customersAsync = ref.watch(customerControllerProvider);
     final role = ref.watch(authControllerProvider).value?.user?.role;
     final strings = ref.strings;
-    final canImportContacts = role == UserRole.owner;
+    final canImportContacts = role != null;
     final title = customersAsync.value == null
         ? strings.customers
         : strings.customersWithCount(customersAsync.value!.totalCount);
@@ -47,7 +49,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             ),
           IconButton(
             tooltip: strings.addCustomer,
-            onPressed: () => _showCustomerDialog(context),
+            onPressed: () => _showAddCustomerOptions(context),
             icon: const Icon(Icons.person_add_alt_1),
           ),
         ],
@@ -55,7 +57,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       floatingActionButton: customersAsync.value?.customers.isEmpty ?? true
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => _showCustomerDialog(context),
+              onPressed: () => _showAddCustomerOptions(context),
               icon: const Icon(Icons.add),
               label: Text(strings.addCustomer),
             ),
@@ -65,7 +67,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           query: _query,
           onQueryChanged: (value) => setState(() => _query = value),
           onRefresh: _refresh,
-          onAdd: () => _showCustomerDialog(context),
+          onAdd: () => _showAddCustomerOptions(context),
           onEdit: role == UserRole.owner
               ? (customer) => _showCustomerDialog(context, customer: customer)
               : null,
@@ -86,6 +88,56 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
 
   Future<void> _refresh() {
     return ref.read(customerControllerProvider.notifier).refresh();
+  }
+
+  Future<void> _showAddCustomerOptions(BuildContext context) async {
+    final selection = await showAppModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => AppBottomSheetBody(
+        children: [
+          Text(
+            'Tambah Pelanggan',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Pilih cara menambahkan pelanggan.',
+            style: TextStyle(color: AppColors.secondaryText),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(child: Icon(Icons.edit_outlined)),
+            title: const Text('Isi Manual'),
+            subtitle: const Text('Masukkan pelanggan baru secara manual.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pop('manual'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(child: Icon(Icons.contacts_outlined)),
+            title: const Text('Ambil dari Kontak'),
+            subtitle: const Text('Pilih dari kontak perangkat.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pop('contacts'),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Kontak Google akan tampil jika sudah tersinkron ke kontak perangkat.',
+            style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted) return;
+    if (selection == 'manual') {
+      await _showCustomerDialog(context);
+    } else if (selection == 'contacts') {
+      await _importContact(context);
+    }
   }
 
   Future<void> _showCustomerDialog(
@@ -246,49 +298,92 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   }
 
   Future<void> _importContact(BuildContext context) async {
-    final permission = await FlutterContacts.permissions.request(
-      PermissionType.read,
-    );
+    PermissionStatus permission;
+    try {
+      permission = await FlutterContacts.permissions.request(
+        PermissionType.read,
+      );
+    } catch (error) {
+      if (context.mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Daftar kontak belum bisa dibuka. Coba lagi.',
+          ),
+        );
+      }
+      return;
+    }
     if (!context.mounted) {
       return;
     }
-    if (permission != PermissionStatus.granted) {
-      _showSnack('Izin kontak belum diberikan.');
+    if (permission != PermissionStatus.granted &&
+        permission != PermissionStatus.limited) {
+      await _showContactPermissionDialog(context);
       return;
     }
 
-    final contacts = await FlutterContacts.getAll(
-      properties: {ContactProperty.phone},
-    );
+    List<Contact> contacts;
+    try {
+      contacts = await FlutterContacts.getAll(
+        properties: {ContactProperty.phone},
+      );
+    } catch (error) {
+      if (context.mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Kontak perangkat gagal dimuat. Coba lagi.',
+          ),
+        );
+      }
+      return;
+    }
     if (!context.mounted) {
       return;
     }
     final candidates =
         contacts
-            .where(
-              (contact) =>
-                  (contact.displayName ?? '').trim().isNotEmpty &&
-                  contact.phones.any((phone) => phone.number.trim().isNotEmpty),
-            )
+            .where((contact) => (contact.displayName ?? '').trim().isNotEmpty)
             .map(
-              (contact) => _ImportedContact(
+              (contact) => ContactImportCandidate(
                 name: (contact.displayName ?? '').trim(),
-                phone: contact.phones
-                    .map((phone) => phone.number.trim())
-                    .firstWhere((phone) => phone.isNotEmpty, orElse: () => ''),
+                phones: distinctContactPhones(
+                  contact.phones.map((phone) => phone.number),
+                ),
               ),
             )
-            .where((contact) => contact.phone.isNotEmpty)
             .toList()
-          ..sort((first, second) => first.name.compareTo(second.name));
+          ..sort(
+            (first, second) =>
+                first.name.toLowerCase().compareTo(second.name.toLowerCase()),
+          );
 
     if (candidates.isEmpty) {
-      _showSnack('Kontak dengan nomor telepon tidak ditemukan.');
+      _showSnack('Daftar kontak perangkat kosong.');
       return;
     }
 
-    final selected = await _showContactPicker(context, candidates);
-    if (selected == null || !mounted) {
+    final candidate = await _showContactPicker(context, candidates);
+    if (candidate == null || !context.mounted) {
+      return;
+    }
+    final selectedPhone = await _selectContactPhone(context, candidate);
+    if (selectedPhone == null || !context.mounted) return;
+    final selected = ContactImportSelection(
+      name: candidate.name,
+      phone: selectedPhone,
+      address: candidate.address,
+    );
+    final duplicate = findCustomerWithNormalizedPhone(
+      ref.read(customerControllerProvider).value?.customers ?? const [],
+      selected.phone,
+    );
+    if (duplicate != null) {
+      await _showDuplicateContactDialog(context, duplicate);
+      return;
+    }
+    if (!await _confirmContactImport(context, selected) || !context.mounted) {
       return;
     }
     await waitForTransientUiDismissal();
@@ -301,7 +396,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           .addCustomer(
             name: selected.name,
             phone: selected.phone,
-            address: '',
+            address: selected.address,
             note: 'Import kontak HP',
           );
       if (mounted) {
@@ -317,12 +412,12 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     }
   }
 
-  Future<_ImportedContact?> _showContactPicker(
+  Future<ContactImportCandidate?> _showContactPicker(
     BuildContext context,
-    List<_ImportedContact> contacts,
+    List<ContactImportCandidate> contacts,
   ) {
     var query = '';
-    return showAppModalBottomSheet<_ImportedContact>(
+    return showAppModalBottomSheet<ContactImportCandidate>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -330,7 +425,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final filtered = contacts.where((contact) {
-              final text = '${contact.name} ${contact.phone}'.toLowerCase();
+              final text = '${contact.name} ${contact.phones.join(' ')}'
+                  .toLowerCase();
               return text.contains(query.toLowerCase());
             }).toList();
 
@@ -365,11 +461,20 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                             final contact = filtered[index];
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: const CircleAvatar(
-                                child: Icon(Icons.person_outline),
+                              leading: CircleAvatar(
+                                child: Text(
+                                  contact.name.characters.first.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ),
                               title: Text(contact.name),
-                              subtitle: Text(contact.phone),
+                              subtitle: Text(
+                                contact.primaryPhone.isEmpty
+                                    ? 'Tanpa nomor telepon'
+                                    : contact.primaryPhone,
+                              ),
                               onTap: () => Navigator.of(context).pop(contact),
                             );
                           },
@@ -380,6 +485,119 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           },
         );
       },
+    );
+  }
+
+  Future<String?> _selectContactPhone(
+    BuildContext context,
+    ContactImportCandidate contact,
+  ) async {
+    if (contact.phones.isEmpty) return '';
+    if (contact.phones.length == 1) return contact.phones.single;
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Pilih nomor ${contact.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final phone in contact.phones)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.phone_outlined),
+                title: Text(phone),
+                onTap: () => Navigator.of(context).pop(phone),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _confirmContactImport(
+    BuildContext context,
+    ContactImportSelection contact,
+  ) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Tambahkan sebagai pelanggan?'),
+            content: Text(
+              contact.phone.isEmpty
+                  ? '${contact.name}\nTanpa nomor telepon'
+                  : '${contact.name}\n${contact.phone}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Tambahkan'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _showDuplicateContactDialog(
+    BuildContext context,
+    Customer customer,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pelanggan sudah tersedia'),
+        content: Text(
+          'Pelanggan dengan nomor ini sudah tersedia.\n\n${customer.name}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() => _query = customer.name);
+            },
+            child: const Text('Buka Pelanggan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showContactPermissionDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Izin kontak diperlukan'),
+        content: const Text(
+          'Izin kontak diperlukan untuk memilih pelanggan dari daftar kontak.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await FlutterContacts.permissions.openSettings();
+            },
+            child: const Text('Buka Pengaturan'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -572,13 +790,6 @@ class _CustomerInput {
   final String note;
 }
 
-class _ImportedContact {
-  const _ImportedContact({required this.name, required this.phone});
-
-  final String name;
-  final String phone;
-}
-
 String _messageForError(Object error) {
   if (error is Failure) {
     return error.message;
@@ -586,5 +797,8 @@ String _messageForError(Object error) {
   if (error is StateError) {
     return error.message;
   }
-  return error.toString();
+  return userErrorMessage(
+    error,
+    fallback: 'Data pelanggan belum bisa diproses. Coba lagi.',
+  );
 }

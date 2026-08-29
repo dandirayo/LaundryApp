@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
+import '../../../core/errors/user_error_message.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
@@ -60,7 +61,7 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
                     AppStateView.empty(
                       title: 'Karyawan belum ada',
                       message:
-                          'Tambahkan data karyawan untuk shift dan absensi. Tarik ke bawah untuk refresh data Supabase.',
+                          'Tambahkan data karyawan untuk shift dan absensi. Tarik ke bawah untuk memuat ulang.',
                     ),
                   ],
                 )
@@ -389,9 +390,10 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
     } on StateError catch (error) {
       showAppSnackBar(error.message);
     } catch (error) {
-      final message = error.toString().contains('404')
-          ? 'Fungsi akun karyawan belum dipasang di Supabase.'
-          : 'Gagal menyimpan karyawan: $error';
+      final message = userErrorMessage(
+        error,
+        fallback: 'Karyawan belum dapat disimpan. Coba lagi.',
+      );
       if (context.mounted) {
         await _showSaveErrorDialog(context, message);
       }
@@ -402,7 +404,7 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
     final repository = EmployeeRepository();
     if (!repository.isOnline) {
       if (showResult) {
-        showAppSnackBar('Supabase belum dikonfigurasi.');
+        showAppSnackBar('Layanan online belum tersedia.');
       }
       return;
     }
@@ -416,7 +418,12 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
     } catch (error) {
       if (!mounted) return;
       if (showResult) {
-        showAppSnackBar('Data karyawan online belum dapat dimuat: $error');
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback: 'Data karyawan belum dapat dimuat. Coba lagi.',
+          ),
+        );
       }
     }
   }
@@ -426,9 +433,7 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Karyawan belum tersimpan'),
-        content: Text(
-          '$message\n\nKalau ingin karyawan bisa login, pastikan Edge Function create-employee-user sudah dideploy di Supabase dan migration terbaru sudah dijalankan.',
-        ),
+        content: Text('$message\n\nPeriksa koneksi lalu coba lagi.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

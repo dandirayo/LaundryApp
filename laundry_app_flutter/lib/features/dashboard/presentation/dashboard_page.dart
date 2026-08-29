@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/errors/user_error_message.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
@@ -10,7 +12,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/responsive_page.dart';
-import '../../../core/widgets/summary_card.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/domain/user_role.dart';
@@ -255,6 +256,8 @@ class _OwnerDashboard extends ConsumerWidget {
   }
 }
 
+// Kept as an isolated dashboard section for the next staged dashboard pass.
+// ignore: unused_element
 class _LatestCustomersSection extends ConsumerWidget {
   const _LatestCustomersSection();
 
@@ -349,7 +352,12 @@ class _LatestCustomersSection extends ConsumerWidget {
                     ? 'Customers could not be loaded'
                     : 'Pelanggan belum bisa dimuat',
               ),
-              subtitle: Text(error.toString()),
+              subtitle: Text(
+                userErrorMessage(
+                  error,
+                  fallback: 'Data pelanggan belum siap. Coba lagi.',
+                ),
+              ),
               trailing: IconButton(
                 tooltip: strings.isEnglish ? 'Retry' : 'Coba lagi',
                 onPressed: () =>

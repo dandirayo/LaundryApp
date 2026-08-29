@@ -34,7 +34,9 @@ class PayrollRepository {
   Future<List<PayrollPayment>> fetch({required String shopId}) async {
     final rows = await _requireClient()
         .from('payroll_payments')
-        .select('id, employee_id, period_start, period_end, amount, method, paid_at, note')
+        .select(
+          'id, employee_id, period_start, period_end, amount, method, paid_at, note',
+        )
         .eq('shop_id', shopId)
         .order('paid_at', ascending: false)
         .limit(200);
@@ -73,7 +75,7 @@ class PayrollRepository {
       'method': method,
       'period_start': _dateString(periodStart),
       'period_end': _dateString(periodEnd),
-      if (paidBy != null) 'paid_by': paidBy,
+      'paid_by': ?paidBy,
       'note': note.trim(),
     });
   }
@@ -102,7 +104,8 @@ class PayrollRepository {
     await _requireClient().removeChannel(channel);
   }
 
-  String _dateString(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  String _dateString(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   SupabaseClient _requireClient() {
     final client = _client;
@@ -120,11 +123,17 @@ PayrollPayment _fromMap(Map<String, dynamic> map) {
   return PayrollPayment(
     id: map['id'] as String,
     employeeId: (map['employee_id'] ?? '') as String,
-    periodStart: DateTime.tryParse((map['period_start'] ?? '') as String) ?? DateTime.now(),
-    periodEnd: DateTime.tryParse((map['period_end'] ?? '') as String) ?? DateTime.now(),
+    periodStart:
+        DateTime.tryParse((map['period_start'] ?? '') as String) ??
+        DateTime.now(),
+    periodEnd:
+        DateTime.tryParse((map['period_end'] ?? '') as String) ??
+        DateTime.now(),
     amount: (map['amount'] as num? ?? 0).toInt(),
     method: (map['method'] ?? 'Tunai') as String,
-    paidAt: DateTime.tryParse((map['paid_at'] ?? '') as String)?.toLocal() ?? DateTime.now(),
+    paidAt:
+        DateTime.tryParse((map['paid_at'] ?? '') as String)?.toLocal() ??
+        DateTime.now(),
     note: (map['note'] ?? '') as String,
   );
 }

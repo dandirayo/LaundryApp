@@ -61,4 +61,4 @@ Prinsip:
 4. Storage bucket foto dibatasi path `shop_id/...` dan metadata owner.
 5. Service role hanya untuk edge function/server operation yang butuh transaksi sensitif.
 
-Detail SQL awal ada di `supabase/migrations/001_initial_schema.sql`.
+Detail SQL canonical ada di `/supabase/migrations` pada root repository.

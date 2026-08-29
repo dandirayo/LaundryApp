@@ -103,6 +103,30 @@ class AttendanceRepository {
     }
   }
 
+  RealtimeChannel subscribe({
+    required String shopId,
+    required void Function() onChanged,
+  }) {
+    return _requireClient()
+        .channel('public:attendance_records:$shopId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'attendance_records',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .subscribe();
+  }
+
+  Future<void> removeChannel(RealtimeChannel channel) async {
+    await _requireClient().removeChannel(channel);
+  }
+
   SupabaseClient _requireClient() {
     final client = _client;
     if (client == null) {
