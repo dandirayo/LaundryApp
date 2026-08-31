@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/user_error_message.dart';
-
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
-import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../domain/request_kind.dart';
 import 'employee_request_controller.dart';
+import 'request_form_sheet.dart';
 
 class RequestPage extends ConsumerStatefulWidget {
   const RequestPage({this.initialType, super.key});
@@ -26,23 +26,14 @@ class RequestPage extends ConsumerStatefulWidget {
 }
 
 class _RequestPageState extends ConsumerState<RequestPage> {
-  static const _requestTypes = [
-    'Request Stok',
-    'Request Lembur',
-    'Request Tukar Shift',
-    'Request Izin',
-    'Request Insentif',
-    'Request Kasbon',
-    'Request Pengeluaran',
-  ];
-
   String _statusFilter = 'Semua';
-  String _typeFilter = 'Semua';
+  RequestCategory? _categoryFilter;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _typeFilter = widget.initialType ?? 'Semua';
+    _categoryFilter = requestCategory(widget.initialType ?? '');
   }
 
   @override
@@ -67,7 +58,9 @@ class _RequestPageState extends ConsumerState<RequestPage> {
           request.status.label == _statusFilter ||
           (_statusFilter == 'Selesai' &&
               request.status == PreviewRequestStatus.paid);
-      final typeMatches = _typeFilter == 'Semua' || request.type == _typeFilter;
+      final typeMatches =
+          _categoryFilter == null ||
+          requestCategory(request.type) == _categoryFilter;
       return statusMatches && typeMatches;
     }).toList();
     final pendingCount = allRequests
@@ -76,10 +69,10 @@ class _RequestPageState extends ConsumerState<RequestPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Request Saya'),
+        title: const Text('Pengajuan Saya'),
         actions: [
           IconButton(
-            tooltip: 'Refresh request',
+            tooltip: 'Muat ulang pengajuan',
             onPressed: requestState.isLoading
                 ? null
                 : () => ref
@@ -90,9 +83,11 @@ class _RequestPageState extends ConsumerState<RequestPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showRequestSheet(context, employee: employee),
+        onPressed: _isSubmitting
+            ? null
+            : () => _showRequestSheet(context, employee: employee),
         icon: const Icon(Icons.add),
-        label: const Text('Request'),
+        label: Text(_isSubmitting ? 'Mengirim…' : 'Buat Pengajuan'),
       ),
       body: RefreshIndicator(
         onRefresh: () =>
@@ -139,18 +134,27 @@ class _RequestPageState extends ConsumerState<RequestPage> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _typeFilter,
+                    DropdownButtonFormField<RequestCategory?>(
+                      key: ValueKey(_categoryFilter),
+                      initialValue: _categoryFilter,
+                      isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Jenis request',
+                        labelText: 'Kategori pengajuan',
                         prefixIcon: Icon(Icons.tune),
                       ),
                       items: [
-                        for (final type in ['Semua', ..._requestTypes])
-                          DropdownMenuItem(value: type, child: Text(type)),
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Semua kategori'),
+                        ),
+                        for (final category in RequestCategory.values)
+                          DropdownMenuItem(
+                            value: category,
+                            child: Text(category.label),
+                          ),
                       ],
                       onChanged: (value) =>
-                          setState(() => _typeFilter = value ?? 'Semua'),
+                          setState(() => _categoryFilter = value),
                     ),
                   ],
                 ),
@@ -159,10 +163,10 @@ class _RequestPageState extends ConsumerState<RequestPage> {
               if (requestState.hasError)
                 SliverToBoxAdapter(
                   child: AppStateView.error(
-                    title: 'Request belum dapat dimuat',
+                    title: 'Pengajuan belum dapat dimuat',
                     message: userErrorMessage(
                       requestState.error,
-                      fallback: 'Request belum dapat dimuat. Coba lagi.',
+                      fallback: 'Pengajuan belum dapat dimuat. Coba lagi.',
                     ),
                     actionLabel: 'Coba lagi',
                     onAction: () => ref
@@ -176,16 +180,15 @@ class _RequestPageState extends ConsumerState<RequestPage> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (requests.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
+                SliverToBoxAdapter(
                   child: AppStateView.empty(
                     title: allRequests.isEmpty
-                        ? 'Belum ada request'
-                        : 'Request tidak ditemukan',
+                        ? 'Belum ada pengajuan'
+                        : 'Pengajuan tidak ditemukan',
                     message: allRequests.isEmpty
-                        ? 'Buat request stok, lembur, izin, tukar shift, insentif, kasbon, atau pengeluaran dari satu halaman ini.'
-                        : 'Ubah filter untuk melihat request lainnya.',
-                    actionLabel: allRequests.isEmpty ? 'Buat request' : null,
+                        ? 'Ajukan kebutuhan stok, izin dan jadwal, atau dana dan biaya dari satu halaman.'
+                        : 'Ubah filter untuk melihat pengajuan lainnya.',
+                    actionLabel: allRequests.isEmpty ? 'Buat pengajuan' : null,
                     onAction: allRequests.isEmpty
                         ? () => _showRequestSheet(context, employee: employee)
                         : null,
@@ -209,6 +212,7 @@ class _RequestPageState extends ConsumerState<RequestPage> {
     BuildContext context, {
     required PreviewEmployee? employee,
   }) async {
+    if (_isSubmitting) return;
     final user = ref.read(authControllerProvider).value?.user;
     final currentEmployee =
         employee ??
@@ -232,112 +236,53 @@ class _RequestPageState extends ConsumerState<RequestPage> {
       return;
     }
 
-    var selectedType = widget.initialType ?? _requestTypes.first;
-    final reason = TextEditingController();
-    final amount = TextEditingController(text: '1');
-    final formKey = GlobalKey<FormState>();
-    final result = await showAppModalBottomSheet<_RequestInput>(
+    final initialKind = RequestKind.fromStorage(widget.initialType);
+    final result = await showAppModalBottomSheet<RequestSubmission>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          final requiresMoney =
-              selectedType.contains('Kasbon') ||
-              selectedType.contains('Insentif') ||
-              selectedType.contains('Pengeluaran');
-          final requiresQuantity = selectedType.contains('Stok');
-          final showAmount = requiresMoney || requiresQuantity;
-          return Form(
-            key: formKey,
-            child: AppBottomSheetBody(
-              children: [
-                const Text(
-                  'Buat Request',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedType,
-                  decoration: const InputDecoration(labelText: 'Jenis request'),
-                  items: [
-                    for (final type in _requestTypes)
-                      DropdownMenuItem(value: type, child: Text(type)),
-                  ],
-                  onChanged: (value) => setModalState(() {
-                    selectedType = value ?? selectedType;
-                    amount.text = selectedType.contains('Stok') ? '1' : '0';
-                  }),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: reason,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Alasan'),
-                  validator: (value) => (value ?? '').trim().isEmpty
-                      ? 'Alasan wajib diisi.'
-                      : null,
-                ),
-                if (showAmount) ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: amount,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: requiresQuantity ? 'Quantity' : 'Nominal',
-                    ),
-                    validator: (value) => (int.tryParse(value ?? '') ?? 0) <= 0
-                        ? 'Nilai wajib lebih dari nol.'
-                        : null,
-                  ),
-                ],
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    if (!formKey.currentState!.validate()) return;
-                    Navigator.of(context).pop(
-                      _RequestInput(
-                        type: selectedType,
-                        reason: reason.text.trim(),
-                        amount: showAmount ? int.tryParse(amount.text) ?? 0 : 0,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.send_outlined),
-                  label: const Text('Kirim ke Owner'),
-                ),
-              ],
-            ),
-          );
-        },
+      builder: (context) => RequestFormSheet(
+        initialType: initialKind?.category == _categoryFilter
+            ? initialKind?.storageValue
+            : switch (_categoryFilter) {
+                RequestCategory.schedule => RequestKind.leave.storageValue,
+                RequestCategory.funds => RequestKind.cashAdvance.storageValue,
+                _ => RequestKind.stock.storageValue,
+              },
       ),
     );
-    reason.dispose();
-    amount.dispose();
-
     if (result == null || !context.mounted) return;
     await waitForTransientUiDismissal();
     if (!context.mounted) return;
+    setState(() => _isSubmitting = true);
     try {
       await ref
           .read(employeeRequestControllerProvider.notifier)
           .addRequest(
-            type: result.type,
-            reason: result.reason,
+            type: result.kind.storageValue,
+            reason: result.summary,
             amount: result.amount,
             employeeId: currentEmployee.id,
             employeeName: currentEmployee.name,
           );
-      if (context.mounted) showAppSnackBar('Request dikirim ke Owner.');
+      if (mounted) {
+        setState(() {
+          _categoryFilter = result.kind.category;
+          _statusFilter = 'Semua';
+        });
+        showAppSnackBar('Pengajuan dikirim ke Owner.');
+      }
     } catch (error) {
       if (context.mounted) {
         showAppSnackBar(
           userErrorMessage(
             error,
-            fallback: 'Request gagal dikirim. Periksa data lalu coba lagi.',
+            fallback: 'Pengajuan gagal dikirim. Periksa data lalu coba lagi.',
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 }
@@ -374,7 +319,7 @@ class _RequestSummary extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '$total request - ${isOnline ? 'Tersinkron' : 'Mode lokal'}',
+                    '$total pengajuan - ${isOnline ? 'Tersinkron' : 'Mode lokal'}',
                   ),
                 ],
               ),
@@ -403,7 +348,7 @@ class _RequestCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    request.type,
+                    requestLabel(request.type),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -416,7 +361,7 @@ class _RequestCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 request.type.contains('Stok')
-                    ? 'Quantity: ${request.amount}'
+                    ? 'Jumlah: ${request.amount}'
                     : request.amount.toRupiah(),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
@@ -505,16 +450,4 @@ PreviewEmployee? _resolveCurrentEmployee(
   return employees
       .where((employee) => employee.name.trim().toLowerCase() == normalizedName)
       .firstOrNull;
-}
-
-class _RequestInput {
-  const _RequestInput({
-    required this.type,
-    required this.reason,
-    required this.amount,
-  });
-
-  final String type;
-  final String reason;
-  final int amount;
 }

@@ -17,6 +17,7 @@ import '../../auth/domain/app_user.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../attendance/presentation/attendance_controller.dart';
+import '../../cashbook/presentation/cashbook_controller.dart';
 import '../../customers/presentation/customer_controller.dart';
 import '../../employee_requests/presentation/employee_request_controller.dart';
 import '../../inventory/presentation/inventory_controller.dart';
@@ -62,6 +63,7 @@ class DashboardPage extends ConsumerWidget {
         onRefresh: () async {
           ref.read(previewDataProvider);
           await ref.read(customerControllerProvider.notifier).refresh();
+          await ref.read(cashbookControllerProvider.notifier).refresh();
           await ref.read(employeeRequestControllerProvider.notifier).refresh();
           await ref.read(orderControllerProvider.notifier).refresh();
           await ref.read(inventoryControllerProvider.notifier).refresh();
@@ -121,6 +123,9 @@ class _OwnerDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
     final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final cashTransactions =
+        ref.watch(cashbookControllerProvider).value?.transactions ??
+        data.cashTransactions;
     final inventory =
         ref.watch(inventoryControllerProvider).value?.items ?? data.inventory;
     final strings = ref.strings;
@@ -130,11 +135,13 @@ class _OwnerDashboard extends ConsumerWidget {
           order.receivedAt.month == today.month &&
           order.receivedAt.day == today.day;
     }).toList();
-    final todayIncome = data.cashTransactions
-        .where((cash) => cash.type == 'IN')
+    final todayIncome = cashTransactions
+        .where((cash) => cash.type == 'IN' && _isSameDay(cash.createdAt, today))
         .fold<int>(0, (sum, cash) => sum + cash.amount);
-    final todayOut = data.cashTransactions
-        .where((cash) => cash.type == 'OUT')
+    final todayOut = cashTransactions
+        .where(
+          (cash) => cash.type == 'OUT' && _isSameDay(cash.createdAt, today),
+        )
         .fold<int>(0, (sum, cash) => sum + cash.amount);
     final lowStock = inventory.where((item) => item.isLowStock).length;
     final pending = data.requests
@@ -198,7 +205,7 @@ class _OwnerDashboard extends ConsumerWidget {
             _MetricCard(
               label: strings.isEnglish ? 'Ready for pickup' : 'Siap diambil',
               value:
-                  '${data.orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
+                  '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
               icon: Icons.inventory_2,
               color: AppColors.warning,
               onTap: () => context.go(AppRoutes.orders),
@@ -211,7 +218,9 @@ class _OwnerDashboard extends ConsumerWidget {
               onTap: () => context.go(AppRoutes.inventory),
             ),
             _MetricCard(
-              label: strings.isEnglish ? 'Pending requests' : 'Request pending',
+              label: strings.isEnglish
+                  ? 'Pending requests'
+                  : 'Pengajuan pending',
               value: '$pendingRequests',
               icon: Icons.task_alt,
               color: AppColors.primaryBlue,
@@ -245,7 +254,7 @@ class _OwnerDashboard extends ConsumerWidget {
               AppRoutes.cashbook,
             ),
             _QuickAction(
-              strings.isEnglish ? 'Review Requests' : 'Review Request',
+              strings.isEnglish ? 'Review Requests' : 'Review Pengajuan',
               Icons.rule_folder_outlined,
               AppRoutes.requestReview,
             ),
@@ -387,9 +396,10 @@ class _EmployeeDashboard extends ConsumerWidget {
     final attendance =
         ref.watch(attendanceControllerProvider).value ?? data.attendance;
     final requestSource = requestState?.requests ?? data.requests;
-    final myOrders = orders
-        .where((order) => order.assignedEmployeeId == employeeId)
-        .toList();
+    final myOrders = orders.where((order) {
+      if (!_isEmployeeOrderVisible(order, employeeId)) return false;
+      return _isSameDay(order.receivedAt, DateTime.now());
+    }).toList();
     final myAttendance = attendance
         .where((entry) => entry.employeeId == employeeId)
         .toList();
@@ -440,11 +450,11 @@ class _EmployeeDashboard extends ConsumerWidget {
               onTap: () => context.go(AppRoutes.ordersMine),
             ),
             _MetricCard(
-              label: 'Request aktif',
+              label: 'Pengajuan aktif',
               value: '${myRequests.length}',
               icon: Icons.pending_actions,
               color: AppColors.success,
-              onTap: () => context.go(AppRoutes.more),
+              onTap: () => context.go(AppRoutes.requestsMine),
             ),
           ],
         ),
@@ -463,9 +473,14 @@ class _EmployeeDashboard extends ConsumerWidget {
               AppRoutes.ordersMine,
             ),
             _QuickAction(
-              'Request Saya',
+              'Pengajuan Saya',
               Icons.rule_folder_outlined,
               AppRoutes.requestsMine,
+            ),
+            _QuickAction(
+              'Pengeluaran',
+              Icons.price_check_outlined,
+              AppRoutes.expenses,
             ),
             _QuickAction(
               'Lihat Jadwal',
@@ -501,6 +516,17 @@ class _SummaryGrid extends StatelessWidget {
       },
     );
   }
+}
+
+bool _isSameDay(DateTime left, DateTime right) {
+  return left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day;
+}
+
+bool _isEmployeeOrderVisible(PreviewOrder order, String? employeeId) {
+  if (order.assignedEmployeeId.isEmpty) return true;
+  return employeeId != null && order.assignedEmployeeId == employeeId;
 }
 
 String _indonesianDay(DateTime date) {
@@ -709,6 +735,12 @@ class _OperationalSummaryAction extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(previewDataProvider);
     final requestState = ref.watch(employeeRequestControllerProvider).value;
+    final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final inventory =
+        ref.watch(inventoryControllerProvider).value?.items ?? data.inventory;
+    final cashTransactions =
+        ref.watch(cashbookControllerProvider).value?.transactions ??
+        data.cashTransactions;
     final pendingRequests =
         requestState?.pendingCount ??
         data.requests
@@ -716,16 +748,18 @@ class _OperationalSummaryAction extends ConsumerWidget {
             .length;
     final attentionCount =
         pendingRequests +
-        data.orders
+        orders
             .where((order) => order.orderStatus == PreviewOrderStatus.ready)
             .length +
-        data.inventory.where((item) => item.isLowStock).length;
+        inventory.where((item) => item.isLowStock).length;
 
     return IconButton(
       tooltip: 'Ringkasan operasional',
       onPressed: () => _showOperationalSummary(
         context,
-        data,
+        cashTransactions: cashTransactions,
+        inventory: inventory,
+        orders: orders,
         pendingRequests: pendingRequests,
       ),
       icon: attentionCount == 0
@@ -738,8 +772,10 @@ class _OperationalSummaryAction extends ConsumerWidget {
   }
 
   void _showOperationalSummary(
-    BuildContext context,
-    PreviewDataState data, {
+    BuildContext context, {
+    required List<PreviewCashTransaction> cashTransactions,
+    required List<PreviewInventoryItem> inventory,
+    required List<PreviewOrder> orders,
     required int pendingRequests,
   }) {
     showAppModalBottomSheet<void>(
@@ -758,7 +794,12 @@ class _OperationalSummaryAction extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _OperationalSummaryList(data: data, pendingRequests: pendingRequests),
+          _OperationalSummaryList(
+            cashTransactions: cashTransactions,
+            inventory: inventory,
+            orders: orders,
+            pendingRequests: pendingRequests,
+          ),
         ],
       ),
     );
@@ -767,30 +808,34 @@ class _OperationalSummaryAction extends ConsumerWidget {
 
 class _OperationalSummaryList extends StatelessWidget {
   const _OperationalSummaryList({
-    required this.data,
+    required this.cashTransactions,
+    required this.inventory,
+    required this.orders,
     required this.pendingRequests,
   });
 
-  final PreviewDataState data;
+  final List<PreviewCashTransaction> cashTransactions;
+  final List<PreviewInventoryItem> inventory;
+  final List<PreviewOrder> orders;
   final int pendingRequests;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      ('Perlu Perhatian', '$pendingRequests request menunggu persetujuan.'),
+      ('Perlu Perhatian', '$pendingRequests pengajuan menunggu persetujuan.'),
       (
         'Aktivitas Terbaru',
-        data.cashTransactions.isEmpty
+        cashTransactions.isEmpty
             ? 'Belum ada transaksi kas.'
-            : data.cashTransactions.first.description,
+            : cashTransactions.first.description,
       ),
       (
         'Pesanan Siap Diambil',
-        '${data.orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length} pesanan siap diambil.',
+        '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length} pesanan siap diambil.',
       ),
       (
         'Stok Menipis',
-        '${data.inventory.where((item) => item.isLowStock).length} barang di bawah minimum.',
+        '${inventory.where((item) => item.isLowStock).length} barang di bawah minimum.',
       ),
     ];
     return Column(

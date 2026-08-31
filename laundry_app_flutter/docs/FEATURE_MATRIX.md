@@ -19,7 +19,7 @@ Repo lama hanya dibaca sebagai referensi istilah, warna, menu, dan alur bisnis.
 | Absensi | Ada dengan foto path lokal | Foto wajib via Supabase Storage, timestamp server, RLS per karyawan. |
 | Shift | Ada jadwal sederhana | Tambah validasi bentrok, libur, copy minggu berikutnya, notifikasi perubahan. |
 | Gaji/Insentif | Ada | Setting nominal disimpan database, pembayaran idempotent ke Buku Kas. |
-| Request karyawan | Ada beberapa request | Disatukan dalam `employee_requests` dengan tipe dan status constraint. |
+| Pengajuan karyawan | Ada beberapa request | Satu menu dengan kategori Kebutuhan Stok, Izin & Jadwal, dan Dana & Biaya; form sesuai jenis, catatan opsional. Riwayat insentif tetap tersedia, pengajuan insentif baru tidak ditawarkan. |
 | Notifikasi | Ada lokal | Supabase Realtime untuk in-app, FCM untuk push. |
 | Printer | Ada manager util | Abstraksi `ReceiptPrinterService`, fallback PDF/share WhatsApp. |
 | Backup | Ada util lokal | Karena Supabase source of truth, backup berupa export JSON/CSV terstruktur. |

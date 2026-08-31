@@ -11,6 +11,7 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../domain/request_kind.dart';
 import 'employee_request_controller.dart';
 
 class RequestReviewPage extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class RequestReviewPage extends ConsumerStatefulWidget {
 
 class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
   PreviewRequestStatus? _statusFilter;
+  RequestCategory? _categoryFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -30,14 +32,18 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
         requestState.value?.requests ??
         ref.watch(previewDataProvider.select((state) => state.requests));
     final requests = allRequests.where((request) {
-      return _statusFilter == null ||
+      final statusMatches =
+          _statusFilter == null ||
           request.status == _statusFilter ||
           (_statusFilter == PreviewRequestStatus.completed &&
               request.status == PreviewRequestStatus.paid);
+      return statusMatches &&
+          (_categoryFilter == null ||
+              requestCategory(request.type) == _categoryFilter);
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Review Request')),
+      appBar: AppBar(title: const Text('Review Pengajuan')),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(
@@ -68,12 +74,32 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
               ),
             ),
             const SizedBox(height: 12),
+            DropdownButtonFormField<RequestCategory?>(
+              initialValue: _categoryFilter,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Kategori pengajuan',
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('Semua kategori'),
+                ),
+                for (final category in RequestCategory.values)
+                  DropdownMenuItem(
+                    value: category,
+                    child: Text(category.label),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _categoryFilter = value),
+            ),
+            const SizedBox(height: 12),
             Expanded(
               child: requests.isEmpty
                   ? const AppStateView.empty(
-                      title: 'Tidak ada request',
+                      title: 'Tidak ada pengajuan',
                       message:
-                          'Request karyawan yang masuk akan tampil untuk ditinjau Owner.',
+                          'Pengajuan karyawan yang masuk akan tampil untuk ditinjau Owner.',
                     )
                   : ListView.separated(
                       itemCount: requests.length,
@@ -123,10 +149,10 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     final confirmed = await showConfirmationDialog(
       context,
       title: status == PreviewRequestStatus.approved
-          ? 'Setujui request?'
-          : 'Tolak request?',
+          ? 'Setujui pengajuan?'
+          : 'Tolak pengajuan?',
       message:
-          '${request.type} dari ${request.employeeName} akan '
+          '${requestLabel(request.type)} dari ${request.employeeName} akan '
           '${status == PreviewRequestStatus.approved ? 'disetujui' : 'ditolak'}.',
       confirmLabel: status == PreviewRequestStatus.approved
           ? 'Setujui'
@@ -148,7 +174,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
             status: status,
             reviewNote: note,
           );
-      _showMessage('Request ${status.label.toLowerCase()}.');
+      _showMessage('Pengajuan ${status.label.toLowerCase()}.');
     } on StateError catch (error) {
       _showMessage(error.message);
     }
@@ -169,9 +195,9 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
     }
     final confirmed = await showConfirmationDialog(
       context,
-      title: 'Bayar request?',
+      title: 'Catat pembayaran pengajuan?',
       message:
-          '${request.type} senilai ${request.amount.toRupiah()} akan dicatat sebagai uang keluar.',
+          '${requestLabel(request.type)} senilai ${request.amount.toRupiah()} akan dicatat sebagai uang keluar.',
       confirmLabel: 'Bayar',
     );
     if (!confirmed || !mounted) {
@@ -192,7 +218,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
                 : '${request.reviewNote} Dibayar via $method.',
             paymentMethod: method,
           );
-      _showMessage('Pembayaran request masuk Buku Kas.');
+      _showMessage('Pembayaran pengajuan masuk Buku Kas.');
     } on StateError catch (error) {
       _showMessage(error.message);
     }
@@ -203,7 +229,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       context,
       title: 'Tandai selesai?',
       message:
-          '${request.type} dari ${request.employeeName} akan diselesaikan.',
+          '${requestLabel(request.type)} dari ${request.employeeName} akan diselesaikan.',
       confirmLabel: 'Selesai',
     );
     if (!confirmed || !mounted) {
@@ -223,7 +249,7 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
                 ? 'Ditandai selesai.'
                 : '${request.reviewNote} Ditandai selesai.',
           );
-      _showMessage('Request ditandai selesai.');
+      _showMessage('Pengajuan ditandai selesai.');
     } on StateError catch (error) {
       _showMessage(error.message);
     }
@@ -361,7 +387,7 @@ class _RequestReviewCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    request.type,
+                    requestLabel(request.type),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
@@ -388,7 +414,7 @@ class _RequestReviewCard extends StatelessWidget {
             if (request.amount > 0 && isStockRequest) ...[
               const SizedBox(height: 6),
               Text(
-                'Quantity: ${request.amount}',
+                'Jumlah: ${request.amount}',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ],

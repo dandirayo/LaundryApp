@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_snack_bar.dart';
@@ -65,6 +66,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         .fold<int>(0, (sum, entry) => sum + entry.amount);
     final incomeByMethod = _totalsByMethod(cashTransactions, 'IN');
     final outcomeByMethod = _totalsByMethod(cashTransactions, 'OUT');
+    final incomeByCategory = _totalsByCategory(cashTransactions, 'IN');
+    final outcomeByCategory = _totalsByCategory(cashTransactions, 'OUT');
+    final incomeByMethodAndCategory = _totalsByMethodAndCategory(
+      cashTransactions,
+      'IN',
+    );
+    final outcomeByMethodAndCategory = _totalsByMethodAndCategory(
+      cashTransactions,
+      'OUT',
+    );
+    final servicesBreakdown = _orderServiceBreakdown(orders);
+    final paymentStatusBreakdown = _paymentStatusBreakdown(orders);
+    final recentCashTransactions = cashTransactions.take(12).toList();
     final openingBalance = allCashTransactions
         .where((entry) => entry.createdAt.isBefore(activeRange.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
@@ -142,6 +156,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           'Pesanan selesai',
                           '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready || order.orderStatus == PreviewOrderStatus.pickedUp).length}',
                         ),
+                        _PaymentStatusBreakdown(rows: paymentStatusBreakdown),
+                        _ServiceBreakdown(rows: servicesBreakdown),
                       ],
                     ),
                     ListView(
@@ -152,14 +168,33 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           title: 'Uang masuk per metode',
                           totals: incomeByMethod,
                         ),
+                        _MethodBreakdown(
+                          title: 'Uang masuk per kategori',
+                          totals: incomeByCategory,
+                        ),
+                        _MethodCategoryBreakdown(
+                          title: 'Detail masuk: metode x kategori',
+                          rows: incomeByMethodAndCategory,
+                        ),
                         _Metric('Total uang keluar', outcome.toRupiah()),
                         _MethodBreakdown(
                           title: 'Uang keluar per metode',
                           totals: outcomeByMethod,
                         ),
+                        _MethodBreakdown(
+                          title: 'Uang keluar per kategori',
+                          totals: outcomeByCategory,
+                        ),
+                        _MethodCategoryBreakdown(
+                          title: 'Detail keluar: metode x kategori',
+                          rows: outcomeByMethodAndCategory,
+                        ),
                         _Metric(
                           'Saldo akhir',
                           (openingBalance + income - outcome).toRupiah(),
+                        ),
+                        _CashTransactionBreakdown(
+                          transactions: recentCashTransactions,
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
@@ -379,6 +414,90 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return totals;
   }
 
+  Map<String, int> _totalsByCategory(
+    List<PreviewCashTransaction> transactions,
+    String type,
+  ) {
+    final totals = <String, int>{};
+    for (final entry in transactions.where((entry) => entry.type == type)) {
+      final category = entry.category.trim().isEmpty
+          ? 'Tanpa kategori'
+          : entry.category.trim();
+      totals[category] = (totals[category] ?? 0) + entry.amount;
+    }
+    return _sortTotals(totals);
+  }
+
+  List<_MethodCategoryTotal> _totalsByMethodAndCategory(
+    List<PreviewCashTransaction> transactions,
+    String type,
+  ) {
+    final totals = <String, _MethodCategoryTotal>{};
+    for (final entry in transactions.where((entry) => entry.type == type)) {
+      final method = _normalizeMethod(entry.method);
+      final category = entry.category.trim().isEmpty
+          ? 'Tanpa kategori'
+          : entry.category.trim();
+      final key = '$method|$category';
+      final existing = totals[key];
+      totals[key] = _MethodCategoryTotal(
+        method: method,
+        category: category,
+        amount: (existing?.amount ?? 0) + entry.amount,
+      );
+    }
+    final rows = totals.values.toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return rows;
+  }
+
+  List<_ServiceTotal> _orderServiceBreakdown(List<PreviewOrder> orders) {
+    final totals = <String, _ServiceTotal>{};
+    for (final order in orders) {
+      for (final item in order.items) {
+        final serviceName = item.serviceNameSnapshot.trim().isEmpty
+            ? 'Layanan'
+            : item.serviceNameSnapshot.trim();
+        final unit = item.unit.trim().toUpperCase();
+        final key = '$serviceName|$unit|${item.price}';
+        final existing = totals[key];
+        totals[key] = _ServiceTotal(
+          serviceName: serviceName,
+          unit: unit,
+          quantity: (existing?.quantity ?? 0) + item.quantity,
+          amount: (existing?.amount ?? 0) + item.total,
+        );
+      }
+    }
+    final rows = totals.values.toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return rows;
+  }
+
+  List<_PaymentStatusTotal> _paymentStatusBreakdown(List<PreviewOrder> orders) {
+    final totals = <PreviewPaymentStatus, _PaymentStatusTotal>{};
+    for (final order in orders) {
+      final existing = totals[order.paymentStatus];
+      totals[order.paymentStatus] = _PaymentStatusTotal(
+        status: order.paymentStatus,
+        orders: (existing?.orders ?? 0) + 1,
+        total: (existing?.total ?? 0) + order.totalPrice,
+        paid: (existing?.paid ?? 0) + order.paidAmount,
+        remaining: (existing?.remaining ?? 0) + order.remainingAmount,
+      );
+    }
+    return [
+      for (final status in PreviewPaymentStatus.values)
+        if (totals[status] != null) totals[status]!,
+    ];
+  }
+
+  Map<String, int> _sortTotals(Map<String, int> totals) {
+    final entries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return {for (final entry in entries) entry.key: entry.value};
+  }
+
   String _normalizeMethod(String value) {
     final normalized = value.trim().toLowerCase();
     if (normalized.contains('tunai') || normalized == 'cash') {
@@ -394,6 +513,48 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     }
     return 'Lainnya';
   }
+}
+
+class _MethodCategoryTotal {
+  const _MethodCategoryTotal({
+    required this.method,
+    required this.category,
+    required this.amount,
+  });
+
+  final String method;
+  final String category;
+  final int amount;
+}
+
+class _ServiceTotal {
+  const _ServiceTotal({
+    required this.serviceName,
+    required this.unit,
+    required this.quantity,
+    required this.amount,
+  });
+
+  final String serviceName;
+  final String unit;
+  final double quantity;
+  final int amount;
+}
+
+class _PaymentStatusTotal {
+  const _PaymentStatusTotal({
+    required this.status,
+    required this.orders,
+    required this.total,
+    required this.paid,
+    required this.remaining,
+  });
+
+  final PreviewPaymentStatus status;
+  final int orders;
+  final int total;
+  final int paid;
+  final int remaining;
 }
 
 enum _ReportPeriod {
@@ -538,6 +699,219 @@ class _MethodBreakdown extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MethodCategoryBreakdown extends StatelessWidget {
+  const _MethodCategoryBreakdown({required this.title, required this.rows});
+
+  final String title;
+  final List<_MethodCategoryTotal> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${row.method} - ${row.category}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      row.amount.toRupiah(),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceBreakdown extends StatelessWidget {
+  const _ServiceBreakdown({required this.rows});
+
+  final List<_ServiceTotal> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Breakdown layanan',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final row in rows.take(12))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${row.serviceName} (${formatQuantityForUnit(row.quantity, row.unit)})',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      row.amount.toRupiah(),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentStatusBreakdown extends StatelessWidget {
+  const _PaymentStatusBreakdown({required this.rows});
+
+  final List<_PaymentStatusTotal> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Breakdown pembayaran pesanan',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${row.status.label} (${row.orders} pesanan)',
+                          ),
+                        ),
+                        Text(
+                          row.total.toRupiah(),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Dibayar ${row.paid.toRupiah()} - Sisa ${row.remaining.toRupiah()}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashTransactionBreakdown extends StatelessWidget {
+  const _CashTransactionBreakdown({required this.transactions});
+
+  final List<PreviewCashTransaction> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (transactions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Transaksi terbaru',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final transaction in transactions)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  transaction.type == 'IN'
+                      ? Icons.south_west
+                      : Icons.north_east,
+                  color: transaction.type == 'IN'
+                      ? AppColors.success
+                      : AppColors.error,
+                ),
+                title: Text(
+                  transaction.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${transaction.category} - ${transaction.method} - ${transaction.createdAt.toIndonesianTime()}',
+                ),
+                trailing: Text(
+                  transaction.amount.toRupiah(),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
           ],

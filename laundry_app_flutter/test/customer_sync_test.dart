@@ -64,7 +64,7 @@ void main() {
     );
   });
 
-  test('WhatsApp pesanan disabled saat snapshot nomor kosong', () {
+  test('WhatsApp pesanan tetap aktif saat snapshot nomor kosong', () {
     final order = PreviewOrder(
       id: 'order-no-phone',
       orderNumber: 'IDL-1',
@@ -82,6 +82,6 @@ void main() {
       note: '',
     );
 
-    expect(orderHasReadyPickupWhatsApp(order), isFalse);
+    expect(orderHasReadyPickupWhatsApp(order), isTrue);
   });
 }

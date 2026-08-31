@@ -42,13 +42,23 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   }) async {
     final shopId = _shopId();
     if (shopId != null) {
+      final user = ref.read(authControllerProvider).value?.user;
+      final assignedEmployeeId =
+          user != null &&
+              !user.isOwner &&
+              user.employeeId != null &&
+              _isUuid(user.employeeId!)
+          ? user.employeeId
+          : _isUuid(employeeId)
+          ? employeeId
+          : null;
       final maxHours = items
           .map((item) => item.service.estimatedHours)
           .fold<int>(0, (current, value) => value > current ? value : current);
       final order = await _repository.create(
         shopId: shopId,
         customerId: customerId,
-        employeeId: _isUuid(employeeId) ? employeeId : null,
+        employeeId: assignedEmployeeId,
         note: note,
         dueAt: DateTime.now().add(Duration(hours: maxHours)),
         paidAmount: paidAmount,

@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/failure.dart';
 import '../../../core/services/supabase_service.dart';
+import '../domain/contact_import.dart';
 import '../domain/customer.dart';
 
 final class CustomerRepository {
@@ -47,6 +48,40 @@ final class CustomerRepository {
           .single();
 
       return Customer.fromMap(row);
+    } on PostgrestException catch (error) {
+      throw _mapPostgrestException(error);
+    }
+  }
+
+  Future<int> importCustomers({
+    required String shopId,
+    required List<ContactImportSelection> contacts,
+    required String note,
+  }) async {
+    if (contacts.isEmpty) {
+      return 0;
+    }
+
+    try {
+      final rows = await _requireClient()
+          .from('customers')
+          .upsert(
+            [
+              for (final contact in contacts)
+                {
+                  'shop_id': shopId,
+                  'name': contact.name.trim(),
+                  'phone': Customer.phoneFromInput(contact.phone),
+                  'normalized_phone': contact.normalizedPhone,
+                  'address': contact.address.trim(),
+                  'note': note.trim(),
+                },
+            ],
+            onConflict: 'shop_id,normalized_phone',
+            ignoreDuplicates: true,
+          )
+          .select('id');
+      return rows.length;
     } on PostgrestException catch (error) {
       throw _mapPostgrestException(error);
     }

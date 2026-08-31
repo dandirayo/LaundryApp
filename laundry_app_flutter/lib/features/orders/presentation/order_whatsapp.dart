@@ -16,22 +16,39 @@ String readyPickupWhatsAppMessage(PreviewOrder order) {
 }
 
 bool orderHasReadyPickupWhatsApp(PreviewOrder order) {
-  final phone = PreviewDataController.normalizeIndonesianPhone(
-    order.customerPhoneSnapshot,
-  ).replaceAll('+', '');
-  return phone.length >= 8;
+  return order.customerNameSnapshot.trim().isNotEmpty;
 }
 
-Future<bool> launchReadyPickupWhatsApp(PreviewOrder order) {
+Future<bool> launchReadyPickupWhatsApp(PreviewOrder order) async {
   final phone = PreviewDataController.normalizeIndonesianPhone(
     order.customerPhoneSnapshot,
   ).replaceAll('+', '');
-  if (phone.length < 8) {
-    return Future.value(false);
+  final message = readyPickupWhatsAppMessage(order);
+  if (phone.length >= 8) {
+    final native = Uri.parse(
+      'whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}',
+    );
+    if (await _tryLaunch(native)) return true;
+
+    final web = Uri.https('wa.me', '/$phone', {'text': message});
+    if (await _tryLaunch(web)) return true;
   }
 
-  final uri = Uri.https('wa.me', '/$phone', {
-    'text': readyPickupWhatsAppMessage(order),
+  final manualChat = Uri.parse(
+    'whatsapp://send?text=${Uri.encodeComponent(message)}',
+  );
+  if (await _tryLaunch(manualChat)) return true;
+
+  final webManualChat = Uri.https('api.whatsapp.com', '/send', {
+    'text': message,
   });
-  return launchUrl(uri, mode: LaunchMode.externalApplication);
+  return _tryLaunch(webManualChat);
+}
+
+Future<bool> _tryLaunch(Uri uri) async {
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
 }

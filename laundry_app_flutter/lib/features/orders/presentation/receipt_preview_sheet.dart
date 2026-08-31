@@ -66,6 +66,12 @@ Future<void> showReceiptPreviewSheet({
                 icon: const Icon(Icons.print_outlined),
                 label: const Text('Cetak ke Printer Thermal'),
               ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('Lanjut'),
+              ),
             ],
           );
         },

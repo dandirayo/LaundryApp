@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
@@ -13,6 +12,7 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../data/device_contact_repository.dart';
 import '../domain/customer.dart';
 import '../domain/contact_import.dart';
 import 'customer_controller.dart';
@@ -25,7 +25,9 @@ class CustomersPage extends ConsumerStatefulWidget {
 }
 
 class _CustomersPageState extends ConsumerState<CustomersPage> {
+  final _deviceContacts = DeviceContactRepository();
   String _query = '';
+  var _isSyncingContacts = false;
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +45,16 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         actions: [
           if (canImportContacts)
             IconButton(
-              tooltip: strings.importPhoneContacts,
-              onPressed: () => _importContact(context),
-              icon: const Icon(Icons.contacts_outlined),
+              tooltip: strings.syncPhoneContacts,
+              onPressed: _isSyncingContacts
+                  ? null
+                  : () => _syncContacts(context),
+              icon: _isSyncingContacts
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.sync),
             ),
           IconButton(
             tooltip: strings.addCustomer,
@@ -298,71 +307,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   }
 
   Future<void> _importContact(BuildContext context) async {
-    PermissionStatus permission;
-    try {
-      permission = await FlutterContacts.permissions.request(
-        PermissionType.read,
-      );
-    } catch (error) {
-      if (context.mounted) {
-        _showSnack(
-          userErrorMessage(
-            error,
-            fallback: 'Daftar kontak belum bisa dibuka. Coba lagi.',
-          ),
-        );
-      }
-      return;
-    }
-    if (!context.mounted) {
-      return;
-    }
-    if (permission != PermissionStatus.granted &&
-        permission != PermissionStatus.limited) {
-      await _showContactPermissionDialog(context);
-      return;
-    }
-
-    List<Contact> contacts;
-    try {
-      contacts = await FlutterContacts.getAll(
-        properties: {ContactProperty.phone},
-      );
-    } catch (error) {
-      if (context.mounted) {
-        _showSnack(
-          userErrorMessage(
-            error,
-            fallback: 'Kontak perangkat gagal dimuat. Coba lagi.',
-          ),
-        );
-      }
-      return;
-    }
-    if (!context.mounted) {
-      return;
-    }
-    final candidates =
-        contacts
-            .where((contact) => (contact.displayName ?? '').trim().isNotEmpty)
-            .map(
-              (contact) => ContactImportCandidate(
-                name: (contact.displayName ?? '').trim(),
-                phones: distinctContactPhones(
-                  contact.phones.map((phone) => phone.number),
-                ),
-              ),
-            )
-            .toList()
-          ..sort(
-            (first, second) =>
-                first.name.toLowerCase().compareTo(second.name.toLowerCase()),
-          );
-
-    if (candidates.isEmpty) {
-      _showSnack('Daftar kontak perangkat kosong.');
-      return;
-    }
+    final candidates = await _loadDeviceContactCandidates(context);
+    if (candidates == null || !context.mounted) return;
 
     final candidate = await _showContactPicker(context, candidates);
     if (candidate == null || !context.mounted) {
@@ -409,6 +355,78 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       if (mounted) {
         _showSnack(_messageForError(error));
       }
+    }
+  }
+
+  Future<void> _syncContacts(BuildContext context) async {
+    if (_isSyncingContacts) return;
+    setState(() => _isSyncingContacts = true);
+    try {
+      final candidates = await _loadDeviceContactCandidates(context);
+      if (candidates == null || !context.mounted) return;
+      final result = await ref
+          .read(customerControllerProvider.notifier)
+          .syncContacts(candidates);
+      if (context.mounted) {
+        _showSnack(_contactSyncMessage(result));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Kontak belum bisa disinkronkan. Coba lagi.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncingContacts = false);
+      }
+    }
+  }
+
+  Future<List<ContactImportCandidate>?> _loadDeviceContactCandidates(
+    BuildContext context,
+  ) async {
+    bool granted;
+    try {
+      granted = await _deviceContacts.requestReadPermission();
+    } catch (error) {
+      if (context.mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Daftar kontak belum bisa dibuka. Coba lagi.',
+          ),
+        );
+      }
+      return null;
+    }
+    if (!context.mounted) {
+      return null;
+    }
+    if (!granted) {
+      await _showContactPermissionDialog(context);
+      return null;
+    }
+
+    try {
+      final candidates = await _deviceContacts.fetchContactCandidates();
+      if (candidates.isEmpty && context.mounted) {
+        _showSnack('Daftar kontak perangkat kosong.');
+      }
+      return candidates.isEmpty ? null : candidates;
+    } catch (error) {
+      if (context.mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Kontak perangkat gagal dimuat. Coba lagi.',
+          ),
+        );
+      }
+      return null;
     }
   }
 
@@ -592,7 +610,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           FilledButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await FlutterContacts.permissions.openSettings();
+              await _deviceContacts.openSettings();
             },
             child: const Text('Buka Pengaturan'),
           ),
@@ -604,6 +622,20 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   void _showSnack(String message) {
     showAppSnackBar(message);
   }
+}
+
+String _contactSyncMessage(ContactSyncResult result) {
+  if (result.importedCount == 0) {
+    if (result.skippedCount == 0) {
+      return 'Tidak ada kontak yang bisa disinkronkan.';
+    }
+    return 'Tidak ada kontak baru. ${result.skippedCount} kontak dilewati.';
+  }
+
+  final skippedText = result.skippedCount == 0
+      ? ''
+      : ' ${result.skippedCount} dilewati.';
+  return '${result.importedCount} kontak berhasil disinkronkan.$skippedText';
 }
 
 class _CustomerListBody extends ConsumerWidget {

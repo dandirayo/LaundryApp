@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:laundry_app_flutter/core/theme/app_theme.dart';
 import 'package:laundry_app_flutter/core/widgets/app_snack_bar.dart';
 import 'package:laundry_app_flutter/features/customers/presentation/customers_page.dart';
 import 'package:laundry_app_flutter/features/orders/presentation/orders_page.dart';
@@ -37,6 +38,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            theme: AppTheme.light(),
             scaffoldMessengerKey: appScaffoldMessengerKey,
             home: const _PaymentLifecycleHarness(),
           ),

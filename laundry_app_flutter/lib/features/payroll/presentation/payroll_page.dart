@@ -130,7 +130,7 @@ class PayrollPage extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: () => context.go(AppRoutes.requestReview),
               icon: const Icon(Icons.rule_folder_outlined),
-              label: const Text('Review Request Karyawan'),
+              label: const Text('Review Pengajuan Karyawan'),
             ),
           ],
         ),

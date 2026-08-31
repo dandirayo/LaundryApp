@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/failure.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/expense_repository.dart';
 
@@ -15,10 +17,7 @@ final expenseControllerProvider =
     );
 
 class ExpenseState {
-  const ExpenseState({
-    required this.expenses,
-    required this.isOnline,
-  });
+  const ExpenseState({required this.expenses, required this.isOnline});
 
   final List<PreviewExpense> expenses;
   final bool isOnline;
@@ -49,6 +48,13 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
     final shopId = _onlineShopId();
     if (shopId != null) {
       final user = ref.read(authControllerProvider).value?.user;
+      if (user?.role == UserRole.employee && user?.employeeId == null) {
+        throw const Failure(
+          code: 'employee-profile-not-linked',
+          message:
+              'Akun karyawan belum terhubung ke data karyawan. Minta owner memperbarui akun ini.',
+        );
+      }
       await _repository.add(
         shopId: shopId,
         description: description,
@@ -58,12 +64,14 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
         createdBy: user?.employeeId,
       );
     } else {
-      ref.read(previewDataProvider.notifier).addExpense(
-        description: description,
-        category: category,
-        amount: amount,
-        method: method,
-      );
+      ref
+          .read(previewDataProvider.notifier)
+          .addExpense(
+            description: description,
+            category: category,
+            amount: amount,
+            method: method,
+          );
     }
     await refresh();
   }
@@ -72,10 +80,7 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
     final shopId = _onlineShopId();
     if (shopId == null) {
       final data = ref.read(previewDataProvider);
-      return ExpenseState(
-        expenses: data.expenses,
-        isOnline: false,
-      );
+      return ExpenseState(expenses: data.expenses, isOnline: false);
     }
     if (subscribe && _channel == null) {
       _channel = _repository.subscribe(
@@ -84,10 +89,7 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
       );
     }
     final expenses = await _repository.fetch(shopId: shopId);
-    return ExpenseState(
-      expenses: expenses,
-      isOnline: true,
-    );
+    return ExpenseState(expenses: expenses, isOnline: true);
   }
 
   String? _onlineShopId() {

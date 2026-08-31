@@ -158,6 +158,11 @@ class MorePage extends ConsumerWidget {
             AppRoutes.customers,
           ),
           _MenuItem(
+            strings.expenses,
+            Icons.price_check_outlined,
+            AppRoutes.expenses,
+          ),
+          _MenuItem(
             strings.notifications,
             Icons.notifications_outlined,
             AppRoutes.notifications,
@@ -168,7 +173,7 @@ class MorePage extends ConsumerWidget {
         title: strings.requests.toUpperCase(),
         items: [
           _MenuItem(
-            'Request Saya',
+            'Pengajuan Saya',
             Icons.rule_folder_outlined,
             AppRoutes.requestsMine,
           ),

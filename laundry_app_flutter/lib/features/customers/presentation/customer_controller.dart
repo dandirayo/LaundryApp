@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/customer_repository.dart';
+import '../domain/contact_import.dart';
 import '../domain/customer.dart';
 
 final customerRepositoryProvider = Provider<CustomerRepository>(
@@ -108,6 +109,51 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
           );
     }
     await refresh();
+  }
+
+  Future<ContactSyncResult> syncContacts(
+    List<ContactImportCandidate> candidates,
+  ) async {
+    final current = state.value ?? await _load(listen: false);
+    final plan = buildContactImportPlan(
+      candidates: candidates,
+      existingCustomers: current.customers,
+    );
+    var importedCount = 0;
+    var duplicatePhoneCount = plan.duplicatePhoneCount;
+
+    final online = _onlineContext(listen: false);
+    if (online != null) {
+      importedCount = await online.repository.importCustomers(
+        shopId: online.shopId,
+        contacts: plan.selections,
+        note: 'Sinkron kontak HP',
+      );
+      duplicatePhoneCount += plan.importableCount - importedCount;
+    } else {
+      final preview = ref.read(previewDataProvider.notifier);
+      for (final contact in plan.selections) {
+        try {
+          preview.addCustomer(
+            name: contact.name,
+            phone: contact.phone,
+            address: contact.address,
+            note: 'Sinkron kontak HP',
+          );
+          importedCount++;
+        } on StateError {
+          duplicatePhoneCount++;
+        }
+      }
+    }
+
+    await refresh();
+    return ContactSyncResult(
+      importedCount: importedCount,
+      duplicatePhoneCount: duplicatePhoneCount,
+      invalidPhoneCount: plan.invalidPhoneCount,
+      noPhoneCount: plan.noPhoneCount,
+    );
   }
 
   Future<CustomerListState> _load({required bool listen}) async {

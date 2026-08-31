@@ -109,7 +109,7 @@ class AppStrings {
   String get shopSettings => isEnglish ? 'Shop Settings' : 'Pengaturan Toko';
   String get profile => isEnglish ? 'Profile' : 'Profil';
   String get changePin => isEnglish ? 'Change PIN' : 'Ganti PIN';
-  String get requests => isEnglish ? 'Requests' : 'Request';
+  String get requests => isEnglish ? 'Requests' : 'Pengajuan';
 
   String get operational => isEnglish ? 'OPERATIONS' : 'OPERASIONAL';
   String get team => isEnglish ? 'TEAM' : 'TIM';
@@ -127,6 +127,8 @@ class AppStrings {
   String get newCustomers => isEnglish ? 'New Customers' : 'Pelanggan Baru';
   String get importPhoneContacts =>
       isEnglish ? 'Import Phone Contacts' : 'Import kontak HP';
+  String get syncPhoneContacts =>
+      isEnglish ? 'Sync Phone Contacts' : 'Sinkron kontak HP';
   String get searchCustomers => isEnglish
       ? 'Search name, phone, or address'
       : 'Cari nama, telepon, atau alamat';
