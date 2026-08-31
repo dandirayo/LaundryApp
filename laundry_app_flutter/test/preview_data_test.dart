@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:laundry_app_flutter/core/extensions/quantity_extensions.dart';
 import 'package:laundry_app_flutter/shared/preview_data.dart';
 
 void main() {
@@ -87,7 +90,7 @@ void main() {
     );
   });
 
-  test('layanan satuan dan sepatu tersedia di master lokal', () {
+  test('sepatu dan helm berada di dalam satuan', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -98,19 +101,23 @@ void main() {
       isTrue,
     );
     expect(
-      services.any((service) => service.effectiveGroup == 'Sepatu'),
+      services.any(
+        (service) =>
+            service.effectiveGroup == 'Satuan' &&
+            service.effectiveCategory == 'Sepatu',
+      ),
       isTrue,
     );
   });
 
-  test('master layanan memiliki hierarki dan label tidak digabung slash', () {
+  test('master layanan hanya memiliki dua kategori utama dan varian harga', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     final services = container.read(previewDataProvider).services;
     final groups = services.map((service) => service.effectiveGroup).toSet();
 
-    expect(groups, containsAll(['Kiloan', 'Satuan', 'Sepatu', 'Helm']));
+    expect(groups, equals({'Kiloan', 'Satuan'}));
     expect(
       services.where((service) => service.effectiveGroup == 'Satuan'),
       isNotEmpty,
@@ -118,21 +125,14 @@ void main() {
     expect(
       services.any(
         (service) =>
-            service.effectiveCategory == 'Alat Tidur' &&
-            service.effectiveItem == 'Bedcover' &&
-            service.effectiveVariant == 'King Size',
+            service.effectiveCategory == 'Setelan (Atasan + Bawahan)' &&
+            service.effectiveItem == 'Kaos + Celana' &&
+            service.effectiveVariant == 'Setrika Saja' &&
+            service.price == 15000,
       ),
       isTrue,
     );
-    expect(
-      services.where(
-        (service) =>
-            service.name.contains('/') ||
-            service.effectiveItem.contains('/') ||
-            service.effectiveVariant.contains('/'),
-      ),
-      isEmpty,
-    );
+    expect(services.map((s) => s.id).toSet().length, services.length);
   });
 
   test('harga mengikuti varian dan unit laporan tidak tercampur', () {
@@ -178,7 +178,7 @@ void main() {
     final notifier = container.read(previewDataProvider.notifier);
     final state = container.read(previewDataProvider);
     final shoeService = state.services.firstWhere(
-      (service) => service.effectiveGroup == 'Sepatu',
+      (service) => service.effectiveCategory == 'Sepatu',
     );
     final order = notifier.createOrderWithItems(
       customerId: state.customers.first.id,
@@ -201,6 +201,72 @@ void main() {
     expect(incentives, hasLength(1));
     expect(incentives.first.amount, 20000);
     expect(incentives.first.type, 'OUT');
+  });
+
+  test('harga foto, varian setrika, dan luas tidak mengubah berat kiloan', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final state = container.read(previewDataProvider);
+    PreviewService service(String item, String variant) =>
+        state.services.singleWhere(
+          (s) => s.effectiveItem == item && s.effectiveVariant == variant,
+        );
+    final gorden = service('Gorden', '');
+    final setrika = service('Kaos + Celana', 'Setrika Saja');
+    final cuci = service('Kaos + Celana', 'Cuci Setrika');
+    expect(gorden.unit, 'M2');
+    expect(gorden.price, 15000);
+    expect(setrika.price, 15000);
+    expect(cuci.price, 25000);
+    final order = container
+        .read(previewDataProvider.notifier)
+        .createOrderWithItems(
+          customerId: state.customers.first.id,
+          items: [
+            (serviceId: gorden.id, quantity: 2.25),
+            (serviceId: setrika.id, quantity: 2),
+            (serviceId: cuci.id, quantity: 1),
+            (serviceId: 'service-cs-reguler', quantity: 3),
+          ],
+          paidAmount: 0,
+          paymentMethod: 'Tunai',
+          employeeId: state.employees.first.id,
+          note: '',
+        );
+    expect(order.totalPrice, 109750);
+    expect(order.laundryWeightKg, 3);
+    expect(order.quantityForUnit('M2'), 2.25);
+    expect(formatQuantityForUnit(2.25, 'M2'), '2.25 M2');
+    expect(order.quantityForUnit('SET'), 3);
+  });
+
+  test('fallback, seed, dan migrasi memakai katalog harga yang sama', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final services = container.read(previewDataProvider).services;
+    final seed = File('../supabase/seed.sql').readAsStringSync();
+    final migration = File(
+      '../supabase/migrations/20260831080857_categorize_unit_price_list.sql',
+    ).readAsStringSync();
+    String quote(String value) => "'${value.replaceAll("'", "''")}'";
+    for (final service in services) {
+      final values = [
+        quote(service.effectiveCategory),
+        quote(service.effectiveItem),
+        quote(service.effectiveVariant),
+        quote(service.unit),
+        '${service.price}',
+        '${service.estimatedHours}',
+        '${service.isExpress}',
+        '${service.sortOrder}',
+      ].join(', ');
+      expect(seed, contains('$values)'), reason: service.id);
+      if (service.effectiveGroup == 'Satuan') {
+        expect(migration, contains('$values)'), reason: service.id);
+      } else {
+        expect(migration, isNot(contains(quote(service.id))));
+      }
+    }
   });
 
   test('absensi terlambat lebih dari 2 jam tetap tersimpan', () {

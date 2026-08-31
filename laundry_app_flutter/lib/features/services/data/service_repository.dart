@@ -20,7 +20,10 @@ class ServiceRepository {
         .eq('shop_id', shopId)
         .order('sort_order')
         .order('item_name');
-    return _deduplicateServices([for (final row in rows) _fromMap(row)]);
+    // Prefer active rows when legacy duplicates have been retired.
+    final services = [for (final row in rows) _fromMap(row)]
+      ..sort((a, b) => (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0));
+    return _deduplicateServices(services);
   }
 
   Future<void> add({
@@ -35,13 +38,22 @@ class ServiceRepository {
     required int estimatedHours,
     required bool isExpress,
   }) async {
+    final normalizedUnit = unit.trim().toUpperCase();
+    final root = normalizedUnit == 'KG' ? 'Kiloan' : 'Satuan';
+    final rootCategory = await _requireClient()
+        .from('service_categories')
+        .select('id')
+        .eq('shop_id', shopId)
+        .eq('name', root)
+        .maybeSingle();
     await _requireClient().from('services').insert({
       'shop_id': shopId,
-      'category_name': category,
+      'category_id': rootCategory?['id'],
+      'category_name': category.trim(),
       'item_name': itemName.trim().isEmpty ? name.trim() : itemName.trim(),
       'size_variant': sizeVariant.trim(),
       'material_variant': materialVariant.trim(),
-      'unit': unit,
+      'unit': normalizedUnit,
       'price': price,
       'estimated_hours': estimatedHours,
       'is_express': isExpress,

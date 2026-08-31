@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/user_error_message.dart';
 import '../../../core/extensions/currency_extensions.dart';
+import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -34,6 +35,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _items = <_OrderDraftItem>[];
   var _mode = _OrderMode.kilo;
+  String? _quickCategory;
   String? _selectedQuantityUnit;
   String? _customerId;
   String? _serviceId;
@@ -94,7 +96,32 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
         .cast<PreviewCustomer?>()
         .firstOrNull;
 
-    final quickServices = _quickServicesForMode(services, _mode);
+    final modeServices = services
+        .where(
+          (service) => switch (_mode) {
+            _OrderMode.kilo => service.effectiveGroup == 'Kiloan',
+            _OrderMode.unit => service.effectiveGroup == 'Satuan',
+            _OrderMode.mix => true,
+          },
+        )
+        .toList();
+    final quickCategories = modeServices
+        .map((service) => service.effectiveCategory)
+        .toSet()
+        .toList();
+    final selectedCategory = quickCategories.contains(_quickCategory)
+        ? _quickCategory
+        : null;
+    final quickServices = _quickServicesForMode(
+      modeServices
+          .where(
+            (service) =>
+                selectedCategory == null ||
+                service.effectiveCategory == selectedCategory,
+          )
+          .toList(),
+      _mode,
+    );
 
     final total = _items.fold<int>(0, (sum, item) => sum + item.total);
     final strings = ref.strings;
@@ -248,6 +275,31 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 12),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    for (final category in <String?>[
+                                      null,
+                                      ...quickCategories,
+                                    ])
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
+                                        child: ChoiceChip(
+                                          label: Text(category ?? 'Semua'),
+                                          selected:
+                                              selectedCategory == category,
+                                          onSelected: (_) => setState(
+                                            () => _quickCategory = category,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 12),
                               if (quickServices.isNotEmpty)
@@ -881,7 +933,14 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => _ServicePickerSheet(services: services),
+      builder: (context) => _ServicePickerSheet(
+        services: services,
+        initialGroup: switch (_mode) {
+          _OrderMode.kilo => 'Kiloan',
+          _OrderMode.unit => 'Satuan',
+          _OrderMode.mix => null,
+        },
+      ),
     );
   }
 
@@ -1865,9 +1924,10 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
 }
 
 class _ServicePickerSheet extends StatefulWidget {
-  const _ServicePickerSheet({required this.services});
+  const _ServicePickerSheet({required this.services, this.initialGroup});
 
   final List<PreviewService> services;
+  final String? initialGroup;
 
   @override
   State<_ServicePickerSheet> createState() => _ServicePickerSheetState();
@@ -1879,6 +1939,12 @@ class _ServicePickerSheetState extends State<_ServicePickerSheet> {
   String? _group;
   String? _category;
   String? _item;
+
+  @override
+  void initState() {
+    super.initState();
+    _group = widget.initialGroup;
+  }
 
   @override
   void dispose() {
@@ -1913,8 +1979,8 @@ class _ServicePickerSheetState extends State<_ServicePickerSheet> {
               : _PickerLevel.item
         : _PickerLevel.variant;
     final title = switch (level) {
-      _PickerLevel.group => 'Pilih Kelompok Layanan',
-      _PickerLevel.category => 'Pilih Kategori',
+      _PickerLevel.group => 'Pilih Kategori Utama',
+      _PickerLevel.category => 'Pilih Subkategori',
       _PickerLevel.item => 'Pilih Jenis Barang',
       _PickerLevel.variant => 'Pilih Varian',
     };
@@ -2134,8 +2200,17 @@ class _DraftItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isKilo = item.service.unit.toUpperCase() == 'KG';
-    final min = isKilo ? 3.0 : 1.0;
-    final step = isKilo ? 0.5 : 1.0;
+    final isMeasured = [
+      'KG',
+      'M2',
+      'M',
+    ].contains(item.service.unit.toUpperCase());
+    final min = isKilo ? 3.0 : (isMeasured ? 0.01 : 1.0);
+    final step = isMeasured ? 0.5 : 1.0;
+    final quantityLabel = formatQuantityForUnit(
+      item.quantity,
+      item.service.unit,
+    );
 
     return Card(
       child: ListTile(
@@ -2143,9 +2218,7 @@ class _DraftItemTile extends StatelessWidget {
           item.service.name,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        subtitle: Text(
-          '${item.quantity.toStringAsFixed(isKilo ? 1 : 0)} ${item.service.unit} x ${item.service.price.toRupiah()}',
-        ),
+        subtitle: Text('$quantityLabel x ${item.service.price.toRupiah()}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2157,13 +2230,25 @@ class _DraftItemTile extends StatelessWidget {
               ),
               onPressed: item.quantity <= min
                   ? null
-                  : () => onQuantityChanged(item.quantity - step),
+                  : () => onQuantityChanged(
+                      (item.quantity - step).clamp(min, double.infinity),
+                    ),
             ),
-            Text(
-              isKilo
-                  ? item.quantity.toStringAsFixed(1)
-                  : item.quantity.round().toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            InkWell(
+              onTap: () => _editQuantity(context, min, isMeasured),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 4,
+                ),
+                child: Text(
+                  quantityLabel.split(' ').first,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             ),
             IconButton(
               icon: const Icon(
@@ -2187,5 +2272,69 @@ class _DraftItemTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editQuantity(
+    BuildContext context,
+    double minimum,
+    bool measured,
+  ) async {
+    final controller = TextEditingController(text: item.quantity.toString());
+    final formKey = GlobalKey<FormState>();
+    final quantity = await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Jumlah (${item.service.unit})'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.numberWithOptions(decimal: measured),
+            decoration: InputDecoration(
+              labelText: 'Jumlah',
+              helperText: measured
+                  ? 'Maksimal 2 angka desimal, contoh 2,25'
+                  : 'Jumlah barang utuh',
+            ),
+            validator: (text) {
+              final normalized = (text ?? '').trim().replaceAll(',', '.');
+              final value = double.tryParse(normalized);
+              if (value == null || !value.isFinite || value < minimum) {
+                return 'Minimal $minimum ${item.service.unit}';
+              }
+              if (!measured && value % 1 != 0) {
+                return 'Gunakan jumlah barang utuh';
+              }
+              if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(normalized)) {
+                return 'Gunakan maksimal 2 angka desimal';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(
+                  context,
+                  double.parse(controller.text.trim().replaceAll(',', '.')),
+                );
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    if (quantity != null) onQuantityChanged(quantity);
+    // Route disposal can lag behind its result while the dialog animates out.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
   }
 }

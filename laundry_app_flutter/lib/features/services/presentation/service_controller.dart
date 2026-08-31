@@ -73,6 +73,7 @@ class ServiceController extends AsyncNotifier<List<PreviewService>> {
             estimatedHours: estimatedHours,
             isExpress: isExpress,
           );
+      state = AsyncData(ref.read(previewDataProvider).services);
     }
   }
 

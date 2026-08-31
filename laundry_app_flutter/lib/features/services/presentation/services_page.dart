@@ -10,27 +10,11 @@ import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../../shared/service_categories.dart';
 import 'service_controller.dart';
 
 class ServicesPage extends ConsumerWidget {
   const ServicesPage({super.key});
-
-  static const _categories = [
-    'Cuci Setrika',
-    'Cuci Lipat',
-    'Setrika Lipat',
-    'Pakaian',
-    'Alat Tidur',
-    'Perlengkapan Rumah',
-    'Tas',
-    'Perlengkapan Ibadah',
-    'Lainnya',
-    'Sepatu',
-    'Helm',
-    'Layanan Tambahan',
-  ];
-
-  static const _units = ['KG', 'M2', 'ITEM', 'PAIR', 'PIECE', 'SET'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,7 +22,9 @@ class ServicesPage extends ConsumerWidget {
       previewDataProvider.select((state) => state.services),
     );
     final services =
-        ref.watch(serviceControllerProvider).value ?? previewServices;
+        (ref.watch(serviceControllerProvider).value ?? previewServices)
+            .where((service) => service.isActive)
+            .toList();
     final groupedServices = _groupServices(services);
     final strings = ref.strings;
 
@@ -97,7 +83,7 @@ class ServicesPage extends ConsumerWidget {
                     child: Card(
                       clipBehavior: Clip.antiAlias,
                       child: ExpansionTile(
-                        initiallyExpanded: index < 3,
+                        initiallyExpanded: false,
                         leading: const Icon(Icons.category_outlined),
                         title: Text(
                           group.category,
@@ -115,54 +101,63 @@ class ServicesPage extends ConsumerWidget {
                           12,
                         ),
                         children: [
-                          for (final itemGroup in group.items)
+                          for (final categoryGroup in group.categories)
                             ExpansionTile(
-                              tilePadding: EdgeInsets.zero,
-                              childrenPadding: const EdgeInsets.only(
-                                left: 8,
-                                bottom: 8,
-                              ),
-                              title: Text(
-                                itemGroup.itemName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                              title: Text(categoryGroup.category),
                               subtitle: Text(
-                                '${itemGroup.services.length} pilihan',
+                                '${categoryGroup.services.length} pilihan',
                               ),
                               children: [
-                                for (final service in itemGroup.services)
-                                  ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      service.isExpress
-                                          ? Icons.flash_on_outlined
-                                          : Icons
-                                                .local_laundry_service_outlined,
-                                      color: service.isExpress
-                                          ? AppColors.warning
-                                          : AppColors.primaryBlue,
+                                for (final itemGroup in categoryGroup.items)
+                                  ExpansionTile(
+                                    tilePadding: EdgeInsets.zero,
+                                    childrenPadding: const EdgeInsets.only(
+                                      left: 8,
+                                      bottom: 8,
                                     ),
                                     title: Text(
-                                      service.effectiveVariant.isEmpty
-                                          ? service.name
-                                          : service.effectiveVariant,
+                                      itemGroup.itemName,
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                     subtitle: Text(
-                                      '${service.unit} · ${service.estimatedHours} jam',
+                                      '${itemGroup.services.length} pilihan',
                                     ),
-                                    trailing: Text(
-                                      service.price.toRupiah(),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        color: AppColors.primaryNavy,
-                                      ),
-                                    ),
+                                    children: [
+                                      for (final service in itemGroup.services)
+                                        ListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          leading: Icon(
+                                            service.isExpress
+                                                ? Icons.flash_on_outlined
+                                                : Icons
+                                                      .local_laundry_service_outlined,
+                                            color: service.isExpress
+                                                ? AppColors.warning
+                                                : AppColors.primaryBlue,
+                                          ),
+                                          title: Text(
+                                            service.effectiveVariant.isEmpty
+                                                ? service.name
+                                                : service.effectiveVariant,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          subtitle: Text(
+                                            '${service.unit} · ${service.estimatedHours} jam',
+                                          ),
+                                          trailing: Text(
+                                            service.price.toRupiah(),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              color: AppColors.primaryNavy,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                               ],
                             ),
@@ -176,18 +171,19 @@ class ServicesPage extends ConsumerWidget {
     );
   }
 
-  List<_ServiceCategoryGroup> _groupServices(List<PreviewService> services) {
+  List<_ServiceMainGroup> _groupServices(List<PreviewService> services) {
     final sorted = [...services]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final groups = <String, List<PreviewService>>{};
     for (final service in sorted) {
       groups
-          .putIfAbsent(service.effectiveCategory, () => <PreviewService>[])
+          .putIfAbsent(service.effectiveGroup, () => <PreviewService>[])
           .add(service);
     }
     return [
-      for (final entry in groups.entries)
-        _ServiceCategoryGroup(category: entry.key, services: entry.value),
+      for (final group in serviceMainCategories)
+        if (groups.containsKey(group))
+          _ServiceMainGroup(category: group, services: groups[group]!),
     ];
   }
 
@@ -202,8 +198,9 @@ class ServicesPage extends ConsumerWidget {
     final strings = ref.read(appLanguageProvider) == AppLanguage.en
         ? const AppStrings(AppLanguage.en)
         : const AppStrings(AppLanguage.id);
-    var category = _categories.first;
-    var unit = _units.first;
+    var mainCategory = serviceMainCategories.first;
+    var category = serviceSubcategories[mainCategory]!.first;
+    var unit = serviceUnits[mainCategory]!.first;
     var isExpress = false;
 
     final result = await showAppModalBottomSheet<_ServiceInput>(
@@ -239,15 +236,35 @@ class ServicesPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    initialValue: mainCategory,
+                    items: [
+                      for (final item in serviceMainCategories)
+                        DropdownMenuItem(value: item, child: Text(item)),
+                    ],
+                    onChanged: (value) => setModalState(() {
+                      mainCategory = value ?? mainCategory;
+                      category = serviceSubcategories[mainCategory]!.first;
+                      unit = serviceUnits[mainCategory]!.first;
+                    }),
+                    decoration: const InputDecoration(
+                      labelText: 'Kategori utama',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('category-$mainCategory'),
+                    isExpanded: true,
                     initialValue: category,
                     items: [
-                      for (final item in _categories)
+                      for (final item in serviceSubcategories[mainCategory]!)
                         DropdownMenuItem(value: item, child: Text(item)),
                     ],
                     onChanged: (value) =>
                         setModalState(() => category = value ?? category),
                     decoration: InputDecoration(
-                      labelText: strings.isEnglish ? 'Category' : 'Kategori',
+                      labelText: strings.isEnglish
+                          ? 'Subcategory'
+                          : 'Subkategori',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -307,9 +324,10 @@ class ServicesPage extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          key: ValueKey('unit-$mainCategory'),
                           initialValue: unit,
                           items: [
-                            for (final item in _units)
+                            for (final item in serviceUnits[mainCategory]!)
                               DropdownMenuItem(value: item, child: Text(item)),
                           ],
                           onChanged: (value) =>
@@ -425,6 +443,24 @@ class _ServiceInput {
   final int price;
   final int estimatedHours;
   final bool isExpress;
+}
+
+class _ServiceMainGroup {
+  const _ServiceMainGroup({required this.category, required this.services});
+
+  final String category;
+  final List<PreviewService> services;
+
+  List<_ServiceCategoryGroup> get categories {
+    final groups = <String, List<PreviewService>>{};
+    for (final service in services) {
+      groups.putIfAbsent(service.effectiveCategory, () => []).add(service);
+    }
+    return [
+      for (final entry in groups.entries)
+        _ServiceCategoryGroup(category: entry.key, services: entry.value),
+    ];
+  }
 }
 
 class _ServiceCategoryGroup {
