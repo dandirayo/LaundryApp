@@ -60,7 +60,7 @@ class OrderRepository {
     final rows = await _requireClient()
         .from('orders')
         .select(
-          'id, order_number, customer_id, customer_name_snapshot, customer_phone_snapshot, total_price, paid_amount, order_status, payment_status, created_at, due_at, assigned_employee_id, note, order_items(id, service_id, service_name_snapshot, unit, quantity, unit_price, subtotal)',
+          'id, order_number, customer_id, customer_name_snapshot, customer_phone_snapshot, total_price, paid_amount, order_status, payment_status, created_at, due_at, assigned_employee_id, received_by_name_snapshot, note, order_items(id, service_id, service_name_snapshot, unit, quantity, unit_price, subtotal)',
         )
         .eq('shop_id', shopId)
         .isFilter('deleted_at', null)
@@ -240,6 +240,7 @@ PreviewOrder _fromMap(Map<String, dynamic> map) {
         DateTime.tryParse((map['due_at'] ?? '') as String)?.toLocal() ??
         DateTime.now(),
     assignedEmployeeId: (map['assigned_employee_id'] ?? '') as String,
+    receivedByName: (map['received_by_name_snapshot'] ?? '') as String,
     note: (map['note'] ?? '') as String,
   );
 }

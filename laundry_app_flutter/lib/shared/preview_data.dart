@@ -252,6 +252,7 @@ class PreviewOrder {
     required this.dueAt,
     required this.assignedEmployeeId,
     required this.note,
+    this.receivedByName = '',
   });
 
   final String id;
@@ -268,6 +269,7 @@ class PreviewOrder {
   final DateTime dueAt;
   final String assignedEmployeeId;
   final String note;
+  final String receivedByName;
 
   int get remainingAmount => totalPrice - paidAmount;
 
@@ -289,6 +291,7 @@ class PreviewOrder {
     PreviewPaymentStatus? paymentStatus,
     String? assignedEmployeeId,
     String? note,
+    String? receivedByName,
   }) {
     return PreviewOrder(
       id: id,
@@ -305,6 +308,7 @@ class PreviewOrder {
       dueAt: dueAt,
       assignedEmployeeId: assignedEmployeeId ?? this.assignedEmployeeId,
       note: note ?? this.note,
+      receivedByName: receivedByName ?? this.receivedByName,
     );
   }
 }

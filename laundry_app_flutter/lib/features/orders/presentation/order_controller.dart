@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/preview_data.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../cashbook/presentation/cashbook_controller.dart';
 import '../data/order_repository.dart';
 
 final orderRepositoryProvider = Provider<OrderRepository>(
@@ -23,8 +24,16 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
 
   @override
   Future<List<PreviewOrder>> build() async {
+    ref.watch(authControllerProvider.select((session) => session.value?.user));
     _repository = ref.watch(orderRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_shopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 
@@ -77,6 +86,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
         ],
       );
       await refresh();
+      await ref.read(cashbookControllerProvider.notifier).refresh();
       return order;
     }
     return ref
@@ -168,6 +178,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
         method: method,
       );
       await refresh();
+      await ref.read(cashbookControllerProvider.notifier).refresh();
     } else {
       ref
           .read(previewDataProvider.notifier)

@@ -12,10 +12,12 @@ import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../shared/preview_data.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../customers/data/device_contact_repository.dart';
 import '../../customers/domain/contact_import.dart';
 import '../../customers/domain/customer.dart';
 import '../../customers/presentation/customer_controller.dart';
+import '../../employees/presentation/employee_directory_controller.dart';
 import '../../services/presentation/service_controller.dart';
 import 'order_controller.dart';
 import 'receipt_preview_sheet.dart';
@@ -88,7 +90,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     final services = serviceSource
         .where((service) => service.isActive)
         .toList();
-    final employees = data.employees;
+    final employees =
+        ref.watch(employeeDirectoryProvider).value ?? data.employees;
 
     final selectedEmployeeId = _employeeId ?? employees.firstOrNull?.id;
     final selectedCustomer = customers
@@ -1148,10 +1151,15 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       final payments = latest.payments
           .where((payment) => payment.orderId == order.id)
           .toList();
-      final employeeName = latest.employees
-          .where((employee) => employee.id == order.assignedEmployeeId)
-          .map((employee) => employee.name)
-          .firstOrNull;
+      final currentUser = ref.read(authControllerProvider).value?.user;
+      final employeeName =
+          (ref.read(employeeDirectoryProvider).value ?? latest.employees)
+              .where((employee) => employee.id == order.assignedEmployeeId)
+              .map((employee) => employee.name)
+              .firstOrNull ??
+          (currentUser?.employeeId == order.assignedEmployeeId
+              ? currentUser?.name
+              : null);
       if (_showReceiptAfterSave) {
         await waitForTransientUiDismissal();
         if (!mounted) {
@@ -1163,7 +1171,9 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
           payments: payments,
           shopName: latest.shopName,
           shopAddress: latest.shopAddress,
-          employeeName: employeeName ?? 'Petugas',
+          employeeName: order.receivedByName.trim().isEmpty
+              ? employeeName ?? 'Petugas'
+              : order.receivedByName,
         );
         if (!mounted) {
           return;

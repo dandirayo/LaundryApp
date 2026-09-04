@@ -17,14 +17,57 @@ class CashbookPage extends ConsumerStatefulWidget {
   ConsumerState<CashbookPage> createState() => _CashbookPageState();
 }
 
-class _CashbookPageState extends ConsumerState<CashbookPage> {
+class _CashbookPageState extends ConsumerState<CashbookPage>
+    with WidgetsBindingObserver {
   _CashbookView _view = _CashbookView.transactions;
   _CashbookPeriod _period = _CashbookPeriod.today;
   DateTimeRange? _customRange;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() =>
+      ref.read(cashbookControllerProvider.notifier).refresh();
+
+  @override
   Widget build(BuildContext context) {
     final cashbookState = ref.watch(cashbookControllerProvider);
+    if (!cashbookState.hasValue) {
+      return Scaffold(
+        appBar: AppBar(title: Text(ref.strings.cashbook)),
+        body: Center(
+          child: cashbookState.hasError
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Buku Kas belum berhasil dimuat.'),
+                    TextButton(
+                      onPressed: _refresh,
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ],
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
+    }
     final onlineTransactions = cashbookState.value?.transactions;
     final previewCash = ref.watch(
       previewDataProvider.select(
@@ -35,7 +78,9 @@ class _CashbookPageState extends ConsumerState<CashbookPage> {
       ),
     );
     final allTransactions = onlineTransactions ?? previewCash.cashTransactions;
-    final legacySummaries = previewCash.legacyMonthlySummaries;
+    final legacySummaries = cashbookState.value!.isOnline
+        ? <PreviewLegacyMonthlySummary>[]
+        : previewCash.legacyMonthlySummaries;
     final strings = ref.strings;
     final range = _rangeFor(_period);
     final filteredCash = allTransactions
@@ -55,64 +100,88 @@ class _CashbookPageState extends ConsumerState<CashbookPage> {
         .fold<int>(0, (sum, entry) => sum + entry.amount);
 
     return Scaffold(
-      appBar: AppBar(title: Text(strings.cashbook)),
-      body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: ListView(
-          children: [
-            SegmentedButton<_CashbookView>(
-              segments: [
-                ButtonSegment(
-                  value: _CashbookView.transactions,
-                  label: Text(strings.transactions),
-                  icon: const Icon(Icons.receipt_long_outlined),
+      appBar: AppBar(
+        title: Text(strings.cashbook),
+        actions: [
+          IconButton(
+            tooltip: 'Sinkronkan Buku Kas',
+            onPressed: _refresh,
+            icon: const Icon(Icons.sync),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ResponsivePage(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              if (cashbookState.hasError || cashbookState.value!.syncFailed)
+                ListTile(
+                  leading: const Icon(Icons.sync_problem),
+                  title: const Text(
+                    'Sinkronisasi gagal. Menampilkan data terakhir.',
+                  ),
+                  trailing: TextButton(
+                    onPressed: _refresh,
+                    child: const Text('Coba Lagi'),
+                  ),
                 ),
-                ButtonSegment(
-                  value: _CashbookView.summary,
-                  label: Text(strings.summary),
-                  icon: const Icon(Icons.summarize_outlined),
-                ),
-              ],
-              selected: {_view},
-              onSelectionChanged: (value) =>
-                  setState(() => _view = value.first),
-            ),
-            const SizedBox(height: 12),
-            _PeriodPicker(
-              selected: _period,
-              label: _rangeLabel(range),
-              onChanged: _changePeriod,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _TotalTile('Uang Masuk', income, AppColors.success),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _TotalTile('Uang Keluar', outcome, AppColors.error),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _TotalTile(
-              'Saldo Akhir',
-              openingBalance + income - outcome,
-              AppColors.primaryNavy,
-            ),
-            const SizedBox(height: 16),
-            if (_view == _CashbookView.transactions)
-              _TransactionList(cash: filteredCash)
-            else
-              _SummaryList(
-                openingBalance: openingBalance,
-                income: income,
-                outcome: outcome,
-                cash: filteredCash,
-                legacySummaries: filteredLegacy,
+              SegmentedButton<_CashbookView>(
+                segments: [
+                  ButtonSegment(
+                    value: _CashbookView.transactions,
+                    label: Text(strings.transactions),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                  ),
+                  ButtonSegment(
+                    value: _CashbookView.summary,
+                    label: Text(strings.summary),
+                    icon: const Icon(Icons.summarize_outlined),
+                  ),
+                ],
+                selected: {_view},
+                onSelectionChanged: (value) =>
+                    setState(() => _view = value.first),
               ),
-          ],
+              const SizedBox(height: 12),
+              _PeriodPicker(
+                selected: _period,
+                label: _rangeLabel(range),
+                onChanged: _changePeriod,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TotalTile('Uang Masuk', income, AppColors.success),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _TotalTile('Uang Keluar', outcome, AppColors.error),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _TotalTile(
+                'Saldo Akhir',
+                openingBalance + income - outcome,
+                AppColors.primaryNavy,
+              ),
+              const SizedBox(height: 16),
+              if (_view == _CashbookView.transactions)
+                _TransactionList(cash: filteredCash)
+              else
+                _SummaryList(
+                  openingBalance: openingBalance,
+                  income: income,
+                  outcome: outcome,
+                  cash: filteredCash,
+                  legacySummaries: filteredLegacy,
+                ),
+            ],
+          ),
         ),
       ),
     );

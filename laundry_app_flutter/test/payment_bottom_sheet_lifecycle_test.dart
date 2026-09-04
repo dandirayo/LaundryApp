@@ -48,6 +48,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pesanan'), findsWidgets);
 
+      await _openFirstOrderCardIfNeeded(tester);
       await tester.ensureVisible(find.text('Terima Pembayaran'));
       await tester.tap(find.text('Terima Pembayaran'));
       await tester.pumpAndSettle();
@@ -78,6 +79,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(OrdersPage), findsOneWidget);
 
+      await _openFirstOrderCardIfNeeded(tester);
       await tester.ensureVisible(find.text('Terima Pembayaran'));
       await tester.tap(find.text('Terima Pembayaran'));
       await tester.pumpAndSettle();
@@ -102,6 +104,12 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+Future<void> _openFirstOrderCardIfNeeded(WidgetTester tester) async {
+  if (find.text('Terima Pembayaran').evaluate().isNotEmpty) return;
+  await tester.tap(find.byType(ExpansionTile).first);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {

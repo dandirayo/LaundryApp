@@ -148,7 +148,7 @@ class MorePage extends ConsumerWidget {
             AppRoutes.shiftsMine,
           ),
           _MenuItem(
-            strings.myOrders,
+            strings.orders,
             Icons.receipt_long_outlined,
             AppRoutes.ordersMine,
           ),

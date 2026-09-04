@@ -22,19 +22,24 @@ class EmployeeRepository {
 
   bool get isOnline => _client != null;
 
-  Future<List<PreviewEmployee>> fetchEmployees() async {
+  Future<List<PreviewEmployee>> fetchEmployees({String? shopId}) async {
     final client = _requireClient();
-    final employeeRows = await client
+    var employeeQuery = client
         .from('employees')
         .select(
           'id, name, phone, position, shift_start, shift_end, late_tolerance_minutes, is_active',
-        )
+        );
+    if (shopId != null) {
+      employeeQuery = employeeQuery.eq('shop_id', shopId);
+    }
+    final employeeRows = await employeeQuery
         .eq('role', 'EMPLOYEE')
         .order('name');
-    final profileRows = await client
-        .from('profiles')
-        .select('employee_id, username')
-        .eq('role', 'EMPLOYEE');
+    var profileQuery = client.from('profiles').select('employee_id, username');
+    if (shopId != null) {
+      profileQuery = profileQuery.eq('shop_id', shopId);
+    }
+    final profileRows = await profileQuery.eq('role', 'EMPLOYEE');
 
     final usernames = <String, String>{
       for (final row in profileRows)
@@ -56,6 +61,41 @@ class EmployeeRepository {
           username: usernames[row['id']] ?? '',
         ),
     ];
+  }
+
+  RealtimeChannel subscribe({
+    required String shopId,
+    required void Function() onChanged,
+  }) {
+    return _requireClient()
+        .channel('public:employee-directory:$shopId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'employees',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .subscribe();
+  }
+
+  Future<void> removeChannel(RealtimeChannel channel) async {
+    await _requireClient().removeChannel(channel);
   }
 
   Future<CreatedEmployeeAccount> createAccount({

@@ -18,10 +18,12 @@ class CashbookState {
   const CashbookState({
     required this.transactions,
     required this.isOnline,
+    this.syncFailed = false,
   });
 
   final List<PreviewCashTransaction> transactions;
   final bool isOnline;
+  final bool syncFailed;
 }
 
 class CashbookController extends AsyncNotifier<CashbookState> {
@@ -31,13 +33,34 @@ class CashbookController extends AsyncNotifier<CashbookState> {
 
   @override
   Future<CashbookState> build() async {
+    ref.watch(authControllerProvider.select((session) => session.value?.user));
     _repository = ref.watch(cashbookRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_onlineShopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(() => _load(subscribe: false));
+    final previous = state.value;
+    try {
+      state = AsyncData(await _load(subscribe: false));
+    } catch (error, stackTrace) {
+      state = previous == null
+          ? AsyncError(error, stackTrace)
+          : AsyncData(
+              CashbookState(
+                transactions: previous.transactions,
+                isOnline: previous.isOnline,
+                syncFailed: true,
+              ),
+            );
+    }
   }
 
   Future<void> addTransaction({
@@ -60,22 +83,24 @@ class CashbookController extends AsyncNotifier<CashbookState> {
     } else {
       // Fallback for preview/offline mode - add to preview data
       final now = DateTime.now();
-      ref.read(previewDataProvider.notifier).state = ref.read(previewDataProvider).copyWith(
-        cashTransactions: [
-          PreviewCashTransaction(
-            id: 'local-${now.millisecondsSinceEpoch}',
-            referenceId: '',
-            referenceType: '',
-            type: type,
-            category: category,
-            description: description,
-            amount: amount,
-            method: method,
-            createdAt: now,
-          ),
-          ...ref.read(previewDataProvider).cashTransactions,
-        ],
-      );
+      ref.read(previewDataProvider.notifier).state = ref
+          .read(previewDataProvider)
+          .copyWith(
+            cashTransactions: [
+              PreviewCashTransaction(
+                id: 'local-${now.millisecondsSinceEpoch}',
+                referenceId: '',
+                referenceType: '',
+                type: type,
+                category: category,
+                description: description,
+                amount: amount,
+                method: method,
+                createdAt: now,
+              ),
+              ...ref.read(previewDataProvider).cashTransactions,
+            ],
+          );
     }
     await refresh();
   }
@@ -96,10 +121,7 @@ class CashbookController extends AsyncNotifier<CashbookState> {
       );
     }
     final transactions = await _repository.fetch(shopId: shopId);
-    return CashbookState(
-      transactions: transactions,
-      isOnline: true,
-    );
+    return CashbookState(transactions: transactions, isOnline: true);
   }
 
   String? _onlineShopId() {

@@ -103,6 +103,17 @@ class DashboardPage extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                if (ref.watch(orderControllerProvider).hasError ||
+                    ref.watch(cashbookControllerProvider).hasError ||
+                    ref.watch(cashbookControllerProvider).value?.syncFailed ==
+                        true)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Data belum tersinkron. Tarik ke bawah untuk mencoba lagi.',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ),
                 if (role == UserRole.owner)
                   const _OwnerDashboard()
                 else
@@ -396,10 +407,9 @@ class _EmployeeDashboard extends ConsumerWidget {
     final attendance =
         ref.watch(attendanceControllerProvider).value ?? data.attendance;
     final requestSource = requestState?.requests ?? data.requests;
-    final myOrders = orders.where((order) {
-      if (!_isEmployeeOrderVisible(order, employeeId)) return false;
-      return _isSameDay(order.receivedAt, DateTime.now());
-    }).toList();
+    final todayOrders = orders
+        .where((order) => _isSameDay(order.receivedAt, DateTime.now()))
+        .toList();
     final myAttendance = attendance
         .where((entry) => entry.employeeId == employeeId)
         .toList();
@@ -443,8 +453,8 @@ class _EmployeeDashboard extends ConsumerWidget {
               onTap: () => context.go(AppRoutes.attendanceMine),
             ),
             _MetricCard(
-              label: 'Pesanan saya',
-              value: '${myOrders.length}',
+              label: 'Pesanan hari ini',
+              value: '${todayOrders.length}',
               icon: Icons.assignment,
               color: AppColors.primaryNavy,
               onTap: () => context.go(AppRoutes.ordersMine),
@@ -467,11 +477,7 @@ class _EmployeeDashboard extends ConsumerWidget {
               Icons.camera_alt,
               AppRoutes.attendanceMine,
             ),
-            _QuickAction(
-              'Pesanan Saya',
-              Icons.receipt_long,
-              AppRoutes.ordersMine,
-            ),
+            _QuickAction('Pesanan', Icons.receipt_long, AppRoutes.ordersMine),
             _QuickAction(
               'Pengajuan Saya',
               Icons.rule_folder_outlined,
@@ -522,11 +528,6 @@ bool _isSameDay(DateTime left, DateTime right) {
   return left.year == right.year &&
       left.month == right.month &&
       left.day == right.day;
-}
-
-bool _isEmployeeOrderVisible(PreviewOrder order, String? employeeId) {
-  if (order.assignedEmployeeId.isEmpty) return true;
-  return employeeId != null && order.assignedEmployeeId == employeeId;
 }
 
 String _indonesianDay(DateTime date) {

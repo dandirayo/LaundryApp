@@ -71,7 +71,9 @@ class PrinterPage extends ConsumerWidget {
                       payments: latestPayments,
                       shopName: data.shopName,
                       shopAddress: data.shopAddress,
-                      employeeName: employeeName,
+                      employeeName: latestOrder.receivedByName.trim().isEmpty
+                          ? employeeName
+                          : latestOrder.receivedByName,
                     ),
               icon: const Icon(Icons.receipt_long_outlined),
               label: Text(

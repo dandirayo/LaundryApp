@@ -15,22 +15,41 @@ import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
-import '../../auth/presentation/auth_controller.dart';
+import '../../employees/presentation/employee_directory_controller.dart';
 import 'order_controller.dart';
 import 'order_whatsapp.dart';
 
 class OrdersPage extends ConsumerStatefulWidget {
-  const OrdersPage({this.showMineOnly = false, super.key});
-
-  final bool showMineOnly;
+  const OrdersPage({super.key});
 
   @override
   ConsumerState<OrdersPage> createState() => _OrdersPageState();
 }
 
-class _OrdersPageState extends ConsumerState<OrdersPage> {
+class _OrdersPageState extends ConsumerState<OrdersPage>
+    with WidgetsBindingObserver {
   String _query = '';
   PreviewOrderStatus? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshOnlineData());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshOnlineData();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,24 +59,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       ),
     );
     final onlineOrders = ref.watch(orderControllerProvider);
+    final onlineEmployees = ref.watch(employeeDirectoryProvider).value;
     final data = (
       orders: onlineOrders.value ?? preview.orders,
-      employees: preview.employees,
+      employees: onlineEmployees ?? preview.employees,
     );
-    final user = ref.watch(authControllerProvider).value?.user;
-    final myEmployeeId =
-        data.employees
-            .where((employee) => employee.id == user?.employeeId)
-            .map((employee) => employee.id)
-            .firstOrNull ??
-        data.employees
-            .where(
-              (employee) =>
-                  employee.username.isNotEmpty &&
-                  employee.username.toLowerCase() == user?.name.toLowerCase(),
-            )
-            .map((employee) => employee.id)
-            .firstOrNull;
     final allOrders = data.orders;
     final strings = ref.strings;
     final orders = allOrders.where((order) {
@@ -66,18 +72,19 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
               .toLowerCase()
               .contains(_query.toLowerCase());
       final statusMatch = _status == null || order.orderStatus == _status;
-      final mineMatch =
-          !widget.showMineOnly ||
-          order.assignedEmployeeId == myEmployeeId ||
-          order.assignedEmployeeId.isEmpty;
-      return queryMatch && statusMatch && mineMatch;
+      return queryMatch && statusMatch;
     }).toList();
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text(widget.showMineOnly ? strings.myOrders : strings.orders),
+        title: Text(strings.orders),
         actions: [
+          IconButton(
+            tooltip: strings.isEnglish ? 'Sync orders' : 'Sinkronkan pesanan',
+            onPressed: _refreshOnlineData,
+            icon: const Icon(Icons.sync),
+          ),
           IconButton(
             tooltip: strings.addOrder,
             onPressed: () => context.go(AppRoutes.orderCreate),
@@ -143,6 +150,28 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
               ),
             ),
             const SizedBox(height: 12),
+            if (onlineOrders.hasError) ...[
+              Card(
+                color: AppColors.error.withValues(alpha: 0.08),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.sync_problem,
+                    color: AppColors.error,
+                  ),
+                  title: const Text('Pesanan belum tersinkron'),
+                  subtitle: const Text(
+                    'Data terakhir masih ditampilkan. Tekan Coba Lagi.',
+                  ),
+                  trailing: TextButton(
+                    onPressed: _refreshOnlineData,
+                    child: const Text('Coba Lagi'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (onlineOrders.isLoading && !onlineOrders.hasValue)
+              const LinearProgressIndicator(),
             Expanded(
               child: orders.isEmpty
                   ? RefreshIndicator(
@@ -201,8 +230,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     );
   }
 
+  Future<void> _refreshOnlineData() async {
+    if (!mounted) return;
+    await Future.wait([
+      ref.read(orderControllerProvider.notifier).refresh(),
+      ref.read(employeeDirectoryProvider.notifier).refresh(),
+    ]);
+  }
+
   Future<void> _refresh() async {
-    await ref.read(orderControllerProvider.notifier).refresh();
+    await _refreshOnlineData();
   }
 
   Future<void> _showPaymentSheet(PreviewOrder order) async {
@@ -454,81 +491,113 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    order.orderNumber,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: PageStorageKey<String>('order-card-${order.id}'),
+        maintainState: true,
+        tilePadding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: Text(
+          order.orderNumber,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      order.customerNameSnapshot,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                ),
-                _StatusPill(
-                  label: strings.orderStatus(order.orderStatus.label),
-                  color: order.orderStatus == PreviewOrderStatus.ready
-                      ? AppColors.success
-                      : AppColors.primaryBlue,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              order.customerNameSnapshot,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_itemSummary(order)} - ${order.totalPrice.toRupiah()} - Sisa ${order.remainingAmount.toRupiah()}',
-              style: const TextStyle(color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()}',
-              style: const TextStyle(color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${strings.processedBy} $employeeName',
-              style: const TextStyle(
-                color: AppColors.secondaryText,
-                fontWeight: FontWeight.w600,
+                  const SizedBox(width: 8),
+                  _StatusPill(
+                    label: strings.orderStatus(order.orderStatus.label),
+                    color: order.orderStatus == PreviewOrderStatus.ready
+                        ? AppColors.success
+                        : AppColors.primaryBlue,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              const SizedBox(height: 4),
+              Text(
+                'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                OutlinedButton.icon(
-                  onPressed: onWhatsApp,
-                  icon: const Icon(Icons.chat_outlined),
-                  label: const Text('WhatsApp'),
+                Text(
+                  '${_itemSummary(order)} - ${order.totalPrice.toRupiah()} - Sisa ${order.remainingAmount.toRupiah()}',
+                  style: const TextStyle(color: AppColors.secondaryText),
                 ),
-                OutlinedButton.icon(
-                  onPressed: onDetail,
-                  icon: const Icon(Icons.open_in_new),
-                  label: Text(strings.detail),
+                const SizedBox(height: 4),
+                Text(
+                  'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()}',
+                  style: const TextStyle(color: AppColors.secondaryText),
                 ),
-                OutlinedButton.icon(
-                  onPressed: onStatus,
-                  icon: Icon(_statusActionIcon(order.orderStatus)),
-                  label: Text(statusActionLabel ?? strings.markDone),
+                const SizedBox(height: 4),
+                Text(
+                  '${strings.processedBy} $employeeName',
+                  style: const TextStyle(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                FilledButton.icon(
-                  onPressed: onPayment,
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(strings.receivePayment),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: onWhatsApp,
+                      icon: const Icon(Icons.chat_outlined),
+                      label: const Text('WhatsApp'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onDetail,
+                      icon: const Icon(Icons.open_in_new),
+                      label: Text(strings.detail),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onStatus,
+                      icon: Icon(_statusActionIcon(order.orderStatus)),
+                      label: Text(statusActionLabel ?? strings.markDone),
+                    ),
+                    FilledButton.icon(
+                      onPressed: onPayment,
+                      icon: const Icon(Icons.payments_outlined),
+                      label: Text(strings.receivePayment),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

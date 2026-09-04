@@ -86,8 +86,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.ordersMine,
-            builder: (context, state) =>
-                _withBackGuard(const OrdersPage(showMineOnly: true)),
+            builder: (context, state) => _withBackGuard(const OrdersPage()),
           ),
           GoRoute(
             path: AppRoutes.orderCreate,

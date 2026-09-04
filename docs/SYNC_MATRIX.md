@@ -4,7 +4,7 @@ Status ini konservatif: `PASS` hanya untuk pemeriksaan/test lokal; komunikasi du
 
 | Feature | Owner → Employee | Employee → Owner | Realtime | Pull Refresh | Notification | RLS Safe | Tested | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Orders | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Channel shop mendengar `orders`, `order_items`, dan `payments`; trigger notifikasi order belum diverifikasi E2E. |
+| Orders | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Semua akun dalam toko melihat daftar pesanan yang sama; filter per petugas dihapus. Channel `orders` aktif dan halaman refresh saat dibuka/kembali aktif. Nama akun penerima pesanan disimpan sebagai snapshot dan ditampilkan di bawah nomor nota. Uji dua HP masih diperlukan setelah APK baru dipasang. |
 | Customers | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | NOT APPLICABLE | PARTIAL | PASS | Duplicate berdasarkan normalized phone; customer tanpa nomor valid. |
 | Payments | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Perubahan payment me-refresh order; ledger canonical dibuat trigger DB. |
 | Expenses | NEEDS MANUAL TEST | NOT APPLICABLE | PASS | PASS | NOT APPLICABLE | PASS | PASS | Owner-only route + RLS; ledger melalui trigger. |
@@ -14,7 +14,7 @@ Status ini konservatif: `PASS` hanya untuk pemeriksaan/test lokal; komunikasi du
 | Employee Requests | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PASS | PASS | PASS | Notification trigger durable tersedia; transition/RLS masih perlu production verification. |
 | Inventory | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PASS | PASS | Item dan movement dalam satu channel; low-stock notification perlu device test. |
 | Notifications | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PARTIAL | PASS | PASS | PASS | Durable rows, unread/mark-read, safe route fallback; pull-to-refresh UI belum eksplisit. |
-| Dashboard | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PARTIAL | PASS | NOT APPLICABLE | NOT APPLICABLE | PASS | Menonton controller operasional; cash/payroll summary lintas device perlu manual test. |
+| Dashboard | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PARTIAL | PASS | NOT APPLICABLE | NOT APPLICABLE | PASS | Angka pesanan hari ini pada Owner dan seluruh karyawan memakai daftar pesanan toko yang sama dari `OrderController` dan menerima perubahan Realtime. Cash/payroll summary lintas device masih perlu manual test. |
 | Contact Import | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | NOT APPLICABLE | PARTIAL | PASS | Device contacts saja; Google Contacts terlihat bila tersinkron ke Android Contacts. |
 | Admin Dashboard Web | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PARTIAL | PARTIAL | NOT APPLICABLE | PARTIAL | PARTIAL | Tidak memakai `employees.pin`; canonical ledger perlu browser/manual verification. |
 
@@ -25,7 +25,7 @@ Status ini konservatif: `PASS` hanya untuk pemeriksaan/test lokal; komunikasi du
 | Orders / payments | `orders`, `order_items`, `payments` | `OrderRepository` / `OrderController` | Realtime shop + pull refresh; widget tidak query Supabase langsung. |
 | Customers | `customers` | `CustomerRepository` / `CustomerController` | Realtime shop + pull refresh; preview hanya mode preview/offline config. |
 | Services | `services` | `ServiceRepository` / `ServiceController` | Realtime shop ditambahkan; halaman memiliki refresh controller. |
-| Cashbook | `cash_transactions` | `CashbookRepository` / `CashbookController` | Canonical source benar; realtime shop + refresh. |
+| Cashbook | `cash_transactions` | `CashbookRepository` / `CashbookController` | Bereaksi pada pergantian sesi login, refresh setelah pembayaran/buka halaman/resume, Realtime + polling pemulihan 15 detik. Error mempertahankan saldo terakhir dengan peringatan. Uji RLS pembayaran Ratna → kas Owner lulus dalam transaksi rollback 2026-09-04; uji dua HP tetap diperlukan. |
 | Expenses | `expenses` | `ExpenseRepository` / `ExpenseController` | Realtime shop + refresh; Owner only. |
 | Payroll | `payroll_payments` | `PayrollRepository` / `PayrollController` | Realtime shop, retry, dan in-process guard. |
 | Employees | `employees`, `profiles` | `EmployeeRepository`; page-managed state | Pull refresh ada; belum controller realtime sehingga `PARTIAL`. |

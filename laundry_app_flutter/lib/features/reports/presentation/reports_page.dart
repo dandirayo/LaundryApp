@@ -35,10 +35,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ),
     );
     final onlineOrders = ref.watch(orderControllerProvider).value;
-    final onlineCash = ref
-        .watch(cashbookControllerProvider)
-        .value
-        ?.transactions;
+    final cashState = ref.watch(cashbookControllerProvider).value;
+    final onlineCash = cashState?.transactions;
     final allOrders = onlineOrders ?? previewData.orders;
     final allCashTransactions = onlineCash ?? previewData.cashTransactions;
     final strings = ref.strings;
@@ -83,9 +81,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         .where((entry) => entry.createdAt.isBefore(activeRange.start))
         .fold<int>(0, (sum, entry) => sum + _cashEffect(entry));
     final uniqueCustomers = orders.map((order) => order.customerId).toSet();
-    final legacySummaries = previewData.legacyMonthlySummaries
-        .where((summary) => _isMonthWithinRange(summary.month, activeRange))
-        .toList();
+    final legacySummaries =
+        (cashState?.isOnline == true
+                ? <PreviewLegacyMonthlySummary>[]
+                : previewData.legacyMonthlySummaries)
+            .where((summary) => _isMonthWithinRange(summary.month, activeRange))
+            .toList();
     final legacyIncome = legacySummaries.fold<int>(
       0,
       (sum, summary) => sum + summary.income,

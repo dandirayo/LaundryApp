@@ -16,6 +16,7 @@ import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../employees/presentation/employee_directory_controller.dart';
 import 'order_controller.dart';
 import 'order_whatsapp.dart';
 import 'receipt_preview_sheet.dart';
@@ -41,6 +42,8 @@ class OrderDetailPage extends ConsumerWidget {
       ),
     );
     final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final employees =
+        ref.watch(employeeDirectoryProvider).value ?? data.employees;
     final order = orders
         .where((entry) => entry.id == orderId)
         .cast<PreviewOrder?>()
@@ -60,7 +63,7 @@ class OrderDetailPage extends ConsumerWidget {
         .toList();
     final canSendWhatsApp = orderHasReadyPickupWhatsApp(order);
     final employeeName =
-        data.employees
+        employees
             .where((employee) => employee.id == order.assignedEmployeeId)
             .map((employee) => employee.name)
             .firstOrNull ??
@@ -74,7 +77,7 @@ class OrderDetailPage extends ConsumerWidget {
             IconButton(
               tooltip: 'Edit pesanan',
               onPressed: () =>
-                  _showEditOrderSheet(context, ref, order, data.employees),
+                  _showEditOrderSheet(context, ref, order, employees),
               icon: const Icon(Icons.edit_outlined),
             ),
             IconButton(
@@ -103,6 +106,10 @@ class OrderDetailPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(order.customerPhoneSnapshot),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
+                    ),
                     const SizedBox(height: 6),
                     Text('Diproses oleh $employeeName'),
                     const SizedBox(height: 12),
@@ -230,7 +237,9 @@ class OrderDetailPage extends ConsumerWidget {
                     payments: payments,
                     shopName: data.shopName,
                     shopAddress: data.shopAddress,
-                    employeeName: employeeName,
+                    employeeName: order.receivedByName.trim().isEmpty
+                        ? employeeName
+                        : order.receivedByName,
                   ),
                   icon: const Icon(Icons.print_outlined),
                   label: const Text('Preview Struk'),
