@@ -17,6 +17,7 @@ import '../../customers/data/device_contact_repository.dart';
 import '../../customers/domain/contact_import.dart';
 import '../../customers/domain/customer.dart';
 import '../../customers/presentation/customer_controller.dart';
+import '../../customers/presentation/contact_account_picker.dart';
 import '../../employees/presentation/employee_directory_controller.dart';
 import '../../services/presentation/service_controller.dart';
 import 'order_controller.dart';
@@ -57,6 +58,30 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
 
   @override
   Widget build(BuildContext context) {
+    final serviceState = ref.watch(serviceControllerProvider);
+    final user = ref.watch(authControllerProvider).value?.user;
+    final onlineMode =
+        ref.watch(serviceRepositoryProvider).isOnline &&
+        user != null &&
+        !user.shopId.startsWith('preview-shop');
+    if (onlineMode &&
+        (serviceState.isLoading ||
+            serviceState.hasError ||
+            serviceState.value == null)) {
+      return Scaffold(
+        appBar: AppBar(title: Text(ref.strings.addOrder)),
+        body: serviceState.hasError
+            ? AppStateView.error(
+                title: 'Layanan belum tersinkron',
+                message:
+                    'Daftar layanan online belum berhasil dimuat. Coba lagi sebelum membuat pesanan.',
+                actionLabel: 'Coba Lagi',
+                onAction: () =>
+                    ref.read(serviceControllerProvider.notifier).refresh(),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
     final data = ref.watch(
       previewDataProvider.select(
         (state) => (
@@ -85,8 +110,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               ),
           ];
 
-    final serviceSource =
-        ref.watch(serviceControllerProvider).value ?? data.services;
+    final serviceSource = serviceState.value ?? data.services;
     final services = serviceSource
         .where((service) => service.isActive)
         .toList();
@@ -455,6 +479,10 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     try {
       final candidates = await _loadDeviceContactCandidates(context);
       if (candidates == null || !context.mounted) return;
+      if (!await confirmContactSync(context, candidates.length) ||
+          !context.mounted) {
+        return;
+      }
       final result = await ref
           .read(customerControllerProvider.notifier)
           .syncContacts(candidates);
@@ -503,7 +531,11 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     }
 
     try {
-      final candidates = await _deviceContacts.fetchContactCandidates();
+      final candidates = await fetchContactsFromSelectedAccount(
+        context,
+        _deviceContacts,
+      );
+      if (candidates == null) return null;
       if (candidates.isEmpty && context.mounted) {
         showAppSnackBar('Daftar kontak perangkat kosong.');
       }

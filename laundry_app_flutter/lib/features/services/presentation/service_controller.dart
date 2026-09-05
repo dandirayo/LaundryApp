@@ -26,6 +26,8 @@ class ServiceController extends AsyncNotifier<List<PreviewService>> {
   Future<List<PreviewService>> build() async {
     _repository = ref.watch(serviceRepositoryProvider);
     ref.onDispose(_removeChannel);
+    ref.watch(authControllerProvider.select((session) => session.value?.user));
+    if (_repository.isOnline) await ref.watch(authControllerProvider.future);
     return _load(subscribe: true);
   }
 

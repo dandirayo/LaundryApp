@@ -5,6 +5,7 @@ import '../core/localization/app_language.dart';
 import '../core/router/app_router.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_snack_bar.dart';
+import '../features/app_updates/app_update_widgets.dart';
 
 class IdolaLaundryApp extends ConsumerWidget {
   const IdolaLaundryApp({super.key});
@@ -22,6 +23,14 @@ class IdolaLaundryApp extends ConsumerWidget {
       theme: AppTheme.light(),
       scrollBehavior: const _IdolaScrollBehavior(),
       routerConfig: router,
+      builder: (context, child) => AppUpdateHost(
+        child: child ?? const SizedBox.shrink(),
+        onShowUpdate: () {
+          final navigatorContext =
+              router.routerDelegate.navigatorKey.currentContext;
+          if (navigatorContext != null) showAppUpdateDialog(navigatorContext);
+        },
+      ),
     );
   }
 }

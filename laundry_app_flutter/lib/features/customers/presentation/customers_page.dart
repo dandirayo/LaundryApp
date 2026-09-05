@@ -16,6 +16,7 @@ import '../data/device_contact_repository.dart';
 import '../domain/customer.dart';
 import '../domain/contact_import.dart';
 import 'customer_controller.dart';
+import 'contact_account_picker.dart';
 
 class CustomersPage extends ConsumerStatefulWidget {
   const CustomersPage({super.key});
@@ -364,6 +365,10 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     try {
       final candidates = await _loadDeviceContactCandidates(context);
       if (candidates == null || !context.mounted) return;
+      if (!await confirmContactSync(context, candidates.length) ||
+          !context.mounted) {
+        return;
+      }
       final result = await ref
           .read(customerControllerProvider.notifier)
           .syncContacts(candidates);
@@ -412,7 +417,11 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     }
 
     try {
-      final candidates = await _deviceContacts.fetchContactCandidates();
+      final candidates = await fetchContactsFromSelectedAccount(
+        context,
+        _deviceContacts,
+      );
+      if (candidates == null) return null;
       if (candidates.isEmpty && context.mounted) {
         _showSnack('Daftar kontak perangkat kosong.');
       }

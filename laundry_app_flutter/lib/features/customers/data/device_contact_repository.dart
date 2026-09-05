@@ -11,9 +11,14 @@ final class DeviceContactRepository {
         permission == PermissionStatus.limited;
   }
 
-  Future<List<ContactImportCandidate>> fetchContactCandidates() async {
+  Future<List<Account>> fetchAccounts() => FlutterContacts.accounts.getAll();
+
+  Future<List<ContactImportCandidate>> fetchContactCandidates({
+    required Account account,
+  }) async {
     final contacts = await FlutterContacts.getAll(
       properties: {ContactProperty.phone},
+      account: account,
     );
     return contacts
         .where((contact) => (contact.displayName ?? '').trim().isNotEmpty)

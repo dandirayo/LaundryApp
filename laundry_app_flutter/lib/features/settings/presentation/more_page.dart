@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../app_updates/app_update_widgets.dart';
 
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
@@ -23,9 +24,12 @@ class MorePage extends ConsumerWidget {
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: ListView(
-          children: role == UserRole.owner
-              ? _ownerSections(context, ref, strings)
-              : _employeeSections(context, ref, strings),
+          children: [
+            const AppUpdateTile(),
+            ...(role == UserRole.owner
+                ? _ownerSections(context, ref, strings)
+                : _employeeSections(context, ref, strings)),
+          ],
         ),
       ),
     );

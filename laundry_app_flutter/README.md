@@ -1,6 +1,16 @@
 # laundry_app_flutter
 
-A new Flutter project.
+Flutter app for Idola One.
+
+## Android releases
+
+Cloud updates are available from version 1.0.3+4. For a user-facing release,
+increase `version` in `pubspec.yaml`, run analysis/tests, then run
+`../scripts/publish-android.ps1 -ReleaseNotes 'Ringkasan perubahan'` from PowerShell.
+This builds and verifies APKs and publishes the cloud version feed last.
+Running `flutter build apk` alone does not notify installed apps.
+See [the update runbook](../docs/android-cloud-updates.md) for signing continuity,
+publishing, verification, and rollback details.
 
 ## Getting Started
 

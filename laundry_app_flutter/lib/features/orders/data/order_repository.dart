@@ -21,6 +21,17 @@ class OrderRepository {
     required String paymentMethod,
     required List<OrderCreateItem> items,
   }) async {
+    if (items.any(
+      (item) => !RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(item.serviceId),
+    )) {
+      throw const Failure(
+        code: 'service-not-synced',
+        message:
+            'Layanan belum sinkron. Buka ulang form pesanan dan pilih layanan kembali.',
+      );
+    }
     late final dynamic response;
     try {
       response = await _requireClient().rpc(
