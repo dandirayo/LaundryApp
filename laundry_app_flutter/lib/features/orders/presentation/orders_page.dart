@@ -403,6 +403,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
       if (!mounted) {
         return;
       }
+      if (selected == PreviewOrderStatus.ready) {
+        await _sendReadyPickupWhatsApp(
+          order.copyWith(orderStatus: PreviewOrderStatus.ready),
+        );
+        return;
+      }
       showAppSnackBar('Status menjadi ${selected.label}.');
     }
   }

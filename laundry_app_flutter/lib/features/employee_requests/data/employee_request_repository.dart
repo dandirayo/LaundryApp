@@ -4,7 +4,7 @@ import '../../../core/errors/failure.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../shared/preview_data.dart';
 
-final class EmployeeRequestRepository {
+class EmployeeRequestRepository {
   EmployeeRequestRepository({SupabaseClient? client})
     : _client = client ?? SupabaseService.maybeClient;
 
@@ -51,7 +51,7 @@ final class EmployeeRequestRepository {
     String paymentMethod = 'Tunai',
   }) async {
     final client = _requireClient();
-    await client
+    final updated = await client
         .from('employee_requests')
         .update({
           'status': _statusToStorage(status),
@@ -61,7 +61,14 @@ final class EmployeeRequestRepository {
             'payment_method': paymentMethod,
         })
         .eq('id', requestId)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id')
+        .maybeSingle();
+    if (updated == null) {
+      throw StateError(
+        'Status pengajuan tidak berubah. Muat ulang lalu coba lagi.',
+      );
+    }
   }
 
   RealtimeChannel subscribeToRequests({

@@ -42,6 +42,14 @@ class EmployeeRequestController
   @override
   Future<EmployeeRequestListState> build() async {
     _registerDispose();
+    ref.watch(authControllerProvider.select((session) => session.value?.user));
+    if (_onlineContext(listen: false) != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _queueRealtimeRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(listen: true);
   }
 

@@ -83,5 +83,11 @@ void main() {
     );
 
     expect(orderHasReadyPickupWhatsApp(order), isTrue);
+    expect(
+      orderHasReadyPickupWhatsApp(
+        order.copyWith(orderStatus: PreviewOrderStatus.processing),
+      ),
+      isFalse,
+    );
   });
 }

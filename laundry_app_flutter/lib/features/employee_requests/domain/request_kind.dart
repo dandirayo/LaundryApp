@@ -30,10 +30,14 @@ enum RequestKind {
   }
 }
 
+const forgotAttendanceRequestType = 'Lupa Absen';
+
 // Keep historical incentive requests readable/reviewable without offering new ones.
-RequestCategory? requestCategory(String type) => type == 'Request Insentif'
-    ? RequestCategory.funds
-    : RequestKind.fromStorage(type)?.category;
+RequestCategory? requestCategory(String type) => switch (type) {
+  'Request Insentif' => RequestCategory.funds,
+  forgotAttendanceRequestType => RequestCategory.schedule,
+  _ => RequestKind.fromStorage(type)?.category,
+};
 
 String requestLabel(String type) => type == 'Request Insentif'
     ? 'Insentif'

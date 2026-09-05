@@ -6,6 +6,27 @@ import 'package:laundry_app_flutter/core/extensions/quantity_extensions.dart';
 import 'package:laundry_app_flutter/shared/preview_data.dart';
 
 void main() {
+  test('pesanan kiloan pelanggan setia menerima berat di bawah 3 kg', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final state = container.read(previewDataProvider);
+    final service = state.services.firstWhere(
+      (entry) => entry.unit.toUpperCase() == 'KG',
+    );
+    final order = container
+        .read(previewDataProvider.notifier)
+        .createOrderWithItems(
+          customerId: state.customers.first.id,
+          items: [(serviceId: service.id, quantity: 2.4)],
+          paidAmount: 0,
+          paymentMethod: 'Tunai',
+          employeeId: state.employees.first.id,
+          note: 'Permintaan pelanggan setia',
+        );
+    expect(order.items.single.quantity, 2.4);
+    expect(order.totalPrice, (service.price * 2.4).round());
+  });
+
   test('pembayaran melunasi pesanan dan masuk Buku Kas', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

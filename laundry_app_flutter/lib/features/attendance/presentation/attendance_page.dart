@@ -14,6 +14,8 @@ import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../employee_requests/domain/request_kind.dart';
+import '../../employee_requests/presentation/employee_request_controller.dart';
 import 'attendance_controller.dart';
 
 class AttendancePage extends ConsumerWidget {
@@ -29,6 +31,7 @@ class AttendancePage extends ConsumerWidget {
       ),
     );
     final onlineAttendance = ref.watch(attendanceControllerProvider);
+    final requestState = ref.watch(employeeRequestControllerProvider);
     final data = (
       attendance: onlineAttendance.value ?? preview.attendance,
       employees: preview.employees,
@@ -42,6 +45,30 @@ class AttendancePage extends ConsumerWidget {
               .where((record) => record.employeeId == currentEmployee?.id)
               .toList()
         : data.attendance;
+    final today = DateTime.now();
+    final todayCheckIns = records.where(
+      (record) =>
+          record.date.year == today.year &&
+          record.date.month == today.month &&
+          record.date.day == today.day,
+    );
+    final latestCheckIn = todayCheckIns.isEmpty
+        ? null
+        : todayCheckIns.reduce(
+            (first, second) =>
+                first.checkInAt.isAfter(second.checkInAt) ? first : second,
+          );
+    final unlockRequested =
+        requestState.value?.requests.any(
+          (request) =>
+              request.employeeId == currentEmployee?.id &&
+              request.type == forgotAttendanceRequestType &&
+              request.status == PreviewRequestStatus.pending &&
+              (latestCheckIn == null ||
+                  request.createdAt.isAfter(latestCheckIn.checkInAt)),
+        ) ??
+        false;
+    final canCheckIn = latestCheckIn == null || unlockRequested;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,12 +106,14 @@ class AttendancePage extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: FilledButton.icon(
-                              onPressed: () => _confirmAttendance(
-                                context,
-                                ref,
-                                currentEmployee,
-                                isCheckOut: false,
-                              ),
+                              onPressed: canCheckIn
+                                  ? () => _confirmAttendance(
+                                      context,
+                                      ref,
+                                      currentEmployee,
+                                      isCheckOut: false,
+                                    )
+                                  : null,
                               icon: const Icon(Icons.login),
                               label: const Text('Masuk'),
                             ),
@@ -103,6 +132,25 @@ class AttendancePage extends ConsumerWidget {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: requestState.isLoading
+                              ? null
+                              : () => _requestForgotAttendance(
+                                  context,
+                                  ref,
+                                  currentEmployee,
+                                ),
+                          icon: const Icon(Icons.lock_open_outlined),
+                          label: Text(
+                            unlockRequested
+                                ? 'Masuk sudah dibuka kembali'
+                                : 'Lupa Absen',
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -144,6 +192,77 @@ class AttendancePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _requestForgotAttendance(
+    BuildContext context,
+    WidgetRef ref,
+    PreviewEmployee employee,
+  ) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lupa Absen'),
+        content: TextField(
+          controller: reasonController,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 5,
+          maxLength: 300,
+          decoration: const InputDecoration(
+            labelText: 'Alasan',
+            hintText: 'Jelaskan alasan perlu membuka absen masuk kembali.',
+            alignLabelWithHint: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.isEmpty) {
+                showAppSnackBar('Alasan lupa absen wajib diisi.');
+                return;
+              }
+              Navigator.pop(dialogContext, value);
+            },
+            child: const Text('Kirim'),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(employeeRequestControllerProvider.notifier)
+          .addRequest(
+            type: forgotAttendanceRequestType,
+            reason: reason,
+            amount: 0,
+            employeeId: employee.id,
+            employeeName: employee.name,
+          );
+      if (context.mounted) {
+        showAppSnackBar(
+          'Alasan terkirim. Tombol absen masuk sudah dibuka kembali.',
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        showAppSnackBar(
+          userErrorMessage(
+            error,
+            fallback: 'Permohonan lupa absen gagal dikirim. Coba lagi.',
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _confirmAttendance(

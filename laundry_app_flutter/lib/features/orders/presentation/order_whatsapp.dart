@@ -16,7 +16,8 @@ String readyPickupWhatsAppMessage(PreviewOrder order) {
 }
 
 bool orderHasReadyPickupWhatsApp(PreviewOrder order) {
-  return order.customerNameSnapshot.trim().isNotEmpty;
+  return order.orderStatus == PreviewOrderStatus.ready &&
+      order.customerNameSnapshot.trim().isNotEmpty;
 }
 
 Future<bool> launchReadyPickupWhatsApp(PreviewOrder order) async {

@@ -1129,9 +1129,6 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       if (service == null) {
         throw StateError('Layanan tidak ditemukan.');
       }
-      if (service.unit.toLowerCase() == 'kg' && item.quantity < 3) {
-        throw StateError('Minimum laundry kiloan 3 kg.');
-      }
       final itemTotal = (service.price * item.quantity).round();
       total += itemTotal;
       if (service.estimatedHours > longestHours) {

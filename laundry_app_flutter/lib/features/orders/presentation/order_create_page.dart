@@ -256,6 +256,25 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                             _items[index] = _OrderDraftItem(
                                               service: item.service,
                                               quantity: newQty,
+                                              allowBelowMinimum:
+                                                  item.allowBelowMinimum,
+                                            );
+                                          }
+                                        });
+                                      },
+                                      onMinimumOverrideChanged: (allowed) {
+                                        setState(() {
+                                          final index = _items.indexOf(item);
+                                          if (index != -1) {
+                                            _items[index] = _OrderDraftItem(
+                                              service: item.service,
+                                              quantity: allowed
+                                                  ? item.quantity
+                                                  : item.quantity.clamp(
+                                                      3,
+                                                      double.infinity,
+                                                    ),
+                                              allowBelowMinimum: allowed,
                                             );
                                           }
                                         });
@@ -601,7 +620,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     final paidAmount = _currentPaidAmount().clamp(0, total);
     final remaining = (total - paidAmount).clamp(0, total);
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
@@ -726,31 +745,34 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submit,
-                icon: _isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle, size: 24),
-                label: Text(
-                  _isSubmitting ? "MENYIMPAN..." : "SIMPAN & CETAK NOTA",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: _isSubmitting ? null : _submit,
+                  icon: _isSubmitting
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle, size: 21),
+                  label: Text(
+                    _isSubmitting ? "MENYIMPAN..." : "SIMPAN & CETAK NOTA",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavy,
-                  shadowColor: AppColors.primaryNavy.withValues(alpha: 0.5),
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryNavy,
+                    shadowColor: AppColors.primaryNavy.withValues(alpha: 0.5),
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
@@ -2220,10 +2242,15 @@ class _ServiceOptionTile extends StatelessWidget {
 }
 
 class _OrderDraftItem {
-  const _OrderDraftItem({required this.service, required this.quantity});
+  const _OrderDraftItem({
+    required this.service,
+    required this.quantity,
+    this.allowBelowMinimum = false,
+  });
 
   final PreviewService service;
   final double quantity;
+  final bool allowBelowMinimum;
 
   int get total => (service.price * quantity).round();
 }
@@ -2233,11 +2260,13 @@ class _DraftItemTile extends StatelessWidget {
     required this.item,
     required this.onDelete,
     required this.onQuantityChanged,
+    required this.onMinimumOverrideChanged,
   });
 
   final _OrderDraftItem item;
   final VoidCallback onDelete;
   final ValueChanged<double> onQuantityChanged;
+  final ValueChanged<bool> onMinimumOverrideChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2247,74 +2276,140 @@ class _DraftItemTile extends StatelessWidget {
       'M2',
       'M',
     ].contains(item.service.unit.toUpperCase());
-    final min = isKilo ? 3.0 : (isMeasured ? 0.01 : 1.0);
-    final step = isMeasured ? 0.5 : 1.0;
+    final min = isKilo
+        ? (item.allowBelowMinimum ? 0.1 : 3.0)
+        : (isMeasured ? 0.01 : 1.0);
+    final step = isKilo ? 0.1 : (isMeasured ? 0.5 : 1.0);
     final quantityLabel = formatQuantityForUnit(
       item.quantity,
       item.service.unit,
     );
 
     return Card(
-      child: ListTile(
-        title: Text(
-          item.service.name,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text('$quantityLabel x ${item.service.price.toRupiah()}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconButton(
-              icon: const Icon(
-                Icons.remove_circle_outline,
-                size: 22,
-                color: AppColors.primaryBlue,
-              ),
-              onPressed: item.quantity <= min
-                  ? null
-                  : () => onQuantityChanged(
-                      (item.quantity - step).clamp(min, double.infinity),
-                    ),
-            ),
-            InkWell(
-              onTap: () => _editQuantity(context, min, isMeasured),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 4,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.service.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
-                child: Text(
-                  quantityLabel.split(' ').first,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                Text(
+                  item.total.toRupiah(),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                IconButton(
+                  tooltip: 'Hapus item',
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '$quantityLabel x ${item.service.price.toRupiah()}',
+              style: const TextStyle(color: AppColors.secondaryText),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  tooltip: isKilo ? 'Kurangi 0,1 kg' : 'Kurangi jumlah',
+                  icon: const Icon(Icons.remove, size: 24),
+                  onPressed: item.quantity <= min
+                      ? null
+                      : () => onQuantityChanged(
+                          _roundQuantity(
+                            (item.quantity - step).clamp(min, double.infinity),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _editQuantity(context, min, isMeasured),
+                    icon: const Icon(Icons.scale_outlined, size: 20),
+                    label: Text(
+                      quantityLabel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: isKilo ? 'Tambah 0,1 kg' : 'Tambah jumlah',
+                  icon: const Icon(Icons.add, size: 24),
+                  onPressed: () =>
+                      onQuantityChanged(_roundQuantity(item.quantity + step)),
+                ),
+              ],
+            ),
+            if (isKilo) ...[
+              const SizedBox(height: 6),
+              PopupMenuButton<bool>(
+                initialValue: item.allowBelowMinimum,
+                onSelected: onMinimumOverrideChanged,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: false,
+                    child: Text('Minimum biasa: 3 kg'),
+                  ),
+                  PopupMenuItem(
+                    value: true,
+                    child: Text('Izinkan di bawah 3 kg'),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        item.allowBelowMinimum
+                            ? Icons.loyalty_outlined
+                            : Icons.rule_outlined,
+                        size: 18,
+                        color: AppColors.primaryBlue,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          item.allowBelowMinimum
+                              ? 'Di bawah 3 kg diizinkan'
+                              : 'Aturan berat: minimal 3 kg',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primaryBlue,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
                   ),
                 ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.add_circle_outline,
-                size: 22,
-                color: AppColors.primaryBlue,
-              ),
-              onPressed: () => onQuantityChanged(item.quantity + step),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              item.total.toRupiah(),
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            IconButton(
-              tooltip: 'Hapus item',
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline, color: AppColors.error),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  double _roundQuantity(double value) => (value * 100).roundToDouble() / 100;
 
   Future<void> _editQuantity(
     BuildContext context,

@@ -183,7 +183,7 @@ class AppStrings {
   String get processedBy => isEnglish ? 'Processed by' : 'Diproses oleh';
   String get unassigned => isEnglish ? 'Unassigned' : 'Belum ditugaskan';
   String get startProcessing => isEnglish ? 'Start Process' : 'Mulai Proses';
-  String get markDone => isEnglish ? 'Mark Done' : 'Tandai Selesai';
+  String get markDone => isEnglish ? 'Ready for Pickup' : 'Siap Diambil';
   String get pickedUp => isEnglish ? 'Picked Up' : 'Sudah Diambil';
   String get completed => isEnglish ? 'Completed' : 'Sudah Selesai';
   String get cancelled => isEnglish ? 'Cancelled' : 'Dibatalkan';
