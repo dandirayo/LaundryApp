@@ -13,8 +13,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: idola-admin-production
+  group: dandivps-deploy-production
   cancel-in-progress: false
+
+env:
+  PROJECT_SLUG: dandivps-deploy
+  DEPLOY_TARGET: /var/www/apps/dandivps-deploy
+  VERIFY_URL: http://202.10.47.56:8081/
 
 jobs:
   deploy:
@@ -56,9 +61,9 @@ jobs:
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/idola_deploy
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/dandivps_deploy
           printf '%s\n' '202.10.47.56 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILZYLxCuBpW418DtQOIHrl/LVLo+3Q/eVLYExBn/2WFt' > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/idola_deploy ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/dandivps_deploy ~/.ssh/known_hosts
 
       - name: Upload release to staging directory
         env:
@@ -67,12 +72,12 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/idola_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
-            'install -d -m 755 "$HOME/idola-admin-next"'
+          ssh -i ~/.ssh/dandivps_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "install -d -m 755 \"\$HOME/deploy-staging/$PROJECT_SLUG\" \"\$HOME/backups/$PROJECT_SLUG\""
           rsync --archive --delete \
-            -e "ssh -i ~/.ssh/idola_deploy -p $VPS_PORT" \
+            -e "ssh -i ~/.ssh/dandivps_deploy -p $VPS_PORT" \
             admin_dashboard_web/dist/ \
-            "$VPS_USER@$VPS_HOST:idola-admin-next/"
+            "$VPS_USER@$VPS_HOST:deploy-staging/$PROJECT_SLUG/"
 
       - name: Publish release
         env:
@@ -81,24 +86,25 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/idola_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          ssh -i ~/.ssh/dandivps_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "PROJECT_SLUG='$PROJECT_SLUG' DEPLOY_TARGET='$DEPLOY_TARGET' bash -se" <<'REMOTE'
           set -euo pipefail
-          readonly target='/var/www/apps/idola-admin'
-          readonly staging="$HOME/idola-admin-next"
-          readonly backup="$HOME/idola-admin-previous.tar.gz"
+          readonly target="$DEPLOY_TARGET"
+          readonly staging="$HOME/deploy-staging/$PROJECT_SLUG"
+          readonly backup_dir="$HOME/backups/$PROJECT_SLUG"
+          readonly backup="$backup_dir/previous.tar.gz"
 
-          test "$target" = '/var/www/apps/idola-admin'
+          test "$target" = '/var/www/apps/dandivps-deploy'
           test -d "$target"
           test -w "$target"
           test -f "$staging/index.html"
           command -v rsync >/dev/null
 
+          install -d -m 755 "$backup_dir"
           tar -C "$target" -czf "$backup" .
           rsync --archive --delete "$staging/" "$target/"
           test -f "$target/index.html"
           REMOTE
 
       - name: Verify website response
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-        run: curl --fail --silent --show-error --retry 5 --retry-delay 2 "http://$VPS_HOST:8081/" > /dev/null
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 2 "$VERIFY_URL" > /dev/null
