@@ -524,9 +524,9 @@ function App() {
 
   if (!profile) {
     return (
-      <main className="admin-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--soft-bg)' }}>
-        <div style={{ width: '100%', maxWidth: '440px', padding: '20px' }}>
-          <div className="brand" style={{ justifyContent: 'center', marginBottom: '24px' }}>
+      <main className="login-page">
+        <div className="login-container">
+          <div className="brand login-brand">
             <div className="brand-mark">ID</div>
             <div><strong>Idola Laundry</strong><span>Owner Dashboard</span></div>
           </div>
@@ -578,7 +578,7 @@ function App() {
 }
 
 function LoginPanel({ email, password, loading, onEmail, onPassword, onSubmit }: { email: string; password: string; loading: boolean; onEmail: (value: string) => void; onPassword: (value: string) => void; onSubmit: (event: FormEvent) => void }) {
-  return <section className="login-panel"><div><p className="eyebrow">Supabase Auth</p><h2>Masuk sebagai Owner</h2><p>Kelola toko, tim, approval, dan laporan yang sama dengan aplikasi Android.</p></div><form onSubmit={onSubmit}><label>Username atau email<input value={email} onChange={(event) => onEmail(event.target.value)} placeholder="owner" required /></label><label>Password<input value={password} type="password" onChange={(event) => onPassword(event.target.value)} required /></label><button className="primary-button" disabled={loading} type="submit"><LogIn size={18} />Masuk Dashboard</button></form></section>
+  return <section className="login-panel"><div className="login-intro"><p className="eyebrow">Supabase Auth</p><h2>Masuk sebagai Owner</h2><p>Kelola toko, tim, approval, dan laporan yang sama dengan aplikasi Android.</p></div><form className="login-form" onSubmit={onSubmit}><label>Username atau email<input value={email} onChange={(event) => onEmail(event.target.value)} placeholder="owner" required /></label><label>Password<input value={password} type="password" onChange={(event) => onPassword(event.target.value)} required /></label><button className="primary-button" disabled={loading} type="submit"><LogIn size={18} />Masuk Dashboard</button></form></section>
 }
 
 function Overview({ metrics, data, onOpenOperations }: { metrics: ReturnType<typeof useDashboardMetrics>; data: DashboardData; onOpenOperations: () => void }) {

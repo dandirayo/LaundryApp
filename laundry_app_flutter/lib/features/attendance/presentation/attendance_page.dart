@@ -87,73 +87,26 @@ class AttendancePage extends ConsumerWidget {
               const SizedBox(height: 16),
             ],
             if (showMineOnly && currentEmployee != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Absensi Foto',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Foto wajib diambil dari kamera belakang sebelum absen tersimpan.',
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: canCheckIn
-                                  ? () => _confirmAttendance(
-                                      context,
-                                      ref,
-                                      currentEmployee,
-                                      isCheckOut: false,
-                                    )
-                                  : null,
-                              icon: const Icon(Icons.login),
-                              label: const Text('Masuk'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _confirmAttendance(
-                                context,
-                                ref,
-                                currentEmployee,
-                                isCheckOut: true,
-                              ),
-                              icon: const Icon(Icons.logout),
-                              label: const Text('Keluar'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: TextButton.icon(
-                          onPressed: requestState.isLoading
-                              ? null
-                              : () => _requestForgotAttendance(
-                                  context,
-                                  ref,
-                                  currentEmployee,
-                                ),
-                          icon: const Icon(Icons.lock_open_outlined),
-                          label: Text(
-                            unlockRequested
-                                ? 'Masuk sudah dibuka kembali'
-                                : 'Lupa Absen',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              _AttendanceActionCard(
+                canCheckIn: canCheckIn,
+                unlockRequested: unlockRequested,
+                loading: requestState.isLoading,
+                onCheckIn: () => _confirmAttendance(
+                  context,
+                  ref,
+                  currentEmployee,
+                  isCheckOut: false,
+                ),
+                onCheckOut: () => _confirmAttendance(
+                  context,
+                  ref,
+                  currentEmployee,
+                  isCheckOut: true,
+                ),
+                onForgot: () => _requestForgotAttendance(
+                  context,
+                  ref,
+                  currentEmployee,
                 ),
               ),
               const SizedBox(height: 16),
@@ -165,26 +118,11 @@ class AttendancePage extends ConsumerWidget {
               )
             else
               for (final record in records) ...[
-                Card(
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.fact_check_outlined,
-                      color: _statusColor(record.attendanceStatus),
-                    ),
-                    title: Text(record.employeeName),
-                    subtitle: Text(
-                      '${record.date.toIndonesianDate()}\nShift ${record.shiftLabel.isEmpty ? '-' : record.shiftLabel} - Masuk ${record.checkInAt.toIndonesianTime()} - Keluar ${record.checkOutAt?.toIndonesianTime() ?? '-'}\n${_lateLabel(record)}',
-                    ),
-                    isThreeLine: true,
-                    trailing: Chip(
-                      label: Text(record.attendanceStatus.label),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-                      side: BorderSide.none,
-                      backgroundColor: _statusColor(
-                        record.attendanceStatus,
-                      ).withValues(alpha: 0.16),
-                    ),
-                  ),
+                _AttendanceRecordCard(
+                  record: record,
+                  statusColor: _statusColor(record.attendanceStatus),
+                  lateLabel: _lateLabel(record),
+                  showEmployeeName: !showMineOnly,
                 ),
                 const SizedBox(height: 10),
               ],
@@ -349,6 +287,253 @@ class AttendancePage extends ConsumerWidget {
     final minutes = record.lateMinutes % 60;
     final detail = hours > 0 ? '$hours jam $minutes menit' : '$minutes menit';
     return 'Terlambat $detail';
+  }
+}
+
+class _AttendanceActionCard extends StatelessWidget {
+  const _AttendanceActionCard({
+    required this.canCheckIn,
+    required this.unlockRequested,
+    required this.loading,
+    required this.onCheckIn,
+    required this.onCheckOut,
+    required this.onForgot,
+  });
+
+  final bool canCheckIn;
+  final bool unlockRequested;
+  final bool loading;
+  final VoidCallback onCheckIn;
+  final VoidCallback onCheckOut;
+  final VoidCallback onForgot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF8FAFF), Color(0xFFFFFFFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.softBlue,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.fact_check_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Absensi hari ini',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                        ),
+                        SizedBox(height: 2),
+                        Text('Foto area kerja diperlukan sebagai bukti absensi.'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: canCheckIn ? onCheckIn : null,
+                      icon: const Icon(Icons.login),
+                      label: const Text('ABSEN MASUK'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onCheckOut,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('ABSEN KELUAR'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: loading ? null : onForgot,
+                  icon: const Icon(Icons.lock_open_outlined),
+                  label: Text(
+                    unlockRequested
+                        ? 'Absen masuk sudah dibuka kembali'
+                        : 'Lupa absen? Kirim alasan ke Owner',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceRecordCard extends StatelessWidget {
+  const _AttendanceRecordCard({
+    required this.record,
+    required this.statusColor,
+    required this.lateLabel,
+    required this.showEmployeeName,
+  });
+
+  final PreviewAttendance record;
+  final Color statusColor;
+  final String lateLabel;
+  final bool showEmployeeName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showEmployeeName)
+                        Text(
+                          record.employeeName,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        ),
+                      Text(
+                        record.date.toIndonesianDate(),
+                        style: TextStyle(
+                          color: showEmployeeName
+                              ? AppColors.secondaryText
+                              : AppColors.mainText,
+                          fontWeight: showEmployeeName ? FontWeight.w600 : FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Chip(
+                  label: Text(record.attendanceStatus.label),
+                  labelStyle: TextStyle(color: statusColor, fontWeight: FontWeight.w900),
+                  side: BorderSide.none,
+                  backgroundColor: statusColor.withValues(alpha: 0.14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _AttendanceTimeBlock(
+                    label: 'MASUK',
+                    value: record.checkInAt.toIndonesianTime(),
+                    icon: Icons.login,
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _AttendanceTimeBlock(
+                    label: 'KELUAR',
+                    value: record.checkOutAt?.toIndonesianTime() ?? '--.--',
+                    icon: Icons.logout,
+                    color: record.checkOutAt == null
+                        ? AppColors.secondaryText
+                        : AppColors.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Shift ${record.shiftLabel.isEmpty ? '-' : record.shiftLabel} • $lateLabel',
+              style: const TextStyle(color: AppColors.secondaryText, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceTimeBlock extends StatelessWidget {
+  const _AttendanceTimeBlock({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.secondaryText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -64,6 +64,9 @@ void main() {
         if (cancel) {
           expect(reads, isEmpty);
         } else {
+          expect(reads, isEmpty);
+          await tester.tap(find.text('Semua kontak dari akun ini'));
+          await tester.pumpAndSettle();
           expect(reads.single['account']['name'], 'laundry@example.com');
           expect(reads.single['account']['type'], 'com.google');
         }

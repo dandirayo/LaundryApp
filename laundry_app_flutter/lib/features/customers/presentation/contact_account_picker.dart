@@ -4,6 +4,22 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import '../data/device_contact_repository.dart';
 import '../domain/contact_import.dart';
 
+enum ContactImportScope {
+  all,
+  customerServiceOnly;
+
+  String get title => switch (this) {
+    ContactImportScope.all => 'Semua kontak dari akun ini',
+    ContactImportScope.customerServiceOnly => 'Hanya nama berakhiran CS',
+  };
+
+  String get description => switch (this) {
+    ContactImportScope.all => 'Impor seluruh kontak yang memiliki nomor telepon.',
+    ContactImportScope.customerServiceOnly =>
+      'Contoh: Destiana CS. Kontak pribadi tidak akan diimpor.',
+  };
+}
+
 Future<List<ContactImportCandidate>?> fetchContactsFromSelectedAccount(
   BuildContext context,
   DeviceContactRepository repository,
@@ -61,7 +77,38 @@ Future<List<ContactImportCandidate>?> fetchContactsFromSelectedAccount(
     ),
   );
   if (account == null) return null;
-  return repository.fetchContactCandidates(account: account);
+  final scope = await showDialog<ContactImportScope>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text('Pilih kontak yang diimpor'),
+      children: [
+        for (final scope in ContactImportScope.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, scope),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                scope == ContactImportScope.customerServiceOnly
+                    ? Icons.support_agent_outlined
+                    : Icons.contacts_outlined,
+              ),
+              title: Text(scope.title),
+              subtitle: Text(scope.description),
+            ),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+      ],
+    ),
+  );
+  if (scope == null) return null;
+  return repository.fetchContactCandidates(
+    account: account,
+    onlyCustomerServiceContacts:
+        scope == ContactImportScope.customerServiceOnly,
+  );
 }
 
 Future<bool> confirmContactSync(BuildContext context, int count) async =>
