@@ -23,7 +23,6 @@ Repository memerlukan GitHub Actions secrets berikut:
 | `VPS_PORT` | Port SSH, biasanya `22` |
 | `VPS_USER` | User deployment terbatas, yaitu `idola-deploy` |
 | `VPS_SSH_KEY` | Private key khusus deployment |
-| `VPS_KNOWN_HOSTS` | Host key VPS yang sudah diverifikasi |
 | `VITE_SUPABASE_URL` | URL project Supabase yang digunakan aplikasi |
 | `VITE_SUPABASE_ANON_KEY` | Publishable/anon key Supabase |
 
@@ -32,7 +31,7 @@ Jangan menyimpan password VPS, private key, atau nilai environment produksi di G
 ## Keamanan dan pemulihan
 
 - Akun `idola-deploy` hanya membutuhkan akses tulis ke `/var/www/apps/idola-admin` dan tidak memerlukan `sudo`.
-- SSH memeriksa host key melalui `VPS_KNOWN_HOSTS`; workflow tidak menonaktifkan pemeriksaan identitas server.
+- SSH memeriksa host key VPS yang sudah diverifikasi di workflow; workflow tidak menonaktifkan pemeriksaan identitas server.
 - Deployment berhenti jika target, staging, izin, atau `index.html` tidak valid.
 - Untuk memulihkan rilis sebelumnya, ekstrak `/home/idola-deploy/idola-admin-previous.tar.gz` ke webroot menggunakan akun yang berwenang.
 - Nginx tidak perlu direstart karena deployment hanya mengganti file statis.

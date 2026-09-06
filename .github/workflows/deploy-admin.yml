@@ -53,12 +53,11 @@ jobs:
       - name: Configure SSH
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/idola_deploy
-          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' '202.10.47.56 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILZYLxCuBpW418DtQOIHrl/LVLo+3Q/eVLYExBn/2WFt' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/idola_deploy ~/.ssh/known_hosts
 
       - name: Upload release to staging directory
