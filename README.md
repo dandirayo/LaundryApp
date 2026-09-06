@@ -27,6 +27,8 @@ Idola One adalah aplikasi operasional Idola Laundry untuk mengelola pesanan, pel
 - `scripts/` — alat build serta publikasi rilis Android.
 - `docs/` — dokumentasi operasional internal.
 
+Rincian kesiapan fitur website, sumber data, kontrak realtime, gap, dan urutan pengembangan tersedia di [`docs/ADMIN_DASHBOARD_BLUEPRINT.md`](docs/ADMIN_DASHBOARD_BLUEPRINT.md).
+
 ## Rilis Android
 
 Pembaruan cloud tersedia mulai versi `1.0.3+4`. Proses rilis membuat APK untuk beberapa arsitektur perangkat, memverifikasi package, versi, signature, ukuran, dan hash, lalu menerbitkan manifest pembaruan setelah seluruh APK lolos pemeriksaan.

@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# Idola One Admin Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Website Owner untuk membaca dan mengelola data operasional yang sama dengan aplikasi Android Idola One. Dibangun dengan React, TypeScript, Vite, dan Supabase.
 
-Currently, two official plugins are available:
+## Modul yang tersedia
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Ringkasan operasional Owner.
+- Review pengajuan karyawan.
+- Status pesanan dan pembayaran.
+- Pelanggan.
+- Karyawan dan jadwal mingguan.
+- Inventaris dan mutasi stok.
+- Buku Kas, ekspor CSV, dan audit aktivitas.
+- Pengaturan profil toko.
+- Realtime lintas perangkat dengan rekonsiliasi setiap 15 detik.
 
-## React Compiler
+## Menjalankan project
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Salin konfigurasi publik Supabase ke environment lokal:
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```text
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Jangan pernah memasukkan `service_role` key ke environment Vite karena seluruh nilai `VITE_*` dikirim ke browser.
+
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
+```
+
+## Rencana pengembangan
+
+Daftar fitur, kontrak realtime, status sinkronisasi, prioritas, dan Definition of Done tersedia di [Blueprint Website Admin](../docs/ADMIN_DASHBOARD_BLUEPRINT.md).

@@ -203,17 +203,30 @@ function App() {
   useEffect(() => {
     if (!profile || !supabaseEnabled) return
     const refresh = () => void loadDashboard(profile.shop_id)
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
     const channel = supabase
       .channel(`owner-dashboard:${profile.shop_id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_requests', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'employees', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_shifts', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_movements', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_transactions', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .subscribe()
-    return () => { void supabase.removeChannel(channel) }
+    const timer = window.setInterval(refreshWhenVisible, 15_000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      void supabase.removeChannel(channel)
+    }
   }, [profile])
 
   const metrics = useMemo(() => {

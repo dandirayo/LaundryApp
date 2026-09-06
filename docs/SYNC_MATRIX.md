@@ -1,41 +1,37 @@
-# LaundryApp Sync Matrix — Chat 3
+# Matriks Sinkronisasi Idola One
 
-Status ini konservatif: `PASS` hanya untuk pemeriksaan/test lokal; komunikasi dua perangkat tetap `NEEDS MANUAL TEST`.
+Status terakhir: 6 September 2026. `CODE PASS` berarti jalur query, mutation, subscription, dan pengujian otomatis tersedia. `DEVICE TEST` berarti tetap perlu pembuktian dua perangkat pada jaringan nyata.
 
-| Feature | Owner → Employee | Employee → Owner | Realtime | Pull Refresh | Notification | RLS Safe | Tested | Notes |
-|---|---|---|---|---|---|---|---|---|
-| Orders | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Semua akun dalam toko melihat daftar pesanan yang sama; filter per petugas dihapus. Channel `orders` aktif dan halaman refresh saat dibuka/kembali aktif. Nama akun penerima pesanan disimpan sebagai snapshot dan ditampilkan di bawah nomor nota. Uji dua HP masih diperlukan setelah APK baru dipasang. |
-| Customers | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | NOT APPLICABLE | PARTIAL | PASS | Duplicate berdasarkan normalized phone; customer tanpa nomor valid. |
-| Payments | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Perubahan payment me-refresh order; ledger canonical dibuat trigger DB. |
-| Expenses | NEEDS MANUAL TEST | NOT APPLICABLE | PASS | PASS | NOT APPLICABLE | PASS | PASS | Owner-only route + RLS; ledger melalui trigger. |
-| Payroll | NEEDS MANUAL TEST | NOT APPLICABLE | PASS | PASS | PARTIAL | PASS | PASS | Guard UI dan unique DB ada; visibility history employee perlu device test. |
-| Attendance | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PARTIAL | PASS | Subscription `attendance_records` ditambahkan; upload kamera perlu device test. |
-| Weekly Shifts | NEEDS MANUAL TEST | NOT APPLICABLE | PASS | PASS | PASS | PASS | PASS | Shop-filtered realtime; RLS membatasi employee terkait. |
-| Employee Requests | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PASS | PASS | PASS | Notification trigger durable tersedia; transition/RLS masih perlu production verification. |
-| Inventory | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | PARTIAL | PASS | PASS | Item dan movement dalam satu channel; low-stock notification perlu device test. |
-| Notifications | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PARTIAL | PASS | PASS | PASS | Durable rows, unread/mark-read, safe route fallback; pull-to-refresh UI belum eksplisit. |
-| Dashboard | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PARTIAL | PASS | NOT APPLICABLE | NOT APPLICABLE | PASS | Angka pesanan hari ini pada Owner dan seluruh karyawan memakai daftar pesanan toko yang sama dari `OrderController` dan menerima perubahan Realtime. Cash/payroll summary lintas device masih perlu manual test. |
-| Contact Import | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PASS | PASS | NOT APPLICABLE | PARTIAL | PASS | Device contacts saja; Google Contacts terlihat bila tersinkron ke Android Contacts. |
-| Admin Dashboard Web | NEEDS MANUAL TEST | NEEDS MANUAL TEST | PARTIAL | PARTIAL | NOT APPLICABLE | PARTIAL | PARTIAL | Tidak memakai `employees.pin`; canonical ledger perlu browser/manual verification. |
+| Fitur | Sumber utama | Android realtime | Web realtime | Recovery | Status |
+|---|---|---:|---:|---|---|
+| Pesanan | `orders`, `order_items` | Ya | Ya, ringkasan order | Refresh + rekonsiliasi | CODE PASS; DEVICE TEST |
+| Pembayaran | `payments`, `orders`, `cash_transactions` | Ya | Ya melalui order/kas | Refresh + rekonsiliasi | CODE PASS; DEVICE TEST |
+| Pelanggan | `customers` | Ya | Ya | Refresh + rekonsiliasi web | CODE PASS; DEVICE TEST |
+| Layanan/harga | `services`, `service_categories` | Ya | Belum ada modul | Refresh Android | ANDROID READY; WEB TODO |
+| Buku Kas | `cash_transactions` | Ya | Ya | Polling web/Android 15 detik | CODE PASS; DEVICE TEST |
+| Pengeluaran | `expenses`, `cash_transactions` | Ya | Belum ada modul terstruktur | Refresh Android | ANDROID READY; WEB TODO |
+| Inventaris | `inventory_items`, `inventory_movements` | Ya | Ya | Refresh + rekonsiliasi web | CODE PASS; DEVICE TEST |
+| Karyawan/profil | `employees`, `profiles` | Ya | Ya untuk karyawan | Refresh + rekonsiliasi web | CODE PASS; DEVICE TEST |
+| Absensi | `attendance_records`, Storage | Ya | Belum ada modul | Refresh Android | ANDROID READY; WEB TODO |
+| Shift | `weekly_shifts` | Ya | Ya | Refresh + rekonsiliasi web | CODE PASS; DEVICE TEST |
+| Pengajuan | `employee_requests` | Ya | Ya | Polling Android/web 15 detik | CODE PASS; status approved produksi terverifikasi |
+| Payroll | `payroll_payments`, `cash_transactions` | Ya | Belum ada modul | Refresh Android | ANDROID READY; WEB TODO |
+| Notifikasi | `notifications` | Ya | Belum ada modul | Refresh Android | ANDROID READY; WEB TODO |
+| Audit | `audit_logs` | Tidak ditampilkan | Ya | Rekonsiliasi web 15 detik | WEB READY |
+| Pengaturan toko | `shops`, `shop_settings` | Sebagian | `shops` | Refresh/focus | PARTIAL |
+| Update Android | Storage `app-releases` | Polling 5 menit | Tidak relevan | Cek manual | READY |
 
-## Audit source dan recovery
+## Publication realtime produksi
 
-| Feature | Source | Repository/controller | Recovery / catatan audit |
-|---|---|---|---|
-| Orders / payments | `orders`, `order_items`, `payments` | `OrderRepository` / `OrderController` | Realtime shop + pull refresh; widget tidak query Supabase langsung. |
-| Customers | `customers` | `CustomerRepository` / `CustomerController` | Realtime shop + pull refresh; preview hanya mode preview/offline config. |
-| Services | `services` | `ServiceRepository` / `ServiceController` | Realtime shop ditambahkan; halaman memiliki refresh controller. |
-| Cashbook | `cash_transactions` | `CashbookRepository` / `CashbookController` | Bereaksi pada pergantian sesi login, refresh setelah pembayaran/buka halaman/resume, Realtime + polling pemulihan 15 detik. Error mempertahankan saldo terakhir dengan peringatan. Uji RLS pembayaran Ratna → kas Owner lulus dalam transaksi rollback 2026-09-04; uji dua HP tetap diperlukan. |
-| Expenses | `expenses` | `ExpenseRepository` / `ExpenseController` | Realtime shop + refresh; Owner only. |
-| Payroll | `payroll_payments` | `PayrollRepository` / `PayrollController` | Realtime shop, retry, dan in-process guard. |
-| Employees | `employees`, `profiles` | `EmployeeRepository`; page-managed state | Pull refresh ada; belum controller realtime sehingga `PARTIAL`. |
-| Attendance | `attendance_records`, Storage | `AttendanceRepository` / `AttendanceController` | Realtime shop ditambahkan + refresh; error mapper ada di UI. |
-| Shifts | `weekly_shifts` | `ShiftRepository` / `ShiftController` | Realtime shop + refresh, RLS employee-specific. |
-| Requests | `employee_requests` | `EmployeeRequestRepository` / controller | Realtime shop + refresh; UI filters employee dan RLS adalah enforcement. |
-| Inventory | `inventory_items`, `inventory_movements` | repository/controller | Kedua tabel disubscribe dengan shop filter + refresh. |
-| Notifications | `notifications` | repository/controller | Durable + realtime shop; RLS target recipient. |
-| Dashboard | Controller state di atas | Riverpod providers | Refresh fan-out tersedia; tidak ada query Supabase langsung dari widget. |
+Migration `20260906013324_complete_realtime_publication.sql` melengkapi tabel yang sudah memiliki subscriber di source code: `attendance_records`, `order_items`, `payments`, dan `profiles`.
 
-## Database follow-up
+Seluruh tabel operasional yang dipublikasikan tetap dilindungi RLS. Event realtime hanya diterima jika session pengguna juga boleh membaca row tersebut.
 
-`supabase/migrations/20260829064248_durable_notification_references.sql` adalah **MANUAL DATABASE CHANGE REQUIRED**. Migration hanya menambah metadata `reference_type`/`reference_id` dan index; tidak menghapus data.
+## Aturan recovery
+
+- Realtime mempercepat tampilan, tetapi query ulang tetap menjadi sumber state.
+- Android melakukan refresh ketika halaman dibuka atau kembali aktif; order, kas, dan pengajuan memiliki rekonsiliasi berkala.
+- Website Admin melakukan query ulang saat event diterima, setiap 15 detik ketika terlihat, ketika tab kembali terlihat, dan ketika window kembali fokus.
+- Tombol refresh manual tetap dipertahankan untuk diagnosis jaringan.
+
+Rincian fitur dan backlog website tersedia di [Blueprint Website Admin](ADMIN_DASHBOARD_BLUEPRINT.md).
