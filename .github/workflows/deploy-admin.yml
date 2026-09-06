@@ -1,0 +1,105 @@
+name: Deploy Admin Dashboard
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "admin_dashboard_web/**"
+      - ".github/workflows/deploy-admin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idola-admin-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin_dashboard_web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: admin_dashboard_web
+        run: npm ci
+
+      - name: Check source
+        working-directory: admin_dashboard_web
+        run: npm run lint
+
+      - name: Build production website
+        working-directory: admin_dashboard_web
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/idola_deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/idola_deploy ~/.ssh/known_hosts
+
+      - name: Upload release to staging directory
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/idola_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            'install -d -m 755 "$HOME/idola-admin-next"'
+          rsync --archive --delete \
+            -e "ssh -i ~/.ssh/idola_deploy -p $VPS_PORT" \
+            admin_dashboard_web/dist/ \
+            "$VPS_USER@$VPS_HOST:idola-admin-next/"
+
+      - name: Publish release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/idola_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          readonly target='/var/www/apps/idola-admin'
+          readonly staging="$HOME/idola-admin-next"
+          readonly backup="$HOME/idola-admin-previous.tar.gz"
+
+          test "$target" = '/var/www/apps/idola-admin'
+          test -d "$target"
+          test -w "$target"
+          test -f "$staging/index.html"
+          command -v rsync >/dev/null
+
+          tar -C "$target" -czf "$backup" .
+          rsync --archive --delete "$staging/" "$target/"
+          test -f "$target/index.html"
+          REMOTE
+
+      - name: Verify website response
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 2 "http://$VPS_HOST:8081/" > /dev/null

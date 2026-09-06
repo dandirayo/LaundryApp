@@ -35,3 +35,7 @@ npm run build
 ## Rencana pengembangan
 
 Daftar fitur, kontrak realtime, status sinkronisasi, prioritas, dan Definition of Done tersedia di [Blueprint Website Admin](../docs/ADMIN_DASHBOARD_BLUEPRINT.md).
+
+## Deployment produksi
+
+Perubahan website pada branch `main` diterbitkan otomatis melalui GitHub Actions setelah lint dan build berhasil. Panduan alur, secrets, keamanan, dan pemulihan tersedia di [Deployment Website Admin ke VPS](../docs/ADMIN_VPS_DEPLOYMENT.md).
