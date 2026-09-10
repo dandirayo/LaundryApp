@@ -103,11 +103,8 @@ class AttendancePage extends ConsumerWidget {
                   currentEmployee,
                   isCheckOut: true,
                 ),
-                onForgot: () => _requestForgotAttendance(
-                  context,
-                  ref,
-                  currentEmployee,
-                ),
+                onForgot: () =>
+                    _requestForgotAttendance(context, ref, currentEmployee),
               ),
               const SizedBox(height: 16),
             ],
@@ -345,10 +342,15 @@ class _AttendanceActionCard extends StatelessWidget {
                       children: [
                         Text(
                           'Absensi hari ini',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                         SizedBox(height: 2),
-                        Text('Foto area kerja diperlukan sebagai bukti absensi.'),
+                        Text(
+                          'Foto area kerja diperlukan sebagai bukti absensi.',
+                        ),
                       ],
                     ),
                   ),
@@ -426,7 +428,10 @@ class _AttendanceRecordCard extends StatelessWidget {
                       if (showEmployeeName)
                         Text(
                           record.employeeName,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       Text(
                         record.date.toIndonesianDate(),
@@ -434,7 +439,9 @@ class _AttendanceRecordCard extends StatelessWidget {
                           color: showEmployeeName
                               ? AppColors.secondaryText
                               : AppColors.mainText,
-                          fontWeight: showEmployeeName ? FontWeight.w600 : FontWeight.w900,
+                          fontWeight: showEmployeeName
+                              ? FontWeight.w600
+                              : FontWeight.w900,
                         ),
                       ),
                     ],
@@ -442,7 +449,10 @@ class _AttendanceRecordCard extends StatelessWidget {
                 ),
                 Chip(
                   label: Text(record.attendanceStatus.label),
-                  labelStyle: TextStyle(color: statusColor, fontWeight: FontWeight.w900),
+                  labelStyle: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w900,
+                  ),
                   side: BorderSide.none,
                   backgroundColor: statusColor.withValues(alpha: 0.14),
                 ),
@@ -475,7 +485,10 @@ class _AttendanceRecordCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Shift ${record.shiftLabel.isEmpty ? '-' : record.shiftLabel} • $lateLabel',
-              style: const TextStyle(color: AppColors.secondaryText, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -526,7 +539,11 @@ class _AttendanceTimeBlock extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),

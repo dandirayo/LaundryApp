@@ -21,6 +21,14 @@ import 'order_controller.dart';
 import 'order_whatsapp.dart';
 import 'receipt_preview_sheet.dart';
 
+String _displayStatus(PreviewOrderStatus status) => switch (status) {
+  PreviewOrderStatus.received ||
+  PreviewOrderStatus.processing => 'Belum selesai',
+  PreviewOrderStatus.ready => 'Pesanan selesai',
+  PreviewOrderStatus.pickedUp => 'Sudah diambil',
+  PreviewOrderStatus.cancelled => 'Dibatalkan',
+};
+
 class OrderDetailPage extends ConsumerWidget {
   const OrderDetailPage({required this.orderId, super.key});
 
@@ -111,13 +119,20 @@ class OrderDetailPage extends ConsumerWidget {
                       'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
                     ),
                     const SizedBox(height: 6),
-                    Text('Diproses oleh $employeeName'),
+                    Text('Penanggung jawab: $employeeName'),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _Pill(order.orderStatus.label, AppColors.primaryBlue),
+                        _Pill(
+                          _displayStatus(order.orderStatus),
+                          order.orderStatus == PreviewOrderStatus.ready ||
+                                  order.orderStatus ==
+                                      PreviewOrderStatus.pickedUp
+                              ? AppColors.success
+                              : AppColors.primaryBlue,
+                        ),
                         _Pill(order.paymentStatus.label, AppColors.success),
                       ],
                     ),
@@ -150,6 +165,13 @@ class OrderDetailPage extends ConsumerWidget {
                         ),
                       ),
                     const Divider(),
+                    if (order.roundingAdjustment != 0) ...[
+                      _AmountRow(label: 'Subtotal', amount: order.itemSubtotal),
+                      _AmountRow(
+                        label: 'Pembulatan',
+                        amount: order.roundingAdjustment,
+                      ),
+                    ],
                     _AmountRow(label: 'Total', amount: order.totalPrice),
                     _AmountRow(label: 'Dibayar', amount: order.paidAmount),
                     _AmountRow(label: 'Sisa', amount: order.remainingAmount),
@@ -262,7 +284,9 @@ class OrderDetailPage extends ConsumerWidget {
       showAppSnackBar('Tambahkan karyawan dulu sebelum edit pesanan.');
       return;
     }
-    var status = order.orderStatus;
+    var status = order.orderStatus == PreviewOrderStatus.processing
+        ? PreviewOrderStatus.received
+        : order.orderStatus;
     var employeeId = order.assignedEmployeeId.isEmpty
         ? employees.first.id
         : order.assignedEmployeeId;
@@ -288,8 +312,16 @@ class OrderDetailPage extends ConsumerWidget {
                 DropdownButtonFormField<PreviewOrderStatus>(
                   initialValue: status,
                   items: [
-                    for (final item in PreviewOrderStatus.values)
-                      DropdownMenuItem(value: item, child: Text(item.label)),
+                    for (final item in const [
+                      PreviewOrderStatus.received,
+                      PreviewOrderStatus.ready,
+                      PreviewOrderStatus.pickedUp,
+                      PreviewOrderStatus.cancelled,
+                    ])
+                      DropdownMenuItem(
+                        value: item,
+                        child: Text(_displayStatus(item)),
+                      ),
                   ],
                   onChanged: (value) =>
                       setModalState(() => status = value ?? status),

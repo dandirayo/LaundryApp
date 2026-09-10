@@ -61,7 +61,7 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
         category: category,
         amount: amount,
         method: method,
-        createdBy: user?.employeeId,
+        createdBy: user?.role == UserRole.employee ? user?.employeeId : null,
       );
     } else {
       ref

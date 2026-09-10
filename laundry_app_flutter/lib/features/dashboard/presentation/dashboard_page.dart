@@ -20,6 +20,7 @@ import '../../attendance/presentation/attendance_controller.dart';
 import '../../cashbook/presentation/cashbook_controller.dart';
 import '../../customers/presentation/customer_controller.dart';
 import '../../employee_requests/presentation/employee_request_controller.dart';
+import '../../expenses/presentation/expense_controller.dart';
 import '../../inventory/presentation/inventory_controller.dart';
 import '../../notifications/presentation/notification_controller.dart';
 import '../../orders/presentation/order_controller.dart';
@@ -65,6 +66,7 @@ class DashboardPage extends ConsumerWidget {
           await ref.read(customerControllerProvider.notifier).refresh();
           await ref.read(cashbookControllerProvider.notifier).refresh();
           await ref.read(employeeRequestControllerProvider.notifier).refresh();
+          await ref.read(expenseControllerProvider.notifier).refresh();
           await ref.read(orderControllerProvider.notifier).refresh();
           await ref.read(inventoryControllerProvider.notifier).refresh();
           await ref.read(shiftControllerProvider.notifier).refresh();
@@ -250,9 +252,9 @@ class _OwnerDashboard extends ConsumerWidget {
               AppRoutes.orders,
             ),
             _QuickAction(
-              strings.isEnglish ? 'Add Stock' : 'Tambah Stok',
+              strings.isEnglish ? 'Stock & Expense' : 'Stok & Pengeluaran',
               Icons.add_box_outlined,
-              AppRoutes.inventory,
+              AppRoutes.expenses,
             ),
             _QuickAction(
               strings.isEnglish ? 'View Attendance' : 'Lihat Absensi',
@@ -469,6 +471,8 @@ class _EmployeeDashboard extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
+        _EmployeeOrderPeek(orders: todayOrders),
+        const SizedBox(height: 12),
         _QuickActions(
           title: 'Aksi cepat',
           actions: [
@@ -484,7 +488,7 @@ class _EmployeeDashboard extends ConsumerWidget {
               AppRoutes.requestsMine,
             ),
             _QuickAction(
-              'Pengeluaran',
+              'Stok & Pengeluaran',
               Icons.price_check_outlined,
               AppRoutes.expenses,
             ),
@@ -496,6 +500,128 @@ class _EmployeeDashboard extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _EmployeeOrderPeek extends StatelessWidget {
+  const _EmployeeOrderPeek({required this.orders});
+
+  final List<PreviewOrder> orders;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = orders.fold<int>(0, (sum, order) => sum + order.totalPrice);
+    final latest = orders.take(4).toList();
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Cek pesanan hari ini',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  ),
+                ),
+                Text(
+                  '${orders.length} pesanan · ${total.toRupiah()}',
+                  style: const TextStyle(
+                    color: AppColors.primaryBlue,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (latest.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Text(
+                  'Belum ada pesanan hari ini.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.secondaryText),
+                ),
+              )
+            else
+              for (final order in latest) ...[
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => context.go('/orders/${order.id}'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.receipt_long_outlined,
+                          color: AppColors.primaryBlue,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${order.orderNumber} · ${order.customerNameSnapshot}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                order.items
+                                    .map((item) => item.serviceNameSnapshot)
+                                    .toSet()
+                                    .join(', '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                              Text(
+                                order.note.trim().isEmpty
+                                    ? 'Catatan: -'
+                                    : 'Catatan: ${order.note.trim()}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          order.totalPrice.toRupiah(),
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (order != latest.last) const Divider(height: 1),
+              ],
+            if (orders.length > latest.length)
+              TextButton(
+                onPressed: () => context.go(AppRoutes.ordersMine),
+                child: Text(
+                  'Lihat ${orders.length - latest.length} pesanan lainnya',
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

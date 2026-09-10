@@ -24,7 +24,8 @@ void main() {
           note: 'Permintaan pelanggan setia',
         );
     expect(order.items.single.quantity, 2.4);
-    expect(order.totalPrice, (service.price * 2.4).round());
+    expect(order.itemSubtotal, (service.price * 2.4).round());
+    expect(order.totalPrice, 17000);
   });
 
   test('pembayaran melunasi pesanan dan masuk Buku Kas', () {
@@ -254,7 +255,8 @@ void main() {
           employeeId: state.employees.first.id,
           note: '',
         );
-    expect(order.totalPrice, 109750);
+    expect(order.itemSubtotal, 109750);
+    expect(order.totalPrice, 110000);
     expect(order.laundryWeightKg, 3);
     expect(order.quantityForUnit('M2'), 2.25);
     expect(formatQuantityForUnit(2.25, 'M2'), '2.25 M2');

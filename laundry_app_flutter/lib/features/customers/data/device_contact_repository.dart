@@ -49,5 +49,5 @@ final class DeviceContactRepository {
 }
 
 bool isCustomerServiceContactName(String name) {
-  return RegExp(r'(^|\\s)cs$', caseSensitive: false).hasMatch(name.trim());
+  return RegExp(r'(^|\s)cs$', caseSensitive: false).hasMatch(name.trim());
 }

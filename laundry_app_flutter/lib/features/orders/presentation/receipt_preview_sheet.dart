@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/bluetooth_receipt_printer.dart';
+import '../../../core/errors/failure.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
@@ -9,6 +11,9 @@ import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../shared/preview_data.dart';
 
+String _signedAmount(int amount) =>
+    '${amount > 0 ? '+' : '-'}${amount.abs().toRupiah()}';
+
 Future<void> showReceiptPreviewSheet({
   required BuildContext context,
   required PreviewOrder order,
@@ -17,7 +22,8 @@ Future<void> showReceiptPreviewSheet({
   required String shopAddress,
   required String employeeName,
 }) {
-  var paperWidth = 58;
+  var paperWidth = 80;
+  var printing = false;
   return showAppModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -39,8 +45,8 @@ Future<void> showReceiptPreviewSheet({
                   ),
                   SegmentedButton<int>(
                     segments: const [
-                      ButtonSegment(value: 58, label: Text('58')),
                       ButtonSegment(value: 80, label: Text('80')),
+                      ButtonSegment(value: 58, label: Text('58')),
                     ],
                     selected: {paperWidth},
                     showSelectedIcon: false,
@@ -60,11 +66,64 @@ Future<void> showReceiptPreviewSheet({
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => showAppSnackBar(
-                  'Preview siap. Cetak fisik menunggu plugin printer thermal.',
-                ),
+                onPressed: printing
+                    ? null
+                    : () async {
+                        setModalState(() => printing = true);
+                        try {
+                          await BluetoothReceiptPrinter.instance.printLines(
+                            [
+                              'IDOLA LAUNDRY',
+                              shopName.toUpperCase(),
+                              shopAddress,
+                              order.remainingAmount == 0
+                                  ? 'NOTA LUNAS'
+                                  : 'NOTA PEMBAYARAN',
+                              '-' * (paperWidth == 80 ? 48 : 32),
+                              'No. Nota: ${order.orderNumber}',
+                              'Tgl Masuk: ${order.receivedAt.toIndonesianDate()} ${order.receivedAt.toIndonesianTime()}',
+                              'Pelanggan: ${order.customerNameSnapshot}',
+                              'Kasir: $employeeName',
+                              '-' * (paperWidth == 80 ? 48 : 32),
+                              for (final item in order.items) ...[
+                                item.serviceNameSnapshot,
+                                '${formatQuantityForUnit(item.quantity, item.unit)} x ${item.price.toRupiah()}',
+                                'Jumlah: ${item.total.toRupiah()}',
+                              ],
+                              '-' * (paperWidth == 80 ? 48 : 32),
+                              if (order.roundingAdjustment != 0) ...[
+                                'Subtotal: ${order.itemSubtotal.toRupiah()}',
+                                'Pembulatan: ${_signedAmount(order.roundingAdjustment)}',
+                              ],
+                              'Total: ${order.totalPrice.toRupiah()}',
+                              'Dibayar: ${order.paidAmount.toRupiah()}',
+                              'Sisa: ${order.remainingAmount.toRupiah()}',
+                              'Status: ${order.paymentStatus.label}',
+                              'Terima Kasih Atas Kepercayaan Anda',
+                              'Harap simpan nota ini sebagai bukti pengambilan.',
+                            ],
+                            paperWidth: paperWidth,
+                            logoAsset: 'assets/images/idola_one_logo.png',
+                          );
+                          showAppSnackBar(
+                            'Struk dikirim. Periksa hasil pada printer.',
+                          );
+                        } catch (error) {
+                          showAppSnackBar(
+                            error is Failure
+                                ? error.message
+                                : 'Gagal mengirim struk. Periksa printer sebelum mencoba lagi.',
+                          );
+                        } finally {
+                          if (context.mounted) {
+                            setModalState(() => printing = false);
+                          }
+                        }
+                      },
                 icon: const Icon(Icons.print_outlined),
-                label: const Text('Cetak ke Printer Thermal'),
+                label: Text(
+                  printing ? 'Mengirim...' : 'Cetak ke Printer Thermal',
+                ),
               ),
               const SizedBox(height: 8),
               FilledButton.icon(
@@ -138,8 +197,29 @@ class _ReceiptPaper extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Center(
+                        child: Image.asset(
+                          'assets/images/idola_one_logo.png',
+                          width: paperWidth == 80 ? 96 : 74,
+                          height: paperWidth == 80 ? 96 : 74,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const Icon(
+                            Icons.local_laundry_service_outlined,
+                            size: 56,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _center('IDOLA LAUNDRY', bold: true),
                       _center(shopName.toUpperCase(), bold: true),
                       _center(shopAddress),
+                      const SizedBox(height: 4),
+                      _center(
+                        order.remainingAmount == 0
+                            ? 'NOTA LUNAS'
+                            : 'NOTA PEMBAYARAN',
+                        bold: true,
+                      ),
                       _line(),
                       _row('No. Nota', order.orderNumber),
                       _row(
@@ -157,7 +237,14 @@ class _ReceiptPaper extends StatelessWidget {
                         ),
                       ],
                       _line(),
-                      _row('Total', order.totalPrice.toRupiah(), bold: true),
+                      if (order.roundingAdjustment != 0) ...[
+                        _row('Subtotal', order.itemSubtotal.toRupiah()),
+                        _row(
+                          'Pembulatan',
+                          _signedRupiah(order.roundingAdjustment),
+                        ),
+                      ],
+                      _row('TOTAL', order.totalPrice.toRupiah(), bold: true),
                       _row('Dibayar', paid.toRupiah()),
                       _row('Sisa', order.remainingAmount.toRupiah()),
                       _row('Status', order.paymentStatus.label),
@@ -175,6 +262,11 @@ class _ReceiptPaper extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _signedRupiah(int amount) {
+    if (amount == 0) return amount.toRupiah();
+    return '${amount > 0 ? '+' : '-'}${amount.abs().toRupiah()}';
   }
 
   Widget _center(String text, {bool bold = false}) {

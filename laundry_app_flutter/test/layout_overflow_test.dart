@@ -91,9 +91,8 @@ void main() {
     expect(find.text('Diterima oleh: Ratna'), findsOneWidget);
     expect(find.text('Diproses oleh Belum ditugaskan'), findsNothing);
 
-    await tester.tap(find.text('IDL-RATNA'));
-    await tester.pumpAndSettle();
-    expect(find.text('Diproses oleh Belum ditugaskan'), findsOneWidget);
+    expect(find.text('Ketuk kartu untuk detail'), findsOneWidget);
+    expect(find.text('Pesanan Selesai'), findsOneWidget);
 
     await tester.enterText(search, 'Pelanggan Yani');
     await tester.pump();

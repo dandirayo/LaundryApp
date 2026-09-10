@@ -7,6 +7,7 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/order_total_rounding.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
 import '../../../core/widgets/app_snack_bar.dart';
@@ -150,7 +151,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       _mode,
     );
 
-    final total = _items.fold<int>(0, (sum, item) => sum + item.total);
+    final subtotal = _items.fold<int>(0, (sum, item) => sum + item.total);
+    final total = roundOrderTotal(subtotal);
     final strings = ref.strings;
 
     return Scaffold(
@@ -365,6 +367,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                   ),
                   _buildStickyBottomBar(
                     total,
+                    subtotal,
                     employees,
                     selectedEmployeeId,
                     strings,
@@ -613,6 +616,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
 
   Widget _buildStickyBottomBar(
     int total,
+    int subtotal,
     List<PreviewEmployee> employees,
     String? selectedEmployeeId,
     AppStrings strings,
@@ -640,57 +644,71 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Total Tagihan",
-                      style: TextStyle(
-                        color: AppColors.secondaryText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Total Tagihan",
+                        style: TextStyle(
+                          color: AppColors.secondaryText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    Text(
-                      total.toRupiah(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                        color: AppColors.primaryNavy,
+                      Text(
+                        total.toRupiah(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          color: AppColors.primaryNavy,
+                        ),
                       ),
-                    ),
-                  ],
+                      if (subtotal != total)
+                        Text(
+                          'Dibulatkan dari ${subtotal.toRupiah()}',
+                          style: const TextStyle(
+                            color: AppColors.secondaryText,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      "Sisa Bayar",
-                      style: TextStyle(
-                        color: AppColors.secondaryText,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        "Sisa Bayar",
+                        style: TextStyle(
+                          color: AppColors.secondaryText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    Text(
-                      remaining.toRupiah(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        color: remaining == 0
-                            ? AppColors.success
-                            : AppColors.primaryNavy,
+                      Text(
+                        remaining.toRupiah(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                          color: remaining == 0
+                              ? AppColors.success
+                              : AppColors.primaryNavy,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Dibayar ${paidAmount.toRupiah()}',
-                      style: const TextStyle(
-                        color: AppColors.secondaryText,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      Text(
+                        'Dibayar ${paidAmount.toRupiah()}',
+                        style: const TextStyle(
+                          color: AppColors.secondaryText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1270,7 +1288,9 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       );
     }
     final paidAmount = int.tryParse(_paidController.text) ?? 0;
-    final total = _items.fold<int>(0, (sum, item) => sum + item.total);
+    final total = roundOrderTotal(
+      _items.fold<int>(0, (sum, item) => sum + item.total),
+    );
     if (paidAmount < 0) {
       missing.add('Nominal DP tidak boleh kurang dari nol.');
     }

@@ -13,7 +13,9 @@ class CashbookRepository {
   Future<List<PreviewCashTransaction>> fetch({required String shopId}) async {
     final rows = await _requireClient()
         .from('cash_transactions')
-        .select('id, type, category, description, amount, method, reference_type, reference_id, created_at')
+        .select(
+          'id, type, category, description, amount, method, reference_type, reference_id, created_at',
+        )
         .eq('shop_id', shopId)
         .order('created_at', ascending: false)
         .limit(500);
@@ -84,6 +86,8 @@ PreviewCashTransaction _fromMap(Map<String, dynamic> map) {
     description: (map['description'] ?? '') as String,
     amount: (map['amount'] as num? ?? 0).toInt(),
     method: (map['method'] ?? 'Tunai') as String,
-    createdAt: DateTime.tryParse((map['created_at'] ?? '') as String)?.toLocal() ?? DateTime.now(),
+    createdAt:
+        DateTime.tryParse((map['created_at'] ?? '') as String)?.toLocal() ??
+        DateTime.now(),
   );
 }

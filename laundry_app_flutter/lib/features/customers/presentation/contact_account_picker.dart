@@ -14,7 +14,8 @@ enum ContactImportScope {
   };
 
   String get description => switch (this) {
-    ContactImportScope.all => 'Impor seluruh kontak yang memiliki nomor telepon.',
+    ContactImportScope.all =>
+      'Impor seluruh kontak yang memiliki nomor telepon.',
     ContactImportScope.customerServiceOnly =>
       'Contoh: Destiana CS. Kontak pribadi tidak akan diimpor.',
   };
@@ -76,7 +77,7 @@ Future<List<ContactImportCandidate>?> fetchContactsFromSelectedAccount(
       ],
     ),
   );
-  if (account == null) return null;
+  if (!context.mounted || account == null) return null;
   final scope = await showDialog<ContactImportScope>(
     context: context,
     builder: (context) => SimpleDialog(

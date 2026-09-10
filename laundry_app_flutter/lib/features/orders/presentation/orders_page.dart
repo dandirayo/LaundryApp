@@ -18,6 +18,9 @@ import '../../../shared/preview_data.dart';
 import '../../employees/presentation/employee_directory_controller.dart';
 import 'order_controller.dart';
 import 'order_whatsapp.dart';
+import 'receipt_preview_sheet.dart';
+
+enum _OrderFilter { all, active, completed }
 
 class OrdersPage extends ConsumerStatefulWidget {
   const OrdersPage({super.key});
@@ -29,7 +32,7 @@ class OrdersPage extends ConsumerStatefulWidget {
 class _OrdersPageState extends ConsumerState<OrdersPage>
     with WidgetsBindingObserver {
   String _query = '';
-  PreviewOrderStatus? _status;
+  _OrderFilter _filter = _OrderFilter.all;
 
   @override
   void initState() {
@@ -71,7 +74,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           '${order.orderNumber} ${order.customerNameSnapshot} ${order.customerPhoneSnapshot}'
               .toLowerCase()
               .contains(_query.toLowerCase());
-      final statusMatch = _status == null || order.orderStatus == _status;
+      final statusMatch = switch (_filter) {
+        _OrderFilter.all => true,
+        _OrderFilter.active =>
+          order.orderStatus == PreviewOrderStatus.received ||
+              order.orderStatus == PreviewOrderStatus.processing,
+        _OrderFilter.completed =>
+          order.orderStatus == PreviewOrderStatus.ready ||
+              order.orderStatus == PreviewOrderStatus.pickedUp,
+      };
       return queryMatch && statusMatch;
     }).toList();
 
@@ -115,35 +126,21 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(
-                        strings.all,
-                        style: _filterChipTextStyle(_status == null),
-                      ),
-                      selected: _status == null,
-                      selectedColor: AppColors.lightGold,
-                      backgroundColor: AppColors.surface,
-                      checkmarkColor: AppColors.primaryBlue,
-                      side: const BorderSide(color: AppColors.outline),
-                      onSelected: (_) => setState(() => _status = null),
-                    ),
-                  ),
-                  for (final status in PreviewOrderStatus.values)
+                  for (final filter in _OrderFilter.values)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(
-                          strings.orderStatus(status.label),
-                          style: _filterChipTextStyle(_status == status),
-                        ),
-                        selected: _status == status,
+                        label: Text(switch (filter) {
+                          _OrderFilter.all => strings.all,
+                          _OrderFilter.active => 'Belum selesai',
+                          _OrderFilter.completed => 'Selesai',
+                        }, style: _filterChipTextStyle(_filter == filter)),
+                        selected: _filter == filter,
                         selectedColor: AppColors.lightGold,
                         backgroundColor: AppColors.surface,
                         checkmarkColor: AppColors.primaryBlue,
                         side: const BorderSide(color: AppColors.outline),
-                        onSelected: (_) => setState(() => _status = status),
+                        onSelected: (_) => setState(() => _filter = filter),
                       ),
                     ),
                 ],
@@ -212,10 +209,6 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                             onPayment: order.remainingAmount <= 0
                                 ? null
                                 : () => _showPaymentSheet(order),
-                            statusActionLabel: _statusActionLabel(
-                              order,
-                              strings,
-                            ),
                             onStatus: nextStatus == null
                                 ? null
                                 : () => _confirmStatusChange(order, nextStatus),
@@ -355,6 +348,26 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
             ? const AppStrings(AppLanguage.en).paymentSaved
             : const AppStrings(AppLanguage.id).paymentSaved,
       );
+      final updated = ref
+          .read(orderControllerProvider)
+          .value
+          ?.where((entry) => entry.id == order.id)
+          .firstOrNull;
+      if (updated != null && updated.remainingAmount == 0 && mounted) {
+        final data = ref.read(previewDataProvider);
+        await showReceiptPreviewSheet(
+          context: context,
+          order: updated,
+          payments: data.payments
+              .where((payment) => payment.orderId == updated.id)
+              .toList(),
+          shopName: data.shopName,
+          shopAddress: data.shopAddress,
+          employeeName: updated.receivedByName.trim().isEmpty
+              ? _employeeNameFor(data.employees, updated.assignedEmployeeId)
+              : updated.receivedByName,
+        );
+      }
     } on StateError catch (error) {
       if (!mounted) {
         return;
@@ -431,20 +444,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   PreviewOrderStatus? _nextStatusFor(PreviewOrder order) {
     return switch (order.orderStatus) {
-      PreviewOrderStatus.received => PreviewOrderStatus.processing,
+      PreviewOrderStatus.received ||
       PreviewOrderStatus.processing => PreviewOrderStatus.ready,
-      PreviewOrderStatus.ready => PreviewOrderStatus.pickedUp,
-      PreviewOrderStatus.pickedUp || PreviewOrderStatus.cancelled => null,
-    };
-  }
-
-  String? _statusActionLabel(PreviewOrder order, AppStrings strings) {
-    return switch (order.orderStatus) {
-      PreviewOrderStatus.received => strings.startProcessing,
-      PreviewOrderStatus.processing => strings.markDone,
-      PreviewOrderStatus.ready => strings.pickedUp,
-      PreviewOrderStatus.pickedUp => strings.completed,
-      PreviewOrderStatus.cancelled => strings.cancelled,
+      PreviewOrderStatus.ready ||
+      PreviewOrderStatus.pickedUp ||
+      PreviewOrderStatus.cancelled => null,
     };
   }
 
@@ -481,7 +485,6 @@ class _OrderCard extends StatelessWidget {
     required this.onDetail,
     required this.onStatus,
     this.onWhatsApp,
-    this.statusActionLabel,
     this.onPayment,
   });
 
@@ -491,132 +494,149 @@ class _OrderCard extends StatelessWidget {
   final VoidCallback onDetail;
   final VoidCallback? onWhatsApp;
   final VoidCallback? onStatus;
-  final String? statusActionLabel;
   final VoidCallback? onPayment;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        key: PageStorageKey<String>('order-card-${order.id}'),
-        maintainState: true,
-        tilePadding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        title: Text(
-          order.orderNumber,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onDetail,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      order.customerNameSnapshot,
-                      maxLines: 1,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order.orderNumber,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusPill(
+                        label: _statusLabel(order.orderStatus),
+                        color: _statusColor(order.orderStatus),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    order.customerNameSnapshot,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
+                    style: const TextStyle(
+                      color: AppColors.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_itemSummary(order)} · ${order.totalPrice.toRupiah()} · Sisa ${order.remainingAmount.toRupiah()}',
+                    style: const TextStyle(color: AppColors.secondaryText),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Layanan: ${order.items.map((item) => item.serviceNameSnapshot).toSet().join(', ')}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.secondaryText),
+                  ),
+                  if (order.note.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Catatan: ${order.note.trim()}',
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
+                  ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()} · Penanggung jawab: $employeeName',
+                    style: const TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 12,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _StatusPill(
-                    label: strings.orderStatus(order.orderStatus.label),
-                    color: order.orderStatus == PreviewOrderStatus.ready
-                        ? AppColors.success
-                        : AppColors.primaryBlue,
+                  const SizedBox(height: 6),
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Ketuk kartu untuk detail',
+                      style: TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.secondaryText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_itemSummary(order)} - ${order.totalPrice.toRupiah()} - Sisa ${order.remainingAmount.toRupiah()}',
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()}',
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${strings.processedBy} $employeeName',
-                  style: const TextStyle(
-                    color: AppColors.secondaryText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
+          if (onWhatsApp != null || onStatus != null || onPayment != null) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (onStatus != null)
+                    FilledButton.icon(
+                      onPressed: onStatus,
+                      icon: const Icon(Icons.task_alt),
+                      label: const Text('Pesanan Selesai'),
+                    ),
+                  if (onWhatsApp != null)
                     OutlinedButton.icon(
                       onPressed: onWhatsApp,
                       icon: const Icon(Icons.chat_outlined),
-                      label: const Text('WhatsApp'),
+                      label: const Text('WhatsApp Siap Diambil'),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: onDetail,
-                      icon: const Icon(Icons.open_in_new),
-                      label: Text(strings.detail),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: onStatus,
-                      icon: Icon(_statusActionIcon(order.orderStatus)),
-                      label: Text(statusActionLabel ?? strings.markDone),
-                    ),
-                    FilledButton.icon(
+                  if (onPayment != null)
+                    FilledButton.tonalIcon(
                       onPressed: onPayment,
                       icon: const Icon(Icons.payments_outlined),
                       label: Text(strings.receivePayment),
                     ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  IconData _statusActionIcon(PreviewOrderStatus status) {
+  String _statusLabel(PreviewOrderStatus status) {
     return switch (status) {
-      PreviewOrderStatus.received => Icons.play_arrow_outlined,
-      PreviewOrderStatus.processing => Icons.done_all_outlined,
-      PreviewOrderStatus.ready => Icons.shopping_bag_outlined,
-      PreviewOrderStatus.pickedUp => Icons.task_alt,
-      PreviewOrderStatus.cancelled => Icons.block,
+      PreviewOrderStatus.received ||
+      PreviewOrderStatus.processing => 'Belum selesai',
+      PreviewOrderStatus.ready ||
+      PreviewOrderStatus.pickedUp => 'Pesanan selesai',
+      PreviewOrderStatus.cancelled => strings.cancelled,
     };
   }
+
+  Color _statusColor(PreviewOrderStatus status) => switch (status) {
+    PreviewOrderStatus.ready ||
+    PreviewOrderStatus.pickedUp => AppColors.success,
+    PreviewOrderStatus.cancelled => AppColors.error,
+    _ => AppColors.primaryBlue,
+  };
 
   String _itemSummary(PreviewOrder order) {
     final units = <String, double>{};

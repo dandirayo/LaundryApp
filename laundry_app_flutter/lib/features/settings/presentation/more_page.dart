@@ -50,9 +50,9 @@ class MorePage extends ConsumerWidget {
             AppRoutes.services,
           ),
           _MenuItem(
-            strings.inventory,
+            'Stok & Pengeluaran',
             Icons.inventory_2_outlined,
-            AppRoutes.inventory,
+            AppRoutes.expenses,
           ),
           _MenuItem(
             strings.shifts,
@@ -98,11 +98,6 @@ class MorePage extends ConsumerWidget {
             strings.cashbook,
             Icons.account_balance_outlined,
             AppRoutes.cashbook,
-          ),
-          _MenuItem(
-            strings.expenses,
-            Icons.price_check_outlined,
-            AppRoutes.expenses,
           ),
         ],
       ),
@@ -162,7 +157,7 @@ class MorePage extends ConsumerWidget {
             AppRoutes.customers,
           ),
           _MenuItem(
-            strings.expenses,
+            'Stok & Pengeluaran',
             Icons.price_check_outlined,
             AppRoutes.expenses,
           ),

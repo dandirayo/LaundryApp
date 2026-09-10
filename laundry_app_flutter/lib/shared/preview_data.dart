@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'imported_contacts.dart';
+import '../core/utils/order_total_rounding.dart';
 
 part 'default_service_catalog.dart';
 
@@ -272,6 +273,10 @@ class PreviewOrder {
   final String receivedByName;
 
   int get remainingAmount => totalPrice - paidAmount;
+
+  int get itemSubtotal => items.fold(0, (sum, item) => sum + item.total);
+
+  int get roundingAdjustment => totalPrice - itemSubtotal;
 
   double get totalQuantity =>
       items.fold(0, (previous, item) => previous + item.quantity);
@@ -1048,7 +1053,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   }) {
     final customer = _customerById(customerId);
     final service = _serviceById(serviceId);
-    final total = (service.price * quantity).round();
+    final total = roundOrderTotal(service.price * quantity);
     if (paidAmount < 0 || paidAmount > total) {
       throw StateError('Nominal pembayaran tidak valid.');
     }
@@ -1122,7 +1127,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       for (final service in state.services) service.id: service,
     };
     final orderItems = <PreviewOrderItem>[];
-    var total = 0;
+    var subtotal = 0;
     var longestHours = 0;
     for (final item in items) {
       final service = servicesById[item.serviceId];
@@ -1130,7 +1135,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         throw StateError('Layanan tidak ditemukan.');
       }
       final itemTotal = (service.price * item.quantity).round();
-      total += itemTotal;
+      subtotal += itemTotal;
       if (service.estimatedHours > longestHours) {
         longestHours = service.estimatedHours;
       }
@@ -1146,6 +1151,7 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         ),
       );
     }
+    final total = roundOrderTotal(subtotal);
     if (paidAmount < 0 || paidAmount > total) {
       throw StateError('Nominal pembayaran tidak valid.');
     }
