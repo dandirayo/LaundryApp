@@ -156,6 +156,15 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
     );
   }
 
+  Future<int> resetCustomers() async {
+    final online = _onlineContext(listen: false);
+    final removedCount = online != null
+        ? await online.repository.resetCustomers(shopId: online.shopId)
+        : ref.read(previewDataProvider.notifier).resetCustomers();
+    await refresh();
+    return removedCount;
+  }
+
   Future<CustomerListState> _load({required bool listen}) async {
     final online = _onlineContext(listen: listen);
     if (online != null) {

@@ -65,21 +65,37 @@ final class CustomerRepository {
     try {
       final rows = await _requireClient()
           .from('customers')
-          .upsert(
-            [
-              for (final contact in contacts)
-                {
-                  'shop_id': shopId,
-                  'name': contact.name.trim(),
-                  'phone': Customer.phoneFromInput(contact.phone),
-                  'normalized_phone': contact.normalizedPhone,
-                  'address': contact.address.trim(),
-                  'note': note.trim(),
-                },
-            ],
-            onConflict: 'shop_id,normalized_phone',
-            ignoreDuplicates: true,
-          )
+          .upsert([
+            for (final contact in contacts)
+              {
+                'shop_id': shopId,
+                'name': contact.name.trim(),
+                'phone': Customer.phoneFromInput(contact.phone),
+                'normalized_phone': contact.normalizedPhone,
+                'address': contact.address.trim(),
+                'note': note.trim(),
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+                'deleted_at': null,
+                'deleted_by': null,
+              },
+          ], onConflict: 'shop_id,normalized_phone')
+          .select('id');
+      return rows.length;
+    } on PostgrestException catch (error) {
+      throw _mapPostgrestException(error);
+    }
+  }
+
+  Future<int> resetCustomers({required String shopId}) async {
+    try {
+      final rows = await _requireClient()
+          .from('customers')
+          .update({
+            'deleted_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('shop_id', shopId)
+          .isFilter('deleted_at', null)
           .select('id');
       return rows.length;
     } on PostgrestException catch (error) {

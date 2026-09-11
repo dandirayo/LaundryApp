@@ -15,7 +15,6 @@ final class DeviceContactRepository {
 
   Future<List<ContactImportCandidate>> fetchContactCandidates({
     required Account account,
-    bool onlyCustomerServiceContacts = false,
   }) async {
     final contacts = await FlutterContacts.getAll(
       properties: {ContactProperty.phone},
@@ -23,11 +22,6 @@ final class DeviceContactRepository {
     );
     return contacts
         .where((contact) => (contact.displayName ?? '').trim().isNotEmpty)
-        .where(
-          (contact) =>
-              !onlyCustomerServiceContacts ||
-              isCustomerServiceContactName(contact.displayName ?? ''),
-        )
         .map(
           (contact) => ContactImportCandidate(
             name: (contact.displayName ?? '').trim(),
@@ -46,8 +40,4 @@ final class DeviceContactRepository {
   Future<void> openSettings() {
     return FlutterContacts.permissions.openSettings();
   }
-}
-
-bool isCustomerServiceContactName(String name) {
-  return RegExp(r'(^|\s)cs$', caseSensitive: false).hasMatch(name.trim());
 }

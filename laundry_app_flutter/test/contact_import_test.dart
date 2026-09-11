@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:laundry_app_flutter/features/customers/data/device_contact_repository.dart';
 import 'package:laundry_app_flutter/features/customers/domain/contact_import.dart';
 import 'package:laundry_app_flutter/features/customers/domain/customer.dart';
 
@@ -47,13 +46,6 @@ void main() {
       'customer-1',
     );
     expect(findCustomerWithNormalizedPhone(customers, ''), isNull);
-  });
-
-  test('CS contact filter matches only names ending with CS', () {
-    expect(isCustomerServiceContactName('Destiana CS'), isTrue);
-    expect(isCustomerServiceContactName('destiana cs'), isTrue);
-    expect(isCustomerServiceContactName('CS Destiana'), isFalse);
-    expect(isCustomerServiceContactName('Destiana CS Pagi'), isFalse);
   });
 
   test('bulk import plan skips existing, invalid, and no-phone contacts', () {

@@ -12,7 +12,7 @@ Idola One adalah aplikasi operasional Idola Laundry untuk mengelola pesanan, pel
 - Pembayaran belum bayar, DP, lunas, nominal manual, serta metode pembayaran.
 - Buku Kas otomatis mengikuti pembayaran pesanan dan mencatat pemasukan maupun pengeluaran.
 - Pesan WhatsApp siap ambil dengan nomor dan template pelanggan; WhatsApp terbuka setelah status **Siap Diambil** dipilih.
-- Data pelanggan, riwayat pesanan, dan impor kontak dari akun Google yang dipilih.
+- Data pelanggan, riwayat pesanan, reset kontak oleh Owner, dan impor seluruh kontak bernomor hanya dari satu akun Google yang dipilih.
 - Absensi masuk/keluar dengan foto, shift, keterlambatan, dan fitur **Lupa Absen** dengan alasan.
 - Pengajuan karyawan untuk stok, izin dan jadwal, serta dana dan biaya dengan persetujuan Owner.
 - Sinkronisasi realtime dengan penarikan data berkala sebagai cadangan ketika event realtime terlewat.

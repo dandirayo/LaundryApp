@@ -1007,6 +1007,12 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     state = state.copyWith(customers: customers);
   }
 
+  int resetCustomers() {
+    final removedCount = state.customers.length;
+    state = state.copyWith(customers: const []);
+    return removedCount;
+  }
+
   void addService({
     required String name,
     required String category,

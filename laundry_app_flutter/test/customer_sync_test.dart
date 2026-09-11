@@ -64,6 +64,31 @@ void main() {
     );
   });
 
+  test(
+    'reset pelanggan mengosongkan kontak tanpa menghapus pesanan preview',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(previewDataProvider.notifier);
+      notifier.addCustomer(
+        name: 'Pelanggan Reset',
+        phone: '081234567890',
+        address: '',
+        note: '',
+      );
+      final before = container.read(previewDataProvider);
+      expect(before.customers, isNotEmpty);
+
+      final removedCount = notifier.resetCustomers();
+      final after = container.read(previewDataProvider);
+
+      expect(removedCount, before.customers.length);
+      expect(after.customers, isEmpty);
+      expect(after.orders.length, before.orders.length);
+    },
+  );
+
   test('WhatsApp pesanan tetap aktif saat snapshot nomor kosong', () {
     final order = PreviewOrder(
       id: 'order-no-phone',

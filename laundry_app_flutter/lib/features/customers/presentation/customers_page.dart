@@ -29,6 +29,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   final _deviceContacts = DeviceContactRepository();
   String _query = '';
   var _isSyncingContacts = false;
+  var _isResettingContacts = false;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +48,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           if (canImportContacts)
             IconButton(
               tooltip: strings.syncPhoneContacts,
-              onPressed: _isSyncingContacts
+              onPressed: _isSyncingContacts || _isResettingContacts
                   ? null
                   : () => _syncContacts(context),
               icon: _isSyncingContacts
@@ -78,6 +79,15 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           onQueryChanged: (value) => setState(() => _query = value),
           onRefresh: _refresh,
           onAdd: () => _showAddCustomerOptions(context),
+          onSync:
+              canImportContacts && !_isSyncingContacts && !_isResettingContacts
+              ? () => _syncContacts(context)
+              : null,
+          onReset: role == UserRole.owner && !_isResettingContacts
+              ? () => _resetContacts(context)
+              : null,
+          isSyncing: _isSyncingContacts,
+          isResetting: _isResettingContacts,
           onEdit: role == UserRole.owner
               ? (customer) => _showCustomerDialog(context, customer: customer)
               : null,
@@ -391,6 +401,58 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     }
   }
 
+  Future<void> _resetContacts(BuildContext context) async {
+    if (_isResettingContacts) return;
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Reset semua kontak pelanggan?'),
+            content: const Text(
+              'Daftar pelanggan akan dikosongkan untuk semua pengguna. Riwayat pesanan dan nota lama tetap aman. Setelah reset, sinkronkan kembali satu akun Google yang diinginkan.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('Reset Kontak'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isResettingContacts = true);
+    try {
+      final removedCount = await ref
+          .read(customerControllerProvider.notifier)
+          .resetCustomers();
+      if (mounted) {
+        _showSnack(
+          '$removedCount kontak pelanggan sudah direset. Pesanan lama tetap aman.',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Kontak pelanggan belum bisa direset. Coba lagi.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResettingContacts = false);
+    }
+  }
+
   Future<List<ContactImportCandidate>?> _loadDeviceContactCandidates(
     BuildContext context,
   ) async {
@@ -654,6 +716,10 @@ class _CustomerListBody extends ConsumerWidget {
     required this.onQueryChanged,
     required this.onRefresh,
     required this.onAdd,
+    required this.onSync,
+    required this.onReset,
+    required this.isSyncing,
+    required this.isResetting,
     required this.onPhone,
     this.onEdit,
   });
@@ -663,6 +729,10 @@ class _CustomerListBody extends ConsumerWidget {
   final ValueChanged<String> onQueryChanged;
   final Future<void> Function() onRefresh;
   final VoidCallback onAdd;
+  final VoidCallback? onSync;
+  final VoidCallback? onReset;
+  final bool isSyncing;
+  final bool isResetting;
   final ValueChanged<Customer>? onEdit;
   final ValueChanged<Customer> onPhone;
 
@@ -686,6 +756,41 @@ class _CustomerListBody extends ConsumerWidget {
               prefixIcon: const Icon(Icons.search),
             ),
             onChanged: onQueryChanged,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: onSync,
+                  icon: isSyncing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_sync_outlined),
+                  label: const Text('Sinkron Google'),
+                ),
+              ),
+              if (onReset != null || isResetting) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onReset,
+                    icon: isResetting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.restart_alt),
+                    label: const Text('Reset Kontak'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 16),
           Expanded(

@@ -18,6 +18,7 @@ void main() {
           (call) async {
             if (call.method == 'accounts.getAll') {
               return [
+                {'id': '', 'name': 'Phone', 'type': 'com.android.localphone'},
                 {
                   'id': '',
                   'name': 'personal@example.com',
@@ -57,6 +58,7 @@ void main() {
         );
         await tester.tap(find.text('Sync'));
         await tester.pumpAndSettle();
+        expect(find.text('Phone'), findsNothing);
         expect(find.text('personal@example.com'), findsOneWidget);
         expect(reads, isEmpty);
         await tester.tap(find.text(cancel ? 'Batal' : 'laundry@example.com'));
@@ -64,9 +66,6 @@ void main() {
         if (cancel) {
           expect(reads, isEmpty);
         } else {
-          expect(reads, isEmpty);
-          await tester.tap(find.text('Semua kontak dari akun ini'));
-          await tester.pumpAndSettle();
           expect(reads.single['account']['name'], 'laundry@example.com');
           expect(reads.single['account']['type'], 'com.google');
         }
