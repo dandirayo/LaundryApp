@@ -32,7 +32,7 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this)..addListener(_rebuild);
+    _tabs = TabController(length: 2, vsync: this)..addListener(_rebuild);
   }
 
   @override
@@ -70,7 +70,6 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
         bottom: TabBar(
           controller: _tabs,
           tabs: const [
-            Tab(text: 'Stok'),
             Tab(text: 'Pengadaan'),
             Tab(text: 'Pengeluaran'),
           ],
@@ -88,32 +87,23 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
           ),
         ],
       ),
-      floatingActionButton: _tabs.index == 0 && !isOwner
-          ? null
-          : _tabs.index == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => context.go(AppRoutes.inventory),
-              icon: const Icon(Icons.inventory_2_outlined),
-              label: const Text('Kelola Stok'),
-            )
-          : FloatingActionButton.extended(
-              onPressed: () => _tabs.index == 1
-                  ? _showProcurementSheet(context)
-                  : _showExpenseSheet(context),
-              icon: const Icon(Icons.add),
-              label: Text(_tabs.index == 1 ? 'Pengadaan' : 'Pengeluaran'),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _tabs.index == 0
+            ? _showProcurementSheet(context)
+            : _showExpenseSheet(context),
+        icon: const Icon(Icons.add),
+        label: Text(_tabs.index == 0 ? 'Pengadaan' : 'Pengeluaran'),
+      ),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         child: TabBarView(
           controller: _tabs,
           children: [
-            _StockList(items: inventory),
-            _ExpenseList(
-              items: procurement,
-              emptyTitle: 'Pengadaan belum ada',
-              emptyMessage:
-                  'Catat pembelian gas, plastik, sabun, atau pewangi.',
+            _ProcurementView(
+              stock: inventory,
+              procurement: procurement,
+              isOwner: isOwner,
+              onManageStock: () => context.go(AppRoutes.inventory),
             ),
             _ExpenseList(
               items: operational,
@@ -345,50 +335,148 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
   }
 }
 
-class _StockList extends StatelessWidget {
-  const _StockList({required this.items});
+class _ProcurementView extends StatelessWidget {
+  const _ProcurementView({
+    required this.stock,
+    required this.procurement,
+    required this.isOwner,
+    required this.onManageStock,
+  });
 
-  final List<PreviewInventoryItem> items;
+  final List<PreviewInventoryItem> stock;
+  final List<PreviewExpense> procurement;
+  final bool isOwner;
+  final VoidCallback onManageStock;
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return AppStateView.empty(
-        title: 'Stok belum ada',
-        message: 'Gunakan Kelola Stok untuk menambahkan barang.',
-      );
-    }
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Card(
-          child: ListTile(
-            leading: Icon(
-              item.isLowStock
-                  ? Icons.warning_amber
-                  : Icons.inventory_2_outlined,
-              color: item.isLowStock
-                  ? AppColors.warning
-                  : AppColors.primaryBlue,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Live Stock',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                  ),
+                  Text(
+                    'Jumlah stok terbaru dari semua pengguna.',
+                    style: TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            title: Text(
-              item.name,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            subtitle: Text(
-              'Minimum ${item.minStock.toStringAsFixed(1)} ${item.unit}'
-              '${item.note.trim().isEmpty ? '' : '\n${item.note}'}',
-            ),
-            isThreeLine: item.note.trim().isNotEmpty,
-            trailing: Text(
-              '${item.stock.toStringAsFixed(1)} ${item.unit}',
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
+            if (isOwner)
+              TextButton.icon(
+                onPressed: onManageStock,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Kelola'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 112,
+          child: stock.isEmpty
+              ? Card(
+                  margin: EdgeInsets.zero,
+                  child: Center(
+                    child: Text(
+                      isOwner
+                          ? 'Stok belum ada. Tekan Kelola untuk menambahkan.'
+                          : 'Stok belum ditambahkan oleh Owner.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: stock.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final item = stock[index];
+                    return Container(
+                      width: 150,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: item.isLowStock
+                            ? AppColors.warning.withValues(alpha: 0.10)
+                            : AppColors.primaryBlue.withValues(alpha: 0.06),
+                        border: Border.all(
+                          color: item.isLowStock
+                              ? AppColors.warning
+                              : AppColors.outline,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                item.isLowStock
+                                    ? Icons.warning_amber
+                                    : Icons.inventory_2_outlined,
+                                size: 18,
+                                color: item.isLowStock
+                                    ? AppColors.warning
+                                    : AppColors.primaryBlue,
+                              ),
+                              const Spacer(),
+                              if (item.isLowStock)
+                                const Text(
+                                  'MENIPIS',
+                                  style: TextStyle(
+                                    color: AppColors.warning,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            '${item.stock.toStringAsFixed(1)} ${item.unit}',
+                            style: const TextStyle(
+                              color: AppColors.primaryNavy,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 17,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'Riwayat Pengadaan',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _ExpenseList(
+            items: procurement,
+            emptyTitle: 'Pengadaan belum ada',
+            emptyMessage: 'Catat pembelian gas, plastik, sabun, atau pewangi.',
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

@@ -15,14 +15,15 @@ Total pesanan dibulatkan ke ribuan untuk semua metode dan status pembayaran.
 Sisa Rp500 dibulatkan ke bawah, sedangkan Rp501 dibulatkan ke atas. Nota
 menampilkan subtotal, penyesuaian pembulatan, status lunas, dan logo toko.
 
-Daftar pesanan memakai kartu yang dapat diketuk untuk membuka detail. Alur utama
-menampilkan **Pesanan Selesai**, kemudian membuka WhatsApp siap diambil. Dashboard
-karyawan menampilkan ringkasan pesanan, layanan, nominal, dan catatan hari ini.
+Daftar pesanan memakai kartu dropdown untuk membuka ringkasan tanpa memenuhi layar.
+Filter Express dan Kilat tersedia di atas filter status. Alur utama menampilkan
+**Pesanan Selesai**, kemudian membuka WhatsApp siap diambil. Dashboard karyawan
+menampilkan ringkasan pesanan, layanan, nominal, dan catatan hari ini.
 
-Menu **Stok & Pengeluaran** memiliki tab terpisah untuk Stok, Pengadaan, dan
-Pengeluaran. Pengadaan menyediakan pilihan Gas, Plastik (ukuran 30-55 serta jenis
-Biasa/Jinjing/Plastik Satuan), Sabun, dan Pewangi. Data tersimpan di Supabase dan
-tersinkron untuk Owner maupun karyawan.
+Menu **Stok & Pengeluaran** memiliki tab Pengadaan dan Pengeluaran. Live Stock
+ditampilkan di bagian atas Pengadaan. Pengadaan menyediakan pilihan Gas, Plastik
+(ukuran 30-55 serta jenis Biasa/Jinjing/Plastik Satuan), Sabun, dan Pewangi. Data
+tersimpan di Supabase dan tersinkron untuk Owner maupun karyawan.
 
 Jika izin ditolak permanen, aktifkan izin Perangkat di sekitar melalui pengaturan
 aplikasi Android. Jika koneksi gagal, periksa daya, jarak, dan aplikasi/HP lain

@@ -88,10 +88,16 @@ void main() {
     await tester.enterText(search, 'Destiana CS');
     await tester.pump();
     expect(find.text('Destiana CS'), findsWidgets);
-    expect(find.text('Diterima oleh: Ratna'), findsOneWidget);
+    expect(find.text('Semua kecepatan'), findsOneWidget);
+    expect(find.text('Express'), findsOneWidget);
+    expect(find.text('Kilat'), findsOneWidget);
+    expect(find.text('Diterima oleh: Ratna'), findsNothing);
     expect(find.text('Diproses oleh Belum ditugaskan'), findsNothing);
 
-    expect(find.text('Ketuk kartu untuk detail'), findsOneWidget);
+    await tester.tap(find.text('IDL-RATNA'));
+    await tester.pumpAndSettle();
+    expect(find.text('Diterima oleh: Ratna'), findsOneWidget);
+    expect(find.text('Ketuk rincian untuk detail lengkap'), findsOneWidget);
     expect(find.text('Pesanan Selesai'), findsOneWidget);
 
     await tester.enterText(search, 'Pelanggan Yani');
@@ -101,6 +107,27 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('Pesanan')),
       findsOneWidget,
     );
+
+    await tester.enterText(search, '');
+    final expressChip = find.ancestor(
+      of: find.text('Express'),
+      matching: find.byType(ChoiceChip),
+    );
+    await tester.ensureVisible(expressChip);
+    await tester.tap(expressChip);
+    await tester.pump();
+    expect(find.text('IDL-RATNA'), findsOneWidget);
+    expect(find.text('IDL-YANI'), findsNothing);
+
+    final kilatChip = find.ancestor(
+      of: find.text('Kilat'),
+      matching: find.byType(ChoiceChip),
+    );
+    await tester.ensureVisible(kilatChip);
+    await tester.tap(kilatChip);
+    await tester.pump();
+    expect(find.text('IDL-RATNA'), findsNothing);
+    expect(find.text('IDL-YANI'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
@@ -127,6 +154,7 @@ class _SharedOrdersPreviewController extends PreviewDataController {
       String customer,
       String employeeId,
       String receiverName,
+      String serviceName,
     ) {
       return PreviewOrder(
         id: id,
@@ -134,7 +162,17 @@ class _SharedOrdersPreviewController extends PreviewDataController {
         customerId: 'customer-1',
         customerNameSnapshot: customer,
         customerPhoneSnapshot: '',
-        items: const [],
+        items: [
+          PreviewOrderItem(
+            id: 'item-$id',
+            serviceId: 'service-$id',
+            serviceNameSnapshot: serviceName,
+            unit: 'PCS',
+            quantity: 1,
+            price: 85000,
+            total: 85000,
+          ),
+        ],
         totalPrice: 85000,
         paidAmount: 0,
         orderStatus: PreviewOrderStatus.received,
@@ -149,8 +187,20 @@ class _SharedOrdersPreviewController extends PreviewDataController {
 
     return original.copyWith(
       orders: [
-        order('RATNA', 'Destiana CS', 'employee-ratna', 'Ratna'),
-        order('YANI', 'Pelanggan Yani', 'employee-yani', 'Yani'),
+        order(
+          'RATNA',
+          'Destiana CS',
+          'employee-ratna',
+          'Ratna',
+          'Cuci Setrika Express',
+        ),
+        order(
+          'YANI',
+          'Pelanggan Yani',
+          'employee-yani',
+          'Yani',
+          'Cuci Kering Kilat',
+        ),
       ],
     );
   }

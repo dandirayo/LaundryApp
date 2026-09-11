@@ -22,6 +22,8 @@ import 'receipt_preview_sheet.dart';
 
 enum _OrderFilter { all, active, completed }
 
+enum _SpeedFilter { all, express, kilat }
+
 class OrdersPage extends ConsumerStatefulWidget {
   const OrdersPage({super.key});
 
@@ -33,6 +35,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     with WidgetsBindingObserver {
   String _query = '';
   _OrderFilter _filter = _OrderFilter.all;
+  _SpeedFilter _speedFilter = _SpeedFilter.all;
 
   @override
   void initState() {
@@ -83,7 +86,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           order.orderStatus == PreviewOrderStatus.ready ||
               order.orderStatus == PreviewOrderStatus.pickedUp,
       };
-      return queryMatch && statusMatch;
+      final speedMatch = switch (_speedFilter) {
+        _SpeedFilter.all => true,
+        _SpeedFilter.express => order.items.any(
+          (item) => item.serviceNameSnapshot.toLowerCase().contains('express'),
+        ),
+        _SpeedFilter.kilat => order.items.any(
+          (item) => item.serviceNameSnapshot.toLowerCase().contains('kilat'),
+        ),
+      };
+      return queryMatch && statusMatch && speedMatch;
     }).toList();
 
     return Scaffold(
@@ -122,6 +134,36 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
               onChanged: (value) => setState(() => _query = value),
             ),
             const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final speed in _SpeedFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        avatar: Icon(switch (speed) {
+                          _SpeedFilter.all => Icons.tune,
+                          _SpeedFilter.express => Icons.bolt,
+                          _SpeedFilter.kilat => Icons.flash_on,
+                        }, size: 18),
+                        label: Text(switch (speed) {
+                          _SpeedFilter.all => 'Semua kecepatan',
+                          _SpeedFilter.express => 'Express',
+                          _SpeedFilter.kilat => 'Kilat',
+                        }, style: _filterChipTextStyle(_speedFilter == speed)),
+                        selected: _speedFilter == speed,
+                        selectedColor: AppColors.lightGold,
+                        backgroundColor: AppColors.surface,
+                        checkmarkColor: AppColors.primaryBlue,
+                        side: const BorderSide(color: AppColors.outline),
+                        onSelected: (_) => setState(() => _speedFilter = speed),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -500,48 +542,59 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ExpansionTile(
+        key: PageStorageKey<String>('order-dropdown-${order.id}'),
+        maintainState: true,
+        tilePadding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: Text(
+          order.orderNumber,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                order.customerNameSnapshot,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              _StatusPill(
+                label: _statusLabel(order.orderStatus),
+                color: _statusColor(order.orderStatus),
+              ),
+            ],
+          ),
+        ),
         children: [
           InkWell(
             onTap: onDetail,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          order.orderNumber,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _StatusPill(
-                        label: _statusLabel(order.orderStatus),
-                        color: _statusColor(order.orderStatus),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    order.customerNameSnapshot,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
                   Text(
                     'Diterima oleh: ${order.receivedByName.trim().isEmpty ? 'Belum tercatat' : order.receivedByName}',
-                    style: const TextStyle(
-                      color: AppColors.secondaryText,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     '${_itemSummary(order)} · ${order.totalPrice.toRupiah()} · Sisa ${order.remainingAmount.toRupiah()}',
                     style: const TextStyle(color: AppColors.secondaryText),
@@ -549,36 +602,34 @@ class _OrderCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Layanan: ${order.items.map((item) => item.serviceNameSnapshot).toSet().join(', ')}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AppColors.secondaryText),
                   ),
                   if (order.note.trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       'Catatan: ${order.note.trim()}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ],
                   const SizedBox(height: 6),
                   Text(
-                    'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()} · Penanggung jawab: $employeeName',
-                    style: const TextStyle(
-                      color: AppColors.secondaryText,
-                      fontSize: 12,
-                    ),
+                    'Estimasi ${order.dueAt.toIndonesianDate()} ${order.dueAt.toIndonesianTime()}',
+                    style: const TextStyle(color: AppColors.secondaryText),
                   ),
-                  const SizedBox(height: 6),
+                  Text(
+                    'Penanggung jawab: $employeeName',
+                    style: const TextStyle(color: AppColors.secondaryText),
+                  ),
+                  const SizedBox(height: 8),
                   const Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      'Ketuk kartu untuk detail',
+                      'Ketuk rincian untuk detail lengkap',
+                      textAlign: TextAlign.right,
                       style: TextStyle(
                         color: AppColors.primaryBlue,
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -587,33 +638,30 @@ class _OrderCard extends StatelessWidget {
             ),
           ),
           if (onWhatsApp != null || onStatus != null || onPayment != null) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (onStatus != null)
-                    FilledButton.icon(
-                      onPressed: onStatus,
-                      icon: const Icon(Icons.task_alt),
-                      label: const Text('Pesanan Selesai'),
-                    ),
-                  if (onWhatsApp != null)
-                    OutlinedButton.icon(
-                      onPressed: onWhatsApp,
-                      icon: const Icon(Icons.chat_outlined),
-                      label: const Text('WhatsApp Siap Diambil'),
-                    ),
-                  if (onPayment != null)
-                    FilledButton.tonalIcon(
-                      onPressed: onPayment,
-                      icon: const Icon(Icons.payments_outlined),
-                      label: Text(strings.receivePayment),
-                    ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (onStatus != null)
+                  FilledButton.icon(
+                    onPressed: onStatus,
+                    icon: const Icon(Icons.task_alt),
+                    label: const Text('Pesanan Selesai'),
+                  ),
+                if (onWhatsApp != null)
+                  OutlinedButton.icon(
+                    onPressed: onWhatsApp,
+                    icon: const Icon(Icons.chat_outlined),
+                    label: const Text('WhatsApp Siap Diambil'),
+                  ),
+                if (onPayment != null)
+                  FilledButton.tonalIcon(
+                    onPressed: onPayment,
+                    icon: const Icon(Icons.payments_outlined),
+                    label: Text(strings.receivePayment),
+                  ),
+              ],
             ),
           ],
         ],
