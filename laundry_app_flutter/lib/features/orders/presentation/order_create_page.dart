@@ -185,192 +185,184 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
             )
           : Form(
               key: _formKey,
-              child: Column(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 16),
                 children: [
-                  Expanded(
-                    child: ListView(
+                  Container(
+                    color: AppColors.surface,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Column(
                       children: [
-                        Container(
-                          color: AppColors.surface,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Column(
-                            children: [
-                              _buildCompactCustomerSelector(
-                                selectedCustomer,
-                                customers,
-                              ),
-                              const SizedBox(height: 12),
-                              _ModeSelector(
-                                selected: _mode,
-                                onChanged: (mode) => setState(() {
-                                  _mode = mode;
-                                  _serviceId = null;
-                                  _selectedQuantityUnit = null;
-                                  _quantityController.text =
-                                      mode == _OrderMode.unit ? "1" : "3";
-                                }),
-                              ),
-                            ],
-                          ),
+                        _buildCompactCustomerSelector(
+                          selectedCustomer,
+                          customers,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (_items.isNotEmpty) ...[
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      "Keranjang Pesanan",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
-                                        color: AppColors.primaryNavy,
-                                      ),
-                                    ),
-                                    Text(
-                                      "${_items.length} Item",
-                                      style: const TextStyle(
-                                        color: AppColors.primaryBlue,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                for (final item in _items)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: _DraftItemTile(
-                                      item: item,
-                                      onDelete: () =>
-                                          setState(() => _items.remove(item)),
-                                      onQuantityChanged: (newQty) {
-                                        setState(() {
-                                          final index = _items.indexOf(item);
-                                          if (index != -1) {
-                                            _items[index] = _OrderDraftItem(
-                                              service: item.service,
-                                              quantity: newQty,
-                                              allowBelowMinimum:
-                                                  item.allowBelowMinimum,
-                                            );
-                                          }
-                                        });
-                                      },
-                                      onMinimumOverrideChanged: (allowed) {
-                                        setState(() {
-                                          final index = _items.indexOf(item);
-                                          if (index != -1) {
-                                            _items[index] = _OrderDraftItem(
-                                              service: item.service,
-                                              quantity: allowed
-                                                  ? item.quantity
-                                                  : item.quantity.clamp(
-                                                      3,
-                                                      double.infinity,
-                                                    ),
-                                              allowBelowMinimum: allowed,
-                                            );
-                                          }
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                const Divider(height: 32),
-                              ],
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    strings.isEnglish
-                                        ? "Quick Services"
-                                        : "Layanan Cepat",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                      color: AppColors.primaryNavy,
-                                    ),
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: () async {
-                                      final service = await _pickService(
-                                        context,
-                                        services,
-                                      );
-                                      if (service != null && mounted) {
-                                        _selectService(service);
-                                        _addItem(service);
-                                      }
-                                    },
-                                    icon: const Icon(Icons.search, size: 18),
-                                    label: Text(
-                                      strings.isEnglish ? "Lainnya" : "Lainnya",
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.primaryBlue,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      minimumSize: Size.zero,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    for (final category in <String?>[
-                                      null,
-                                      ...quickCategories,
-                                    ])
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 8,
-                                        ),
-                                        child: ChoiceChip(
-                                          label: Text(category ?? 'Semua'),
-                                          selected:
-                                              selectedCategory == category,
-                                          onSelected: (_) => setState(
-                                            () => _quickCategory = category,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (quickServices.isNotEmpty)
-                                _ServiceQuickGrid(
-                                  services: quickServices,
-                                  selectedServiceId: _serviceId,
-                                  onTap: (service) {
-                                    _selectService(service);
-                                    _addItem(service);
-                                  },
-                                ),
-                            ],
-                          ),
+                        const SizedBox(height: 12),
+                        _ModeSelector(
+                          selected: _mode,
+                          onChanged: (mode) => setState(() {
+                            _mode = mode;
+                            _serviceId = null;
+                            _selectedQuantityUnit = null;
+                            _quantityController.text = mode == _OrderMode.unit
+                                ? "1"
+                                : "3";
+                          }),
                         ),
                       ],
                     ),
                   ),
-                  _buildStickyBottomBar(
-                    total,
-                    subtotal,
-                    employees,
-                    selectedEmployeeId,
-                    strings,
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_items.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Keranjang Pesanan",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: AppColors.primaryNavy,
+                                ),
+                              ),
+                              Text(
+                                "${_items.length} Item",
+                                style: const TextStyle(
+                                  color: AppColors.primaryBlue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          for (final item in _items)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _DraftItemTile(
+                                item: item,
+                                onDelete: () =>
+                                    setState(() => _items.remove(item)),
+                                onQuantityChanged: (newQty) {
+                                  setState(() {
+                                    final index = _items.indexOf(item);
+                                    if (index != -1) {
+                                      _items[index] = _OrderDraftItem(
+                                        service: item.service,
+                                        quantity: newQty,
+                                        allowBelowMinimum:
+                                            item.allowBelowMinimum,
+                                      );
+                                    }
+                                  });
+                                },
+                                onMinimumOverrideChanged: (allowed) {
+                                  setState(() {
+                                    final index = _items.indexOf(item);
+                                    if (index != -1) {
+                                      _items[index] = _OrderDraftItem(
+                                        service: item.service,
+                                        quantity: allowed
+                                            ? item.quantity
+                                            : item.quantity.clamp(
+                                                3,
+                                                double.infinity,
+                                              ),
+                                        allowBelowMinimum: allowed,
+                                      );
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                          const Divider(height: 32),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              strings.isEnglish
+                                  ? "Quick Services"
+                                  : "Layanan Cepat",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: AppColors.primaryNavy,
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                final service = await _pickService(
+                                  context,
+                                  services,
+                                );
+                                if (service != null && mounted) {
+                                  _selectService(service);
+                                  _addItem(service);
+                                }
+                              },
+                              icon: const Icon(Icons.search, size: 18),
+                              label: Text(
+                                strings.isEnglish ? "Lainnya" : "Lainnya",
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primaryBlue,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                minimumSize: Size.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final category in <String?>[
+                                null,
+                                ...quickCategories,
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    label: Text(category ?? 'Semua'),
+                                    selected: selectedCategory == category,
+                                    onSelected: (_) => setState(
+                                      () => _quickCategory = category,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (quickServices.isNotEmpty)
+                          _ServiceQuickGrid(
+                            services: quickServices,
+                            selectedServiceId: _serviceId,
+                            onTap: (service) {
+                              _selectService(service);
+                              _addItem(service);
+                            },
+                          ),
+                        const SizedBox(height: 20),
+                        _buildCheckoutSection(
+                          total,
+                          subtotal,
+                          employees,
+                          selectedEmployeeId,
+                          strings,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -614,7 +606,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     return '${result.importedCount} kontak berhasil disinkronkan.$skippedText';
   }
 
-  Widget _buildStickyBottomBar(
+  Widget _buildCheckoutSection(
     int total,
     int subtotal,
     List<PreviewEmployee> employees,
@@ -624,179 +616,171 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     final paidAmount = _currentPaidAmount().clamp(0, total);
     final remaining = (total - paidAmount).clamp(0, total);
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryNavy.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        color: AppColors.softBlue.withValues(alpha: 0.45),
+        border: Border.all(color: AppColors.outline),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Total Tagihan",
-                        style: TextStyle(
-                          color: AppColors.secondaryText,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Total Tagihan",
+                      style: TextStyle(
+                        color: AppColors.secondaryText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    Text(
+                      total.toRupiah(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                        color: AppColors.primaryNavy,
+                      ),
+                    ),
+                    if (subtotal != total)
                       Text(
-                        total.toRupiah(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 22,
-                          color: AppColors.primaryNavy,
-                        ),
-                      ),
-                      if (subtotal != total)
-                        Text(
-                          'Dibulatkan dari ${subtotal.toRupiah()}',
-                          style: const TextStyle(
-                            color: AppColors.secondaryText,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        "Sisa Bayar",
-                        style: TextStyle(
-                          color: AppColors.secondaryText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        remaining.toRupiah(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: remaining == 0
-                              ? AppColors.success
-                              : AppColors.primaryNavy,
-                        ),
-                      ),
-                      Text(
-                        'Dibayar ${paidAmount.toRupiah()}',
+                        'Dibulatkan dari ${subtotal.toRupiah()}',
                         style: const TextStyle(
                           color: AppColors.secondaryText,
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      "Sisa Bayar",
+                      style: TextStyle(
+                        color: AppColors.secondaryText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      remaining.toRupiah(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: remaining == 0
+                            ? AppColors.success
+                            : AppColors.primaryNavy,
+                      ),
+                    ),
+                    Text(
+                      'Dibayar ${paidAmount.toRupiah()}',
+                      style: const TextStyle(
+                        color: AppColors.secondaryText,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _PaymentPresetButton(
+                  label: 'Belum',
+                  selected: paidAmount == 0,
+                  onTap: () => _setPaidAmount(0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _PaymentPresetButton(
+                  label: 'DP 50%',
+                  selected: total > 0 && paidAmount == (total / 2).round(),
+                  onTap: () => _setPaidAmount((total / 2).round()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _PaymentPresetButton(
+                  label: 'Lunas',
+                  selected: total > 0 && paidAmount == total,
+                  onTap: () => _setPaidAmount(total),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () => _showOptionalDetailsSheet(
+                employees,
+                selectedEmployeeId,
+                strings,
+              ),
+              icon: const Icon(Icons.tune_outlined, size: 18),
+              label: const Text(
+                "Nominal Manual, Metode Bayar & Kasir",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.softBlue,
+                foregroundColor: AppColors.primaryNavy,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _PaymentPresetButton(
-                    label: 'Belum',
-                    selected: paidAmount == 0,
-                    onTap: () => _setPaidAmount(0),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _PaymentPresetButton(
-                    label: 'DP 50%',
-                    selected: total > 0 && paidAmount == (total / 2).round(),
-                    onTap: () => _setPaidAmount((total / 2).round()),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _PaymentPresetButton(
-                    label: 'Lunas',
-                    selected: total > 0 && paidAmount == total,
-                    onTap: () => _setPaidAmount(total),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: SizedBox(
               width: double.infinity,
-              child: FilledButton.tonalIcon(
-                onPressed: () => _showOptionalDetailsSheet(
-                  employees,
-                  selectedEmployeeId,
-                  strings,
-                ),
-                icon: const Icon(Icons.tune_outlined, size: 18),
-                label: const Text(
-                  "Nominal Manual, Metode Bayar & Kasir",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: _isSubmitting ? null : _submit,
+                icon: _isSubmitting
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle, size: 21),
+                label: Text(
+                  _isSubmitting ? "MENYIMPAN..." : "SIMPAN & CETAK NOTA",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.softBlue,
-                  foregroundColor: AppColors.primaryNavy,
+                  backgroundColor: AppColors.primaryNavy,
+                  shadowColor: AppColors.primaryNavy.withValues(alpha: 0.5),
+                  elevation: 8,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton.icon(
-                  onPressed: _isSubmitting ? null : _submit,
-                  icon: _isSubmitting
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check_circle, size: 21),
-                  label: Text(
-                    _isSubmitting ? "MENYIMPAN..." : "SIMPAN & CETAK NOTA",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryNavy,
-                    shadowColor: AppColors.primaryNavy.withValues(alpha: 0.5),
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1246,6 +1230,10 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
           employeeName: order.receivedByName.trim().isEmpty
               ? employeeName ?? 'Petugas'
               : order.receivedByName,
+          copies: const [
+            ReceiptCopyType.customer,
+            ReceiptCopyType.laundryLabel,
+          ],
         );
         if (!mounted) {
           return;

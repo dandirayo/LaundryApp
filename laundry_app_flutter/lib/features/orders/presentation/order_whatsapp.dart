@@ -21,10 +21,24 @@ bool orderHasReadyPickupWhatsApp(PreviewOrder order) {
 }
 
 Future<bool> launchReadyPickupWhatsApp(PreviewOrder order) async {
+  return _launchOrderWhatsApp(order, readyPickupWhatsAppMessage(order));
+}
+
+String paymentWhatsAppMessage(PreviewOrder order, String method) {
+  return 'Halo ${order.customerNameSnapshot}, pesanan ${order.orderNumber} '
+      'sudah diambil dengan sisa pembayaran ${order.remainingAmount.toRupiah()}.\n\n'
+      'Silakan lakukan pembayaran melalui $method. Setelah membayar, mohon kirim bukti pembayaran melalui WhatsApp ini.\n\n'
+      'Terima kasih.';
+}
+
+Future<bool> launchPaymentWhatsApp(PreviewOrder order, String method) {
+  return _launchOrderWhatsApp(order, paymentWhatsAppMessage(order, method));
+}
+
+Future<bool> _launchOrderWhatsApp(PreviewOrder order, String message) async {
   final phone = PreviewDataController.normalizeIndonesianPhone(
     order.customerPhoneSnapshot,
   ).replaceAll('+', '');
-  final message = readyPickupWhatsAppMessage(order);
   if (phone.length >= 8) {
     final native = Uri.parse(
       'whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}',

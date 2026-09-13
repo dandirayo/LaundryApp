@@ -1013,6 +1013,15 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     return removedCount;
   }
 
+  int removeNonCsCustomers() {
+    final kept = state.customers
+        .where((customer) => customer.name.toLowerCase().contains('cs'))
+        .toList(growable: false);
+    final removedCount = state.customers.length - kept.length;
+    state = state.copyWith(customers: kept);
+    return removedCount;
+  }
+
   void addService({
     required String name,
     required String category,
@@ -1282,10 +1291,6 @@ class PreviewDataController extends Notifier<PreviewDataState> {
 
   void updateOrderStatus(String orderId, PreviewOrderStatus status) {
     final currentOrder = _orderById(orderId);
-    if (status == PreviewOrderStatus.pickedUp &&
-        currentOrder.remainingAmount > 0) {
-      throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
-    }
     final nextOrder = currentOrder.copyWith(orderStatus: status);
     final nextCash = [...state.cashTransactions];
     final nextExpenses = [...state.expenses];
@@ -1309,10 +1314,6 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required String note,
   }) {
     final currentOrder = _orderById(orderId);
-    if (status == PreviewOrderStatus.pickedUp &&
-        currentOrder.remainingAmount > 0) {
-      throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
-    }
     final updatedOrder = currentOrder.copyWith(
       orderStatus: status,
       assignedEmployeeId: employeeId,

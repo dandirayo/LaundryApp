@@ -103,6 +103,34 @@ final class CustomerRepository {
     }
   }
 
+  Future<int> removeNonCsCustomers({required String shopId}) async {
+    try {
+      final activeRows = await _requireClient()
+          .from('customers')
+          .select('id, name')
+          .eq('shop_id', shopId)
+          .isFilter('deleted_at', null);
+      final ids = [
+        for (final row in activeRows)
+          if (!((row['name'] ?? '') as String).toLowerCase().contains('cs'))
+            row['id'] as String,
+      ];
+      if (ids.isEmpty) return 0;
+      final timestamp = DateTime.now().toUtc().toIso8601String();
+      for (var start = 0; start < ids.length; start += 100) {
+        final batch = ids.sublist(start, (start + 100).clamp(0, ids.length));
+        await _requireClient()
+            .from('customers')
+            .update({'deleted_at': timestamp, 'updated_at': timestamp})
+            .eq('shop_id', shopId)
+            .inFilter('id', batch);
+      }
+      return ids.length;
+    } on PostgrestException catch (error) {
+      throw _mapPostgrestException(error);
+    }
+  }
+
   Future<Customer> updateCustomer({
     required String shopId,
     required String id,

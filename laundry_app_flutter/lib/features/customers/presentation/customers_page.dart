@@ -30,6 +30,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   String _query = '';
   var _isSyncingContacts = false;
   var _isResettingContacts = false;
+  var _isRemovingNonCs = false;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +49,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           if (canImportContacts)
             IconButton(
               tooltip: strings.syncPhoneContacts,
-              onPressed: _isSyncingContacts || _isResettingContacts
+              onPressed:
+                  _isSyncingContacts || _isResettingContacts || _isRemovingNonCs
                   ? null
                   : () => _syncContacts(context),
               icon: _isSyncingContacts
@@ -86,8 +88,12 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           onReset: role == UserRole.owner && !_isResettingContacts
               ? () => _resetContacts(context)
               : null,
+          onRemoveNonCs: role == UserRole.owner && !_isRemovingNonCs
+              ? () => _removeNonCsContacts(context)
+              : null,
           isSyncing: _isSyncingContacts,
           isResetting: _isResettingContacts,
+          isRemovingNonCs: _isRemovingNonCs,
           onEdit: role == UserRole.owner
               ? (customer) => _showCustomerDialog(context, customer: customer)
               : null,
@@ -453,6 +459,68 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     }
   }
 
+  Future<void> _removeNonCsContacts(BuildContext context) async {
+    if (_isRemovingNonCs) return;
+    final state = ref.read(customerControllerProvider).value;
+    final removeCount =
+        state?.customers
+            .where((customer) => !customer.name.toLowerCase().contains('cs'))
+            .length ??
+        0;
+    final keepCount = (state?.customers.length ?? 0) - removeCount;
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Sisakan kontak CS?'),
+            content: Text(
+              '$removeCount kontak tanpa tulisan CS akan dihapus dari aplikasi. '
+              '$keepCount kontak CS tetap disimpan. Kontak di HP dan riwayat pesanan tidak berubah.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: removeCount == 0
+                    ? null
+                    : () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('Hapus Selain CS'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isRemovingNonCs = true);
+    try {
+      final removedCount = await ref
+          .read(customerControllerProvider.notifier)
+          .removeNonCsCustomers();
+      if (mounted) {
+        _showSnack(
+          '$removedCount kontak non-CS dihapus dari aplikasi. Kontak CS tetap tersimpan.',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        _showSnack(
+          userErrorMessage(
+            error,
+            fallback: 'Kontak non-CS belum bisa dihapus. Coba lagi.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRemovingNonCs = false);
+    }
+  }
+
   Future<List<ContactImportCandidate>?> _loadDeviceContactCandidates(
     BuildContext context,
   ) async {
@@ -720,8 +788,10 @@ class _CustomerListBody extends ConsumerWidget {
     required this.onReset,
     required this.isSyncing,
     required this.isResetting,
+    required this.isRemovingNonCs,
     required this.onPhone,
     this.onEdit,
+    this.onRemoveNonCs,
   });
 
   final CustomerListState state;
@@ -731,8 +801,10 @@ class _CustomerListBody extends ConsumerWidget {
   final VoidCallback onAdd;
   final VoidCallback? onSync;
   final VoidCallback? onReset;
+  final VoidCallback? onRemoveNonCs;
   final bool isSyncing;
   final bool isResetting;
+  final bool isRemovingNonCs;
   final ValueChanged<Customer>? onEdit;
   final ValueChanged<Customer> onPhone;
 
@@ -792,6 +864,25 @@ class _CustomerListBody extends ConsumerWidget {
               ],
             ],
           ),
+          if (onRemoveNonCs != null || isRemovingNonCs) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onRemoveNonCs,
+                icon: isRemovingNonCs
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.person_remove_outlined),
+                label: const Text('Hapus Kontak Selain CS'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Expanded(
             child: customers.isEmpty

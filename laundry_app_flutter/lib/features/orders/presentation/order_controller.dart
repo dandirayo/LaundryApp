@@ -107,11 +107,6 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   Future<void> updateStatus(String orderId, PreviewOrderStatus status) async {
     final shopId = _shopId();
     if (shopId != null) {
-      final orders = state.value ?? const [];
-      final order = orders.firstWhere((o) => o.id == orderId);
-      if (status == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
-        throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
-      }
       await _repository.updateStatus(
         shopId: shopId,
         orderId: orderId,
@@ -131,11 +126,6 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   }) async {
     final shopId = _shopId();
     if (shopId != null) {
-      final orders = state.value ?? const [];
-      final order = orders.firstWhere((o) => o.id == orderId);
-      if (status == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
-        throw StateError('Pesanan belum lunas. Bayar dulu sebelum diambil.');
-      }
       await _repository.updateDetails(
         shopId: shopId,
         orderId: orderId,

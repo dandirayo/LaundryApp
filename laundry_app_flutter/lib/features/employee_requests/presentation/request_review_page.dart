@@ -35,8 +35,8 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
       final statusMatches =
           _statusFilter == null ||
           request.status == _statusFilter ||
-          (_statusFilter == PreviewRequestStatus.completed &&
-              request.status == PreviewRequestStatus.paid);
+          (_statusFilter == PreviewRequestStatus.approved &&
+              request.status == PreviewRequestStatus.completed);
       return statusMatches &&
           (_categoryFilter == null ||
               requestCategory(request.type) == _categoryFilter);
@@ -60,7 +60,9 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
                       onSelected: (_) => setState(() => _statusFilter = null),
                     ),
                   ),
-                  for (final status in PreviewRequestStatus.values)
+                  for (final status in PreviewRequestStatus.values.where(
+                    (status) => status != PreviewRequestStatus.completed,
+                  ))
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
@@ -117,7 +119,6 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
                             PreviewRequestStatus.rejected,
                           ),
                           onPay: () => _payRequest(request),
-                          onComplete: () => _completeRequest(request),
                         );
                       },
                     ),
@@ -182,7 +183,6 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
 
   Future<void> _payRequest(PreviewEmployeeRequest request) async {
     if (!_isMoneyRequest(request)) {
-      await _completeRequest(request);
       return;
     }
     final method = await _showPaymentMethodSheet(context);
@@ -219,37 +219,6 @@ class _RequestReviewPageState extends ConsumerState<RequestReviewPage> {
             paymentMethod: method,
           );
       _showMessage('Pembayaran pengajuan masuk Buku Kas.');
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    }
-  }
-
-  Future<void> _completeRequest(PreviewEmployeeRequest request) async {
-    final confirmed = await showConfirmationDialog(
-      context,
-      title: 'Tandai selesai?',
-      message:
-          '${requestLabel(request.type)} dari ${request.employeeName} akan diselesaikan.',
-      confirmLabel: 'Selesai',
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    await waitForTransientUiDismissal();
-    if (!mounted) {
-      return;
-    }
-    try {
-      await ref
-          .read(employeeRequestControllerProvider.notifier)
-          .updateStatus(
-            requestId: request.id,
-            status: PreviewRequestStatus.completed,
-            reviewNote: request.reviewNote.isEmpty
-                ? 'Ditandai selesai.'
-                : '${request.reviewNote} Ditandai selesai.',
-          );
-      _showMessage('Pengajuan ditandai selesai.');
     } on StateError catch (error) {
       _showMessage(error.message);
     }
@@ -361,14 +330,12 @@ class _RequestReviewCard extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     required this.onPay,
-    required this.onComplete,
   });
 
   final PreviewEmployeeRequest request;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onPay;
-  final VoidCallback onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -419,45 +386,62 @@ class _RequestReviewCard extends StatelessWidget {
               ),
             ],
             if (request.reviewNote.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                request.reviewNote,
-                style: const TextStyle(color: AppColors.secondaryText),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.softBlue,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Catatan Owner',
+                      style: TextStyle(
+                        color: AppColors.primaryNavy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(request.reviewNote),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (request.status == PreviewRequestStatus.pending) ...[
-                  FilledButton.icon(
-                    onPressed: onApprove,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Setujui'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: onReject,
-                    icon: const Icon(Icons.close),
-                    label: const Text('Tolak'),
-                  ),
-                ],
-                if (request.status == PreviewRequestStatus.approved) ...[
-                  if (request.amount > 0 && isMoneyRequest)
+            if (request.status == PreviewRequestStatus.pending ||
+                (request.status == PreviewRequestStatus.approved &&
+                    request.amount > 0 &&
+                    isMoneyRequest)) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (request.status == PreviewRequestStatus.pending) ...[
+                    FilledButton.icon(
+                      onPressed: onApprove,
+                      icon: const Icon(Icons.check),
+                      label: const Text('Setujui'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onReject,
+                      icon: const Icon(Icons.close),
+                      label: const Text('Tolak'),
+                    ),
+                  ],
+                  if (request.status == PreviewRequestStatus.approved &&
+                      request.amount > 0 &&
+                      isMoneyRequest)
                     FilledButton.icon(
                       onPressed: onPay,
                       icon: const Icon(Icons.payments_outlined),
                       label: const Text('Bayar'),
-                    )
-                  else
-                    FilledButton.icon(
-                      onPressed: onComplete,
-                      icon: const Icon(Icons.task_alt),
-                      label: const Text('Selesaikan'),
                     ),
                 ],
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
@@ -487,7 +471,7 @@ class _StatusBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Text(
-          status.label,
+          status == PreviewRequestStatus.completed ? 'Disetujui' : status.label,
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.w800,

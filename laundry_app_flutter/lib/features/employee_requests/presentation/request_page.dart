@@ -56,8 +56,8 @@ class _RequestPageState extends ConsumerState<RequestPage> {
       final statusMatches =
           _statusFilter == 'Semua' ||
           request.status.label == _statusFilter ||
-          (_statusFilter == 'Selesai' &&
-              request.status == PreviewRequestStatus.paid);
+          (_statusFilter == 'Disetujui' &&
+              request.status == PreviewRequestStatus.completed);
       final typeMatches =
           _categoryFilter == null ||
           requestCategory(request.type) == _categoryFilter;
@@ -115,11 +115,10 @@ class _RequestPageState extends ConsumerState<RequestPage> {
                         children: [
                           for (final status in const [
                             'Semua',
-                            'Pending',
+                            'Menunggu',
                             'Disetujui',
                             'Ditolak',
                             'Dibayar',
-                            'Selesai',
                           ])
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
@@ -372,10 +371,28 @@ class _RequestCard extends StatelessWidget {
               style: const TextStyle(color: AppColors.secondaryText),
             ),
             if (request.reviewNote.isNotEmpty) ...[
-              const Divider(height: 20),
-              Text(
-                'Catatan Owner: ${request.reviewNote}',
-                style: const TextStyle(color: AppColors.secondaryText),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.softBlue,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Catatan Owner',
+                      style: TextStyle(
+                        color: AppColors.primaryNavy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(request.reviewNote),
+                  ],
+                ),
               ),
             ],
           ],
@@ -407,7 +424,7 @@ class _StatusBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Text(
-          status.label,
+          status == PreviewRequestStatus.completed ? 'Disetujui' : status.label,
           style: TextStyle(color: color, fontWeight: FontWeight.w800),
         ),
       ),

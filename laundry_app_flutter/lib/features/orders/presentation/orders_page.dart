@@ -395,7 +395,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           .value
           ?.where((entry) => entry.id == order.id)
           .firstOrNull;
-      if (updated != null && updated.remainingAmount == 0 && mounted) {
+      if (updated != null &&
+          updated.remainingAmount == 0 &&
+          updated.orderStatus == PreviewOrderStatus.pickedUp &&
+          mounted) {
         final data = ref.read(previewDataProvider);
         await showReceiptPreviewSheet(
           context: context,
@@ -408,6 +411,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           employeeName: updated.receivedByName.trim().isEmpty
               ? _employeeNameFor(data.employees, updated.assignedEmployeeId)
               : updated.receivedByName,
+          copies: const [ReceiptCopyType.customer],
+          initialCopy: ReceiptCopyType.customer,
         );
       }
     } on StateError catch (error) {
@@ -425,28 +430,22 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     if (!mounted) {
       return;
     }
-    if (selected == PreviewOrderStatus.pickedUp && order.remainingAmount > 0) {
-      final payNow = await showConfirmationDialog(
-        context,
-        title: 'Bayar dulu',
-        message:
-            '${order.orderNumber} masih punya sisa tagihan ${order.remainingAmount.toRupiah()}. Pesanan belum boleh ditandai diambil sebelum lunas.',
-        confirmLabel: 'Bayar Sekarang',
-        cancelLabel: 'Nanti',
-      );
-      if (!payNow || !mounted) {
-        return;
-      }
-      await _showPaymentSheet(order);
-      return;
-    }
-    final confirmed = await showConfirmationDialog(
-      context,
-      title: 'Ubah status?',
-      message:
-          '${order.orderNumber} akan diubah dari ${order.orderStatus.label} ke ${selected.label}.',
-      confirmLabel: 'Ubah',
-    );
+    String? deferredPaymentMethod;
+    final confirmed =
+        selected == PreviewOrderStatus.pickedUp && order.remainingAmount > 0
+        ? (deferredPaymentMethod = await _showUnpaidPickupSheet(order)) != null
+        : await showConfirmationDialog(
+            context,
+            title: selected == PreviewOrderStatus.pickedUp
+                ? 'Pesanan sudah diambil?'
+                : 'Ubah status?',
+            message: selected == PreviewOrderStatus.pickedUp
+                ? '${order.orderNumber} akan dicatat sudah diterima pelanggan.'
+                : '${order.orderNumber} akan diubah dari ${order.orderStatus.label} ke ${selected.label}.',
+            confirmLabel: selected == PreviewOrderStatus.pickedUp
+                ? 'Sudah Diambil'
+                : 'Ubah',
+          );
     if (confirmed) {
       await waitForTransientUiDismissal();
       if (!mounted) {
@@ -464,8 +463,85 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
         );
         return;
       }
+      if (selected == PreviewOrderStatus.pickedUp) {
+        await _showPickupReceipt(order.copyWith(orderStatus: selected));
+        if (!mounted) return;
+        if (deferredPaymentMethod != null &&
+            deferredPaymentMethod != 'Tanpa WhatsApp') {
+          final opened = await launchPaymentWhatsApp(
+            order.copyWith(orderStatus: selected),
+            deferredPaymentMethod,
+          );
+          if (mounted) {
+            showAppSnackBar(
+              opened
+                  ? 'WhatsApp pembayaran $deferredPaymentMethod dibuka.'
+                  : 'WhatsApp tidak bisa dibuka di perangkat ini.',
+            );
+          }
+        }
+        return;
+      }
       showAppSnackBar('Status menjadi ${selected.label}.');
     }
+  }
+
+  Future<String?> _showUnpaidPickupSheet(PreviewOrder order) {
+    return showAppModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => AppBottomSheetBody(
+        children: [
+          Text(
+            'Diambil, pembayaran menyusul',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${order.orderNumber} masih memiliki sisa ${order.remainingAmount.toRupiah()}. '
+            'Pilih cara pembayaran yang akan dikirim melalui WhatsApp.',
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, 'Transfer'),
+            icon: const Icon(Icons.account_balance_outlined),
+            label: const Text('Transfer via WhatsApp'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.pop(context, 'QRIS'),
+            icon: const Icon(Icons.qr_code_2),
+            label: const Text('QRIS via WhatsApp'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context, 'Tanpa WhatsApp'),
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('Catat Pengambilan Saja'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPickupReceipt(PreviewOrder order) async {
+    final data = ref.read(previewDataProvider);
+    await showReceiptPreviewSheet(
+      context: context,
+      order: order,
+      payments: data.payments
+          .where((payment) => payment.orderId == order.id)
+          .toList(),
+      shopName: data.shopName,
+      shopAddress: data.shopAddress,
+      employeeName: order.receivedByName.trim().isEmpty
+          ? _employeeNameFor(data.employees, order.assignedEmployeeId)
+          : order.receivedByName,
+      copies: const [ReceiptCopyType.pickup],
+      initialCopy: ReceiptCopyType.pickup,
+    );
   }
 
   Future<void> _sendReadyPickupWhatsApp(PreviewOrder order) async {
@@ -488,9 +564,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     return switch (order.orderStatus) {
       PreviewOrderStatus.received ||
       PreviewOrderStatus.processing => PreviewOrderStatus.ready,
-      PreviewOrderStatus.ready ||
-      PreviewOrderStatus.pickedUp ||
-      PreviewOrderStatus.cancelled => null,
+      PreviewOrderStatus.ready => PreviewOrderStatus.pickedUp,
+      PreviewOrderStatus.pickedUp || PreviewOrderStatus.cancelled => null,
     };
   }
 
@@ -647,7 +722,11 @@ class _OrderCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onStatus,
                     icon: const Icon(Icons.task_alt),
-                    label: const Text('Pesanan Selesai'),
+                    label: Text(
+                      order.orderStatus == PreviewOrderStatus.ready
+                          ? 'Sudah Diambil'
+                          : 'Pesanan Selesai',
+                    ),
                   ),
                 if (onWhatsApp != null)
                   OutlinedButton.icon(

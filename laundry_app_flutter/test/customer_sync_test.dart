@@ -115,4 +115,62 @@ void main() {
       isFalse,
     );
   });
+
+  test('hapus non-CS hanya mengubah kontak aplikasi', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(previewDataProvider.notifier);
+    notifier.resetCustomers();
+    notifier.addCustomer(
+      name: 'CS Pagi',
+      phone: '081200000001',
+      address: '',
+      note: '',
+    );
+    notifier.addCustomer(
+      name: 'cs malam',
+      phone: '081200000002',
+      address: '',
+      note: '',
+    );
+    notifier.addCustomer(
+      name: 'Pelanggan Biasa',
+      phone: '081200000003',
+      address: '',
+      note: '',
+    );
+    final orderCount = container.read(previewDataProvider).orders.length;
+
+    expect(notifier.removeNonCsCustomers(), 1);
+    final after = container.read(previewDataProvider);
+    expect(after.customers.map((customer) => customer.name), [
+      'CS Pagi',
+      'cs malam',
+    ]);
+    expect(after.orders.length, orderCount);
+  });
+
+  test('pesan pembayaran WhatsApp menyebut metode dan sisa tagihan', () {
+    final order = PreviewOrder(
+      id: 'order-unpaid-pickup',
+      orderNumber: 'IDL-8',
+      customerId: 'customer-8',
+      customerNameSnapshot: 'Dewi',
+      customerPhoneSnapshot: '08123456789',
+      items: const [],
+      totalPrice: 30000,
+      paidAmount: 10000,
+      orderStatus: PreviewOrderStatus.pickedUp,
+      paymentStatus: PreviewPaymentStatus.partiallyPaid,
+      receivedAt: DateTime(2026, 9, 13),
+      dueAt: DateTime(2026, 9, 14),
+      assignedEmployeeId: 'employee-1',
+      note: '',
+    );
+
+    final message = paymentWhatsAppMessage(order, 'QRIS');
+    expect(message, contains('QRIS'));
+    expect(message, contains('Rp20.000'));
+    expect(message, contains('sudah diambil'));
+  });
 }

@@ -110,6 +110,39 @@ class BluetoothReceiptPrinter {
       );
     }
   });
+
+  Future<void> printStyledLines(
+    List<ThermalPrintLine> lines, {
+    int paperWidth = 80,
+  }) => _exclusive(() async {
+    await _connect();
+    final sent = await PrintBluetoothThermal.writeBytes(
+      styledReceiptBytes(lines, paperWidth: paperWidth),
+    );
+    if (!sent) {
+      await PrintBluetoothThermal.disconnect;
+      throw const Failure(
+        message:
+            'Pengiriman gagal. Periksa printer dan kertas sebelum mencoba lagi agar struk tidak tercetak ganda.',
+      );
+    }
+  });
+}
+
+enum ThermalTextAlign { left, center, right }
+
+class ThermalPrintLine {
+  const ThermalPrintLine(
+    this.text, {
+    this.bold = false,
+    this.large = false,
+    this.align = ThermalTextAlign.left,
+  });
+
+  final String text;
+  final bool bold;
+  final bool large;
+  final ThermalTextAlign align;
 }
 
 /// ESC/POS text, font A: 32 columns on 58 mm, 48 on 80 mm.
@@ -128,6 +161,38 @@ List<int> receiptBytes(List<String> lines, {int paperWidth = 80}) {
     if (safe.isEmpty) bytes.add(10);
   }
   bytes.addAll([10, 10, 10]);
+  return bytes;
+}
+
+/// Styled ESC/POS output used by laundry labels. Large text uses double width
+/// and double height so the order identity remains readable on 58/80 mm paper.
+List<int> styledReceiptBytes(
+  List<ThermalPrintLine> lines, {
+  int paperWidth = 80,
+}) {
+  final columns = paperWidth == 80 ? 48 : 32;
+  final bytes = <int>[27, 64, 27, 77, 0];
+  for (final line in lines) {
+    bytes.addAll([27, 97, line.align.index, 27, 69, line.bold ? 1 : 0]);
+    bytes.addAll([29, 33, line.large ? 17 : 0]);
+    final safe = line.text.runes
+        .map(
+          (character) => character >= 32 && character <= 126 ? character : 32,
+        )
+        .toList();
+    final lineColumns = line.large ? columns ~/ 2 : columns;
+    if (safe.isEmpty) {
+      bytes.add(10);
+    } else {
+      for (var start = 0; start < safe.length; start += lineColumns) {
+        bytes.addAll(
+          safe.sublist(start, (start + lineColumns).clamp(0, safe.length)),
+        );
+        bytes.add(10);
+      }
+    }
+  }
+  bytes.addAll([27, 69, 0, 29, 33, 0, 27, 97, 0, 10, 10, 10]);
   return bytes;
 }
 

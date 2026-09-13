@@ -262,6 +262,12 @@ class OrderDetailPage extends ConsumerWidget {
                     employeeName: order.receivedByName.trim().isEmpty
                         ? employeeName
                         : order.receivedByName,
+                    copies: order.orderStatus == PreviewOrderStatus.pickedUp
+                        ? ReceiptCopyType.values
+                        : const [
+                            ReceiptCopyType.customer,
+                            ReceiptCopyType.laundryLabel,
+                          ],
                   ),
                   icon: const Icon(Icons.print_outlined),
                   label: const Text('Preview Struk'),
