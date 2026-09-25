@@ -26,6 +26,7 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
   @override
   Future<List<PreviewNotification>> build() async {
     _repository = ref.watch(notificationRepositoryProvider);
+    ref.watch(authControllerProvider);
     ref.onDispose(() {
       _disposed = true;
       _removeChannel();
@@ -41,7 +42,13 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
     final shopId = _shopId();
     if (shopId != null) {
       await _repository.markRead(id);
-      await refresh();
+      final current = state.value;
+      if (current != null) {
+        state = AsyncData([
+          for (final item in current)
+            if (item.id == id) item.copyWith(isRead: true) else item,
+        ]);
+      }
     } else {
       ref.read(previewDataProvider.notifier).markNotificationRead(id);
     }
@@ -51,7 +58,12 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
     final shopId = _shopId();
     if (shopId != null) {
       await _repository.markAllRead(shopId);
-      await refresh();
+      final current = state.value;
+      if (current != null) {
+        state = AsyncData([
+          for (final item in current) item.copyWith(isRead: true),
+        ]);
+      }
     } else {
       ref.read(previewDataProvider.notifier).markAllNotificationsRead();
     }
@@ -60,7 +72,13 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
   Future<void> delete(String id) async {
     if (_shopId() != null) {
       await _repository.delete(id);
-      await refresh();
+      final current = state.value;
+      if (current != null) {
+        state = AsyncData([
+          for (final item in current)
+            if (item.id != id) item,
+        ]);
+      }
     } else {
       ref.read(previewDataProvider.notifier).deleteNotification(id);
     }

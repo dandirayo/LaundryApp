@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/user_role.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../router/app_routes.dart';
+import '../router/app_navigation_history.dart';
 import 'app_snack_bar.dart';
 
 class AppBackGuard extends ConsumerWidget {
@@ -25,7 +26,9 @@ class AppBackGuard extends ConsumerWidget {
         if (didPop) {
           return;
         }
-        final target = _backTarget(path, role);
+        final target =
+            AppNavigationHistory.instance.takePrevious() ??
+            _backTarget(path, role);
         if (target == null) {
           showAppSnackBar('Sudah di Beranda.');
           return;

@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:laundry_app_flutter/core/widgets/app_state_view.dart';
+import 'package:laundry_app_flutter/features/auth/domain/app_user.dart';
+import 'package:laundry_app_flutter/features/auth/domain/user_role.dart';
+import 'package:laundry_app_flutter/features/auth/presentation/auth_controller.dart';
+import 'package:laundry_app_flutter/features/cashbook/presentation/cashbook_page.dart';
 import 'package:laundry_app_flutter/features/orders/presentation/orders_page.dart';
 import 'package:laundry_app_flutter/shared/preview_data.dart';
 
@@ -64,6 +68,36 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Pesanan'), findsWidgets);
     expect(find.text('Buat Pesanan Baru'), findsOneWidget);
+  });
+
+  testWidgets('ringkasan Buku Kas tidak menyempitkan judul panjang', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 800);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_CashbookAuth.new),
+          previewDataProvider.overrideWith(_CashbookPreviewController.new),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: InkRipple.splashFactory),
+          home: const CashbookPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ringkasan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pendapatan terbesar'), findsOneWidget);
+    expect(
+      find.text('Pembayaran IDL-20260920-0524B6 (Rp32.000)'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('daftar Pesanan menampilkan order Ratna dan Yani', (
@@ -200,6 +234,41 @@ class _SharedOrdersPreviewController extends PreviewDataController {
           'employee-yani',
           'Yani',
           'Cuci Kering Kilat',
+        ),
+      ],
+    );
+  }
+}
+
+class _CashbookAuth extends AuthController {
+  @override
+  Future<AuthSessionState> build() async =>
+      const AuthSessionState.authenticated(
+        AppUser(
+          userId: 'owner-1',
+          shopId: 'preview-shop-owner',
+          name: 'Owner',
+          role: UserRole.owner,
+          isActive: true,
+        ),
+      );
+}
+
+class _CashbookPreviewController extends PreviewDataController {
+  @override
+  PreviewDataState build() {
+    return super.build().copyWith(
+      cashTransactions: [
+        PreviewCashTransaction(
+          id: 'cash-long-summary',
+          referenceId: 'order-1',
+          referenceType: 'PAYMENT',
+          type: 'IN',
+          category: 'Laundry',
+          description: 'Pembayaran IDL-20260920-0524B6',
+          amount: 32000,
+          method: 'Tunai',
+          createdAt: DateTime.now(),
         ),
       ],
     );

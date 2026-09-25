@@ -9,6 +9,8 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/confirmation_dialog.dart';
 import '../features/auth/domain/user_role.dart';
 import '../features/auth/presentation/auth_controller.dart';
+import '../features/businesses/domain/business.dart';
+import '../features/businesses/presentation/business_controller.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({required this.child, super.key});
@@ -20,7 +22,14 @@ class AppShell extends ConsumerWidget {
     final session = ref.watch(authControllerProvider).value;
     final role = session?.user?.role ?? UserRole.employee;
     final strings = ref.strings;
-    final destinations = _destinationsFor(role, strings);
+    final businessKind = ref
+        .watch(businessControllerProvider)
+        .value
+        ?.selectedBusiness
+        ?.kind;
+    final destinations = businessKind == BusinessKind.beverage
+        ? _posDestinations()
+        : _destinationsFor(role, strings);
     final path = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(
       path,
@@ -149,6 +158,33 @@ class AppShell extends ConsumerWidget {
     ];
   }
 
+  List<_ShellDestination> _posDestinations() => const [
+    _ShellDestination(
+      label: 'Beranda',
+      path: AppRoutes.posHome,
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+    ),
+    _ShellDestination(
+      label: 'Kasir',
+      path: AppRoutes.posCashier,
+      icon: Icons.point_of_sale_outlined,
+      selectedIcon: Icons.point_of_sale,
+    ),
+    _ShellDestination(
+      label: 'Menu',
+      path: AppRoutes.posProducts,
+      icon: Icons.local_cafe_outlined,
+      selectedIcon: Icons.local_cafe,
+    ),
+    _ShellDestination(
+      label: 'Lainnya',
+      path: AppRoutes.posMore,
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view,
+    ),
+  ];
+
   int _selectedIndex(String path, List<_ShellDestination> destinations) {
     final exactIndex = destinations.indexWhere((item) => item.path == path);
     if (exactIndex >= 0) {
@@ -161,6 +197,12 @@ class AppShell extends ConsumerWidget {
       return destinations.indexWhere(
         (item) => item.path == AppRoutes.customers,
       );
+    }
+    if (path.startsWith('/pos')) {
+      final exactPos = destinations.indexWhere((item) => item.path == path);
+      return exactPos >= 0
+          ? exactPos
+          : destinations.indexWhere((item) => item.path == AppRoutes.posMore);
     }
     return destinations.indexWhere((item) => item.path == AppRoutes.more);
   }

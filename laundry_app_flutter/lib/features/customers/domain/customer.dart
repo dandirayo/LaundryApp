@@ -9,6 +9,7 @@ class Customer {
     this.phone,
     this.normalizedPhone,
     this.updatedAt,
+    this.points = 0,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class Customer {
   final String note;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final int points;
 
   bool get hasPhone =>
       phone != null &&
@@ -34,6 +36,7 @@ class Customer {
     String? address,
     String? note,
     DateTime? updatedAt,
+    int? points,
   }) {
     return Customer(
       id: id,
@@ -47,6 +50,7 @@ class Customer {
       note: note ?? this.note,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      points: points ?? this.points,
     );
   }
 

@@ -883,6 +883,13 @@ class _CustomerListBody extends ConsumerWidget {
               ),
             ),
           ],
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              'Poin terkumpul: 1 poin setiap Rp10.000 pesanan lunas.',
+              style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
+            ),
+          ),
           const SizedBox(height: 16),
           Expanded(
             child: customers.isEmpty
@@ -950,7 +957,9 @@ class _CustomerListBody extends ConsumerWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            subtitle: Text('$phoneText\n$addressText'),
+                            subtitle: Text(
+                              '$phoneText\n$addressText\n${customer.points} poin',
+                            ),
                             isThreeLine: true,
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,

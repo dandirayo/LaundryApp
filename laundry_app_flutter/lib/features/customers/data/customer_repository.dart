@@ -21,7 +21,20 @@ final class CustomerRepository {
         .isFilter('deleted_at', null)
         .order('created_at', ascending: false);
 
-    return [for (final row in rows) Customer.fromMap(row)];
+    final pointRows = await _requireClient()
+        .from('customer_point_balances')
+        .select('customer_id, points')
+        .eq('shop_id', shopId);
+    final pointsByCustomer = {
+      for (final row in pointRows)
+        row['customer_id'] as String: (row['points'] as num).toInt(),
+    };
+    return [
+      for (final row in rows)
+        Customer.fromMap(
+          row,
+        ).copyWith(points: pointsByCustomer[row['id'] as String] ?? 0),
+    ];
   }
 
   Future<Customer> createCustomer({
@@ -173,6 +186,26 @@ final class CustomerRepository {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'customers',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .subscribe();
+  }
+
+  RealtimeChannel subscribeToPointBalances({
+    required String shopId,
+    required void Function() onChanged,
+  }) {
+    return _requireClient()
+        .channel('public:customer_point_balances:$shopId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'customer_point_balances',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'shop_id',

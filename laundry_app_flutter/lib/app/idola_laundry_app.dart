@@ -16,7 +16,7 @@ class IdolaLaundryApp extends ConsumerWidget {
     final language = ref.watch(appLanguageProvider);
 
     return MaterialApp.router(
-      title: 'Idola Laundry',
+      title: 'Idola POS',
       debugShowCheckedModeBanner: false,
       locale: language.locale,
       scaffoldMessengerKey: appScaffoldMessengerKey,

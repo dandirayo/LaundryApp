@@ -10,6 +10,10 @@ import '../../features/auth/presentation/profile_page.dart';
 import '../../features/auth/presentation/sign_in_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
 import '../../features/backup/presentation/backup_page.dart';
+import '../../features/businesses/domain/business.dart';
+import '../../features/businesses/presentation/business_controller.dart';
+import '../../features/businesses/presentation/business_management_page.dart';
+import '../../features/businesses/presentation/business_selector_page.dart';
 import '../../features/cashbook/presentation/cashbook_page.dart';
 import '../../features/customers/presentation/customers_page.dart';
 import '../../features/dashboard/presentation/dashboard_page.dart';
@@ -24,6 +28,10 @@ import '../../features/orders/presentation/order_detail_page.dart';
 import '../../features/orders/presentation/orders_page.dart';
 import '../../features/payroll/presentation/payroll_page.dart';
 import '../../features/printer/presentation/printer_page.dart';
+import '../../features/pos/presentation/pos_cashier_page.dart';
+import '../../features/pos/presentation/pos_home_page.dart';
+import '../../features/pos/presentation/pos_more_page.dart';
+import '../../features/pos/presentation/pos_products_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
 import '../../features/services/presentation/services_page.dart';
 import '../../features/settings/presentation/more_page.dart';
@@ -32,17 +40,20 @@ import '../../features/shifts/presentation/shifts_page.dart';
 import '../widgets/app_back_guard.dart';
 import '../widgets/feature_status_page.dart';
 import 'app_routes.dart';
+import 'app_navigation_history.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
   final session = auth.value;
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: AppRoutes.splash,
     redirect: (context, state) {
       final path = state.uri.path;
       final isSplash = path == AppRoutes.splash;
       final isSignIn = path == AppRoutes.signIn;
+      final isBusinessSelector = path == AppRoutes.businessSelector;
+      final isBusinessManagement = path == AppRoutes.businessManagement;
       final isChecking = auth.isLoading && session == null;
 
       if (isChecking) {
@@ -55,7 +66,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isSplash || isSignIn) {
+        return AppRoutes.businessSelector;
+      }
+
+      final selectedBusiness = ref
+          .read(businessControllerProvider)
+          .value
+          ?.selectedBusiness;
+      if (!isBusinessSelector &&
+          !isBusinessManagement &&
+          selectedBusiness == null) {
+        return AppRoutes.businessSelector;
+      }
+
+      if (selectedBusiness?.kind == BusinessKind.laundry &&
+          path.startsWith('/pos')) {
         return AppRoutes.dashboard;
+      }
+
+      if (selectedBusiness?.kind == BusinessKind.beverage &&
+          _isLaundryWorkspacePath(path)) {
+        return AppRoutes.posHome;
       }
 
       if (!AppRoutes.canOpen(path, user.role)) {
@@ -72,6 +103,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.signIn,
         builder: (context, state) => const SignInPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.businessSelector,
+        builder: (context, state) => const BusinessSelectorPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.businessManagement,
+        builder: (context, state) => const BusinessManagementPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
@@ -221,6 +260,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.changePin,
             builder: (context, state) => _withBackGuard(const ChangePinPage()),
           ),
+          GoRoute(
+            path: AppRoutes.posHome,
+            builder: (context, state) => _withBackGuard(const PosHomePage()),
+          ),
+          GoRoute(
+            path: AppRoutes.posCashier,
+            builder: (context, state) => _withBackGuard(const PosCashierPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.posProducts,
+            builder: (context, state) =>
+                _withBackGuard(const PosProductsPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.posMore,
+            builder: (context, state) => _withBackGuard(const PosMorePage()),
+          ),
         ],
       ),
     ],
@@ -232,6 +288,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           'Route tidak dikenali. Gunakan navigasi aplikasi untuk kembali.',
     ),
   );
+  void rememberRoute() => AppNavigationHistory.instance.record(
+    router.routeInformationProvider.value.uri.path,
+  );
+  router.routeInformationProvider.addListener(rememberRoute);
+  ref.onDispose(() {
+    router.routeInformationProvider.removeListener(rememberRoute);
+    router.dispose();
+  });
+  return router;
 });
 
 Widget _withBackGuard(Widget child) => AppBackGuard(child: child);
+
+bool _isLaundryWorkspacePath(String path) {
+  return path == AppRoutes.dashboard ||
+      path.startsWith('/orders') ||
+      path.startsWith('/customers') ||
+      path == AppRoutes.more ||
+      path == AppRoutes.services ||
+      path == AppRoutes.inventory ||
+      path == AppRoutes.shifts ||
+      path == AppRoutes.employees ||
+      path == AppRoutes.attendance ||
+      path == AppRoutes.payroll ||
+      path.startsWith('/requests') ||
+      path == AppRoutes.reports ||
+      path == AppRoutes.cashbook ||
+      path == AppRoutes.expenses ||
+      path == AppRoutes.notifications ||
+      path == AppRoutes.printer ||
+      path == AppRoutes.backup ||
+      path == AppRoutes.shopSettings;
+}

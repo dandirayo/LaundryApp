@@ -54,7 +54,7 @@ Future<void> showReceiptPreviewSheet({
           const SizedBox(height: 6),
           Text(
             copies.contains(ReceiptCopyType.laundryLabel) && copies.length > 1
-                ? 'Cetak nota pelanggan dan label cucian secara bergantian.'
+                ? 'Pilih satu jenis cetakan. Sobek kertas sebelum mencetak berikutnya.'
                 : 'Periksa isi dan ukuran kertas sebelum mencetak.',
             style: const TextStyle(color: AppColors.secondaryText),
           ),
@@ -103,53 +103,7 @@ Future<void> showReceiptPreviewSheet({
             employeeName: employeeName,
           ),
           const SizedBox(height: 12),
-          if (copies.contains(ReceiptCopyType.customer) &&
-              copies.contains(ReceiptCopyType.laundryLabel)) ...[
-            FilledButton.icon(
-              onPressed: printing
-                  ? null
-                  : () async {
-                      setModalState(() => printing = true);
-                      try {
-                        await BluetoothReceiptPrinter.instance.printLines(
-                          standardReceiptLines(
-                            order: order,
-                            copy: ReceiptCopyType.customer,
-                            shopName: shopName,
-                            shopAddress: shopAddress,
-                            employeeName: employeeName,
-                            paperWidth: paperWidth,
-                          ),
-                          paperWidth: paperWidth,
-                          logoAsset: 'assets/images/idola_one_logo.png',
-                        );
-                        await BluetoothReceiptPrinter.instance.printStyledLines(
-                          laundryLabelLines(order),
-                          paperWidth: paperWidth,
-                        );
-                        showAppSnackBar(
-                          'Nota pelanggan dan label cucian dikirim ke printer.',
-                        );
-                      } catch (error) {
-                        showAppSnackBar(
-                          error is Failure
-                              ? error.message
-                              : 'Gagal mengirim cetakan. Periksa printer sebelum mencoba lagi.',
-                        );
-                      } finally {
-                        if (context.mounted) {
-                          setModalState(() => printing = false);
-                        }
-                      }
-                    },
-              icon: const Icon(Icons.copy_all_outlined),
-              label: Text(
-                printing ? 'Mengirim...' : 'Cetak Nota + Label (2 Lembar)',
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          OutlinedButton.icon(
+          FilledButton.icon(
             onPressed: printing
                 ? null
                 : () async {
@@ -157,7 +111,7 @@ Future<void> showReceiptPreviewSheet({
                     try {
                       if (selectedCopy == ReceiptCopyType.laundryLabel) {
                         await BluetoothReceiptPrinter.instance.printStyledLines(
-                          laundryLabelLines(order),
+                          laundryLabelLines(order, paperWidth: paperWidth),
                           paperWidth: paperWidth,
                         );
                       } else {
@@ -175,7 +129,7 @@ Future<void> showReceiptPreviewSheet({
                         );
                       }
                       showAppSnackBar(
-                        '${selectedCopy.label} dikirim. Periksa hasil pada printer.',
+                        '${selectedCopy.label} dicetak. Sobek kertas sebelum cetakan berikutnya.',
                       );
                     } catch (error) {
                       showAppSnackBar(
@@ -257,13 +211,10 @@ List<String> standardReceiptLines({
   ];
 }
 
-List<ThermalPrintLine> laundryLabelLines(PreviewOrder order) {
-  final itemSummary = order.items
-      .map(
-        (item) =>
-            '${formatQuantityForUnit(item.quantity, item.unit)} ${item.serviceNameSnapshot}',
-      )
-      .join(' / ');
+List<ThermalPrintLine> laundryLabelLines(
+  PreviewOrder order, {
+  int paperWidth = 80,
+}) {
   return [
     const ThermalPrintLine(
       'LABEL CUCIAN',
@@ -274,7 +225,7 @@ List<ThermalPrintLine> laundryLabelLines(PreviewOrder order) {
     ThermalPrintLine(
       order.orderNumber,
       bold: true,
-      large: true,
+      large: paperWidth == 80,
       align: ThermalTextAlign.center,
     ),
     ThermalPrintLine(
@@ -283,8 +234,15 @@ List<ThermalPrintLine> laundryLabelLines(PreviewOrder order) {
       large: true,
       align: ThermalTextAlign.center,
     ),
-    const ThermalPrintLine('--------------------------------'),
-    ThermalPrintLine('BERAT/JUMLAH: $itemSummary', bold: true, large: true),
+    const ThermalPrintLine('BERAT / JUMLAH', bold: true),
+    for (final item in order.items) ...[
+      ThermalPrintLine(
+        formatQuantityForUnit(item.quantity, item.unit),
+        bold: true,
+        large: true,
+      ),
+      ThermalPrintLine(item.serviceNameSnapshot, bold: true),
+    ],
     ThermalPrintLine(
       'BAYAR: ${order.paymentStatus.label.toUpperCase()}',
       bold: true,
@@ -358,7 +316,7 @@ class _ReceiptPaper extends StatelessWidget {
                   height: 1.25,
                 ),
                 child: copy == ReceiptCopyType.laundryLabel
-                    ? _LaundryLabelPreview(order: order)
+                    ? _LaundryLabelPreview(order: order, paperWidth: paperWidth)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -388,16 +346,17 @@ class _ReceiptPaper extends StatelessWidget {
 }
 
 class _LaundryLabelPreview extends StatelessWidget {
-  const _LaundryLabelPreview({required this.order});
+  const _LaundryLabelPreview({required this.order, required this.paperWidth});
 
   final PreviewOrder order;
+  final int paperWidth;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final line in laundryLabelLines(order))
+        for (final line in laundryLabelLines(order, paperWidth: paperWidth))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(

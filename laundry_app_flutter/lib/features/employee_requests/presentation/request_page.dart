@@ -87,7 +87,13 @@ class _RequestPageState extends ConsumerState<RequestPage> {
             ? null
             : () => _showRequestSheet(context, employee: employee),
         icon: const Icon(Icons.add),
-        label: Text(_isSubmitting ? 'Mengirim…' : 'Buat Pengajuan'),
+        label: Text(
+          _isSubmitting
+              ? 'Mengirim…'
+              : widget.initialType == RequestKind.stock.storageValue
+              ? 'Tambah Pengadaan Stok'
+              : 'Buat Pengajuan',
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () =>

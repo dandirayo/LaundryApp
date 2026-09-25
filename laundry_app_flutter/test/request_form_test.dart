@@ -32,7 +32,7 @@ void main() {
           child: MaterialApp(
             theme: AppTheme.light(),
             scaffoldMessengerKey: appScaffoldMessengerKey,
-            home: const RequestPage(initialType: 'Request Stok'),
+            home: const RequestPage(),
           ),
         ),
       );
@@ -367,7 +367,12 @@ Future<void> _pickDate(WidgetTester tester) async {
   await _tapText(tester, 'OK');
 }
 
-Future<void> _submit(WidgetTester tester) => _tapText(tester, 'Kirim ke Owner');
+Future<void> _submit(WidgetTester tester) => _tapText(
+  tester,
+  find.text('Ajukan Pengadaan Stok').evaluate().isNotEmpty
+      ? 'Ajukan Pengadaan Stok'
+      : 'Kirim ke Owner',
+);
 
 class _HistoryController extends EmployeeRequestController {
   @override

@@ -41,4 +41,4 @@ bukan transfer bank. Biaya yang sudah dicatat/diganti tidak perlu diajukan ulang
 `flutter test test/request_form_test.dart` memeriksa kolom wajib, catatan opsional,
 pergantian kategori tanpa membawa data pribadi sebelumnya, tanggal/jam, layout
 layar kecil, dan kompatibilitas riwayat insentif. Uji sinkronisasi dua akun pada
-Supabase tetap mengikuti `docs/SMOKE_TEST_OWNER_EMPLOYEE_SYNC.md` di root repo.
+Supabase tetap mengikuti `docs/quality/01-SMOKE-TEST-OWNER-EMPLOYEE-SYNC.md` di root repo.

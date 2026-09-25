@@ -12,42 +12,32 @@ class NotificationRepository {
   bool get isOnline => _client != null;
 
   Future<List<PreviewNotification>> fetch(String shopId) async {
-    late final List<Map<String, dynamic>> rows;
-    try {
-      rows = await _fetchRows(shopId, includeReferences: true);
-    } on PostgrestException catch (error) {
-      // Keep deployed clients usable while the additive Chat 3 migration is
-      // waiting to be applied. RLS remains active on the legacy query.
-      if (error.code != '42703') rethrow;
-      rows = await _fetchRows(shopId, includeReferences: false);
-    }
-    return [for (final row in rows) _fromMap(row)];
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchRows(
-    String shopId, {
-    required bool includeReferences,
-  }) async {
-    final columns = includeReferences
-        ? 'id, target_profile_id, title, message, type, action_route, reference_type, reference_id, is_read, created_at'
-        : 'id, target_profile_id, title, message, type, action_route, is_read, created_at';
     final rows = await _requireClient()
         .from('notifications')
-        .select(columns)
+        .select(
+          'id, target_profile_id, title, message, type, action_route, reference_type, reference_id, is_read, created_at',
+        )
         .eq('shop_id', shopId)
         .order('created_at', ascending: false)
         .limit(100);
-    return rows;
+    return [for (final row in rows) _fromMap(row)];
   }
 
   Future<void> markRead(String id) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('notifications')
         .update({
           'is_read': true,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
+    if (rows.isEmpty) {
+      throw const Failure(
+        code: 'notification-not-updated',
+        message: 'Notifikasi tidak ditemukan atau tidak dapat diperbarui.',
+      );
+    }
   }
 
   Future<void> markAllRead(String shopId) async {
@@ -62,7 +52,17 @@ class NotificationRepository {
   }
 
   Future<void> delete(String id) async {
-    await _requireClient().from('notifications').delete().eq('id', id);
+    final rows = await _requireClient()
+        .from('notifications')
+        .delete()
+        .eq('id', id)
+        .select('id');
+    if (rows.isEmpty) {
+      throw const Failure(
+        code: 'notification-not-deleted',
+        message: 'Notifikasi tidak ditemukan atau tidak dapat dihapus.',
+      );
+    }
   }
 
   RealtimeChannel subscribe({

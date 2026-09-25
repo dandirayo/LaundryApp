@@ -38,6 +38,7 @@ class CustomerListState {
 
 class CustomerController extends AsyncNotifier<CustomerListState> {
   RealtimeChannel? _channel;
+  RealtimeChannel? _pointsChannel;
   CustomerRepository? _subscribedRepository;
   String? _subscribedShopId;
   bool _disposeRegistered = false;
@@ -244,13 +245,19 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
     required CustomerRepository repository,
     required String shopId,
   }) {
-    if (_subscribedShopId == shopId && _channel != null) {
+    if (_subscribedShopId == shopId &&
+        _channel != null &&
+        _pointsChannel != null) {
       return;
     }
     _unsubscribeFromRealtime();
     _subscribedRepository = repository;
     _subscribedShopId = shopId;
     _channel = repository.subscribeToCustomers(
+      shopId: shopId,
+      onChanged: _queueRealtimeRefresh,
+    );
+    _pointsChannel = repository.subscribeToPointBalances(
       shopId: shopId,
       onChanged: _queueRealtimeRefresh,
     );
@@ -273,12 +280,17 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
 
   void _unsubscribeFromRealtime() {
     final channel = _channel;
+    final pointsChannel = _pointsChannel;
     final repository = _subscribedRepository;
     _channel = null;
+    _pointsChannel = null;
     _subscribedRepository = null;
     _subscribedShopId = null;
     if (channel != null && repository != null) {
       unawaited(_removeSubscription(repository, channel));
+    }
+    if (pointsChannel != null && repository != null) {
+      unawaited(_removeSubscription(repository, pointsChannel));
     }
   }
 

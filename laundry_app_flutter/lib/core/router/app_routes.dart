@@ -5,6 +5,8 @@ class AppRoutes {
 
   static const splash = '/splash';
   static const signIn = '/sign-in';
+  static const businessSelector = '/businesses';
+  static const businessManagement = '/businesses/manage';
   static const dashboard = '/dashboard';
   static const orders = '/orders';
   static const ordersMine = '/orders/me';
@@ -37,6 +39,10 @@ class AppRoutes {
   static const incentiveRequest = '/requests/incentive';
   static const cashAdvanceRequest = '/requests/cash-advance';
   static const changePin = '/account/change-pin';
+  static const posHome = '/pos';
+  static const posCashier = '/pos/cashier';
+  static const posProducts = '/pos/products';
+  static const posMore = '/pos/more';
 
   static const ownerOnlyPaths = <String>{
     services,
@@ -51,6 +57,7 @@ class AppRoutes {
     printer,
     backup,
     shopSettings,
+    businessManagement,
   };
 
   static const employeeOnlyPaths = <String>{

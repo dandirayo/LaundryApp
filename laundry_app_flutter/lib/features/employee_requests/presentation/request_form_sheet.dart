@@ -94,34 +94,41 @@ class _RequestFormSheetState extends State<RequestFormSheet> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'Buat Pengajuan',
+            _kind == RequestKind.stock
+                ? 'Tambah Pengadaan Stok'
+                : 'Buat Pengajuan',
             style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
         const SizedBox(height: 8),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: Text('Pilih kebutuhan, lalu isi detailnya untuk Owner.'),
+          child: Text(
+            _kind == RequestKind.stock
+                ? 'Isi barang dan jumlah yang dibutuhkan untuk persetujuan Owner.'
+                : 'Pilih kebutuhan, lalu isi detailnya untuk Owner.',
+          ),
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<RequestCategory>(
-          key: ValueKey(_kind.category),
-          initialValue: _kind.category,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Kategori pengajuan'),
-          items: [
-            for (final category in RequestCategory.values)
-              DropdownMenuItem(value: category, child: Text(category.label)),
-          ],
-          onChanged: (category) {
-            if (category == null) return;
-            _selectKind(switch (category) {
-              RequestCategory.stock => RequestKind.stock,
-              RequestCategory.schedule => RequestKind.leave,
-              RequestCategory.funds => RequestKind.cashAdvance,
-            });
-          },
-        ),
+        if (widget.initialType != RequestKind.stock.storageValue)
+          DropdownButtonFormField<RequestCategory>(
+            key: ValueKey(_kind.category),
+            initialValue: _kind.category,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Kategori pengajuan'),
+            items: [
+              for (final category in RequestCategory.values)
+                DropdownMenuItem(value: category, child: Text(category.label)),
+            ],
+            onChanged: (category) {
+              if (category == null) return;
+              _selectKind(switch (category) {
+                RequestCategory.stock => RequestKind.stock,
+                RequestCategory.schedule => RequestKind.leave,
+                RequestCategory.funds => RequestKind.cashAdvance,
+              });
+            },
+          ),
         if (_kind.category == RequestCategory.funds) ...[
           const SizedBox(height: 12),
           Wrap(
@@ -201,7 +208,11 @@ class _RequestFormSheetState extends State<RequestFormSheet> {
                   child: FilledButton.icon(
                     onPressed: _submit,
                     icon: const Icon(Icons.send_outlined),
-                    label: const Text('Kirim ke Owner'),
+                    label: Text(
+                      _kind == RequestKind.stock
+                          ? 'Ajukan Pengadaan Stok'
+                          : 'Kirim ke Owner',
+                    ),
                   ),
                 ),
               ],

@@ -42,6 +42,21 @@ class MorePage extends ConsumerWidget {
   ) {
     return [
       _MenuSection(
+        title: 'USAHA',
+        items: [
+          _MenuItem(
+            'Ganti Usaha',
+            Icons.swap_horiz,
+            AppRoutes.businessSelector,
+          ),
+          _MenuItem(
+            'Kelola Usaha & Karyawan',
+            Icons.storefront_outlined,
+            AppRoutes.businessManagement,
+          ),
+        ],
+      ),
+      _MenuSection(
         title: strings.operational,
         items: [
           _MenuItem(
@@ -138,6 +153,16 @@ class MorePage extends ConsumerWidget {
     AppStrings strings,
   ) {
     return [
+      _MenuSection(
+        title: 'USAHA',
+        items: [
+          _MenuItem(
+            'Ganti Usaha',
+            Icons.swap_horiz,
+            AppRoutes.businessSelector,
+          ),
+        ],
+      ),
       _MenuSection(
         title: strings.work,
         items: [

@@ -483,6 +483,11 @@ class _EmployeeDashboard extends ConsumerWidget {
             ),
             _QuickAction('Pesanan', Icons.receipt_long, AppRoutes.ordersMine),
             _QuickAction(
+              'Pelanggan',
+              Icons.people_outline,
+              AppRoutes.customers,
+            ),
+            _QuickAction(
               'Pengajuan Saya',
               Icons.rule_folder_outlined,
               AppRoutes.requestsMine,

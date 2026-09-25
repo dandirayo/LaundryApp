@@ -175,25 +175,46 @@ List<int> styledReceiptBytes(
   for (final line in lines) {
     bytes.addAll([27, 97, line.align.index, 27, 69, line.bold ? 1 : 0]);
     bytes.addAll([29, 33, line.large ? 17 : 0]);
-    final safe = line.text.runes
-        .map(
-          (character) => character >= 32 && character <= 126 ? character : 32,
-        )
-        .toList();
     final lineColumns = line.large ? columns ~/ 2 : columns;
-    if (safe.isEmpty) {
+    for (final segment in _wrapPrintableWords(line.text, lineColumns)) {
+      bytes.addAll(segment.codeUnits);
       bytes.add(10);
-    } else {
-      for (var start = 0; start < safe.length; start += lineColumns) {
-        bytes.addAll(
-          safe.sublist(start, (start + lineColumns).clamp(0, safe.length)),
-        );
-        bytes.add(10);
-      }
     }
   }
   bytes.addAll([27, 69, 0, 29, 33, 0, 27, 97, 0, 10, 10, 10]);
   return bytes;
+}
+
+List<String> _wrapPrintableWords(String text, int columns) {
+  final safe = String.fromCharCodes(
+    text.runes.map(
+      (character) => character >= 32 && character <= 126 ? character : 32,
+    ),
+  ).trim();
+  if (safe.isEmpty) return const [''];
+  final result = <String>[];
+  var current = '';
+  for (var word in safe.split(RegExp(r'\s+'))) {
+    while (word.length > columns) {
+      if (current.isNotEmpty) {
+        result.add(current);
+        current = '';
+      }
+      result.add(word.substring(0, columns));
+      word = word.substring(columns);
+    }
+    if (word.isEmpty) continue;
+    if (current.isEmpty) {
+      current = word;
+    } else if (current.length + word.length + 1 <= columns) {
+      current = '$current $word';
+    } else {
+      result.add(current);
+      current = word;
+    }
+  }
+  if (current.isNotEmpty) result.add(current);
+  return result;
 }
 
 Future<List<int>> receiptBytesWithLogo(
@@ -212,7 +233,6 @@ Future<List<int>> receiptBytesWithLogo(
     97,
     1,
     ...logo,
-    10,
     27,
     97,
     0,
@@ -234,21 +254,49 @@ Future<List<int>> _logoRasterBytes(
   final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
   if (rgba == null) return const [];
 
-  final imageHeight = image.height;
-  final widthBytes = (image.width + 7) ~/ 8;
-  final raster = List<int>.filled(widthBytes * imageHeight, 0);
-  for (var y = 0; y < imageHeight; y++) {
+  bool isDark(int x, int y) {
+    final offset = (y * image.width + x) * 4;
+    final red = rgba.getUint8(offset);
+    final green = rgba.getUint8(offset + 1);
+    final blue = rgba.getUint8(offset + 2);
+    final alpha = rgba.getUint8(offset + 3) / 255;
+    final luminance =
+        ((0.299 * red) + (0.587 * green) + (0.114 * blue)) * alpha +
+        (255 * (1 - alpha));
+    return luminance < 175;
+  }
+
+  // Crop whitespace embedded in the logo asset before sending it to paper.
+  var left = image.width;
+  var top = image.height;
+  var right = -1;
+  var bottom = -1;
+  for (var y = 0; y < image.height; y++) {
     for (var x = 0; x < image.width; x++) {
-      final offset = (y * image.width + x) * 4;
-      final red = rgba.getUint8(offset);
-      final green = rgba.getUint8(offset + 1);
-      final blue = rgba.getUint8(offset + 2);
-      final alpha = rgba.getUint8(offset + 3) / 255;
-      final luminance =
-          ((0.299 * red) + (0.587 * green) + (0.114 * blue)) * alpha +
-          (255 * (1 - alpha));
-      if (luminance < 175) {
-        raster[(y * widthBytes) + (x ~/ 8)] |= 0x80 >> (x % 8);
+      if (!isDark(x, y)) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+  if (right < left || bottom < top) {
+    image.dispose();
+    codec.dispose();
+    return const [];
+  }
+  left = (left - 3).clamp(0, image.width - 1);
+  right = (right + 3).clamp(0, image.width - 1);
+  top = (top - 3).clamp(0, image.height - 1);
+  bottom = (bottom + 3).clamp(0, image.height - 1);
+  final widthBytes = (right - left + 8) ~/ 8;
+  final imageHeight = bottom - top + 1;
+  final raster = List<int>.filled(widthBytes * imageHeight, 0);
+  for (var y = top; y <= bottom; y++) {
+    for (var x = left; x <= right; x++) {
+      if (isDark(x, y)) {
+        raster[((y - top) * widthBytes) + ((x - left) ~/ 8)] |=
+            0x80 >> ((x - left) % 8);
       }
     }
   }

@@ -27,15 +27,19 @@ Idola One adalah aplikasi operasional Idola Laundry untuk mengelola pesanan, pel
 - `scripts/` — alat build serta publikasi rilis Android.
 - `docs/` — dokumentasi operasional internal.
 
-Rincian kesiapan fitur website, sumber data, kontrak realtime, gap, dan urutan pengembangan tersedia di [`docs/ADMIN_DASHBOARD_BLUEPRINT.md`](docs/ADMIN_DASHBOARD_BLUEPRINT.md).
+Paket PRD, TRD, UI/UX, app flow, schema, dan implementation plan tersedia di [`docs/product/README.md`](docs/product/README.md).
 
-Website admin pada branch `main` menggunakan alur deployment otomatis ke VPS. Konfigurasi dan panduan pemulihannya tersedia di [`docs/ADMIN_VPS_DEPLOYMENT.md`](docs/ADMIN_VPS_DEPLOYMENT.md).
+Arsitektur deployment, CI/CD, daftar VPS, secrets, runbook, backup, rollback, dan monitoring tersedia di [`docs/deployment/README.md`](docs/deployment/README.md).
+
+Rincian kesiapan fitur website, sumber data, kontrak realtime, gap, dan urutan pengembangan tersedia di [`docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md`](docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md).
+
+Website admin pada branch `main` menggunakan alur deployment otomatis ke VPS. Konfigurasi dan panduan pemulihannya tersedia di [`docs/deployment/08-ADMIN-DASHBOARD-DEPLOYMENT.md`](docs/deployment/08-ADMIN-DASHBOARD-DEPLOYMENT.md).
 
 ## Rilis Android
 
 Pembaruan cloud tersedia mulai versi `1.0.3+4`. Proses rilis membuat APK untuk beberapa arsitektur perangkat, memverifikasi package, versi, signature, ukuran, dan hash, lalu menerbitkan manifest pembaruan setelah seluruh APK lolos pemeriksaan.
 
-Panduan internal tersedia di [`docs/android-cloud-updates.md`](docs/android-cloud-updates.md). Kredensial dan konfigurasi produksi tidak disimpan di README.
+Panduan internal tersedia di [`docs/deployment/09-ANDROID-CLOUD-UPDATES.md`](docs/deployment/09-ANDROID-CLOUD-UPDATES.md). Kredensial dan konfigurasi produksi tidak disimpan di README.
 
 ## Kualitas
 

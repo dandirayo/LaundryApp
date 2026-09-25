@@ -92,7 +92,7 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
             ? _showProcurementSheet(context)
             : _showExpenseSheet(context),
         icon: const Icon(Icons.add),
-        label: Text(_tabs.index == 0 ? 'Pengadaan' : 'Pengeluaran'),
+        label: Text(_tabs.index == 0 ? 'Tambah Pengadaan Stok' : 'Pengeluaran'),
       ),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -481,7 +481,17 @@ class _ProcurementView extends StatelessWidget {
   }
 }
 
-class _ExpenseList extends StatelessWidget {
+enum _ExpensePeriod { today, yesterday, week }
+
+extension on _ExpensePeriod {
+  String get label => switch (this) {
+    _ExpensePeriod.today => 'Hari ini',
+    _ExpensePeriod.yesterday => 'Kemarin',
+    _ExpensePeriod.week => 'Seminggu',
+  };
+}
+
+class _ExpenseList extends StatefulWidget {
   const _ExpenseList({
     required this.items,
     required this.emptyTitle,
@@ -493,34 +503,134 @@ class _ExpenseList extends StatelessWidget {
   final String emptyMessage;
 
   @override
+  State<_ExpenseList> createState() => _ExpenseListState();
+}
+
+class _ExpenseListState extends State<_ExpenseList> {
+  _ExpensePeriod _period = _ExpensePeriod.today;
+
+  List<PreviewExpense> get _filteredItems {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = switch (_period) {
+      _ExpensePeriod.today => today,
+      _ExpensePeriod.yesterday => today.subtract(const Duration(days: 1)),
+      _ExpensePeriod.week => today.subtract(const Duration(days: 6)),
+    };
+    final end = switch (_period) {
+      _ExpensePeriod.today => today.add(const Duration(days: 1)),
+      _ExpensePeriod.yesterday => today,
+      _ExpensePeriod.week => today.add(const Duration(days: 1)),
+    };
+
+    return widget.items.where((item) {
+      final createdAt = item.createdAt.toLocal();
+      return !createdAt.isBefore(start) && createdAt.isBefore(end);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return AppStateView.empty(title: emptyTitle, message: emptyMessage);
-    }
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Card(
-          child: ListTile(
-            leading: Icon(
-              item.category == 'Stok'
-                  ? Icons.local_shipping_outlined
-                  : Icons.price_check_outlined,
-            ),
-            title: Text(item.description),
-            subtitle: Text(
-              '${item.category} · ${item.method}\n${item.createdAt.toIndonesianDate()} ${item.createdAt.toIndonesianTime()}',
-            ),
-            isThreeLine: true,
-            trailing: Text(
-              item.amount.toRupiah(),
-              style: const TextStyle(fontWeight: FontWeight.w900),
+    final filteredItems = _filteredItems;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<_ExpensePeriod>(
+          segments: [
+            for (final period in _ExpensePeriod.values)
+              ButtonSegment(value: period, label: Text(period.label)),
+          ],
+          selected: {_period},
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            textStyle: WidgetStateProperty.all(
+              const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
-        );
-      },
+          onSelectionChanged: (selection) {
+            setState(() => _period = selection.first);
+          },
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: filteredItems.isEmpty
+              ? AppStateView.empty(
+                  title: widget.items.isEmpty
+                      ? widget.emptyTitle
+                      : 'Tidak ada data ${_period.label.toLowerCase()}',
+                  message: widget.items.isEmpty
+                      ? widget.emptyMessage
+                      : 'Pilih rentang waktu lain untuk melihat riwayat.',
+                )
+              : ListView.separated(
+                  itemCount: filteredItems.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final item = filteredItems[index];
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: ExpansionTile(
+                        key: PageStorageKey(item.id),
+                        tilePadding: const EdgeInsets.fromLTRB(10, 0, 8, 0),
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                          12,
+                          0,
+                          12,
+                          10,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        title: Row(
+                          children: [
+                            Icon(
+                              item.category == 'Stok'
+                                  ? Icons.local_shipping_outlined
+                                  : Icons.price_check_outlined,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                item.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              item.amount.toRupiah(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${item.category} · ${item.method}\n'
+                              '${item.createdAt.toIndonesianDate()} '
+                              '${item.createdAt.toIndonesianTime()}',
+                              style: const TextStyle(
+                                color: AppColors.secondaryText,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

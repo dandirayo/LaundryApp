@@ -7,4 +7,20 @@ void main() {
     expect(AppRoutes.canOpen(AppRoutes.expenses, UserRole.owner), isTrue);
     expect(AppRoutes.canOpen(AppRoutes.expenses, UserRole.employee), isTrue);
   });
+
+  test('kelola usaha hanya bisa dibuka owner', () {
+    expect(
+      AppRoutes.canOpen(AppRoutes.businessManagement, UserRole.owner),
+      isTrue,
+    );
+    expect(
+      AppRoutes.canOpen(AppRoutes.businessManagement, UserRole.employee),
+      isFalse,
+    );
+  });
+
+  test('fitur POS bisa dibuka owner dan karyawan yang sudah ditugaskan', () {
+    expect(AppRoutes.canOpen(AppRoutes.posHome, UserRole.owner), isTrue);
+    expect(AppRoutes.canOpen(AppRoutes.posCashier, UserRole.employee), isTrue);
+  });
 }

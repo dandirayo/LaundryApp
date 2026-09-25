@@ -41,7 +41,7 @@ increase `version` in `pubspec.yaml`, run analysis/tests, then run
 `../scripts/publish-android.ps1 -ReleaseNotes 'Ringkasan perubahan'` from PowerShell.
 This builds and verifies APKs and publishes the cloud version feed last.
 Running `flutter build apk` alone does not notify installed apps.
-See [the update runbook](../docs/android-cloud-updates.md) for signing continuity,
+See [the update runbook](../docs/deployment/09-ANDROID-CLOUD-UPDATES.md) for signing continuity,
 publishing, verification, and rollback details.
 
 ## Getting Started

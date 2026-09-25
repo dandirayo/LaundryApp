@@ -236,10 +236,26 @@ void main() {
     final gorden = service('Gorden', '');
     final setrika = service('Kaos + Celana', 'Setrika Saja');
     final cuci = service('Kaos + Celana', 'Cuci Setrika');
+    final sprei160 = service('Sprei Besar', '160x200 Cuci Setrika');
+    final sprei180 = service('Sprei Besar', '180x200 Cuci Setrika');
+    final sprei200 = service('Sprei Besar', '200x200 Cuci Setrika');
+    final bajuMuslim = service('Baju Muslim', '');
+    final kainMeter = service('Kain (>3 M) / Meter', '');
+    final kiloan = state.services.singleWhere(
+      (item) => item.id == 'service-cs-reguler',
+    );
     expect(gorden.unit, 'M2');
     expect(gorden.price, 15000);
     expect(setrika.price, 15000);
     expect(cuci.price, 25000);
+    expect(
+      [sprei160.price, sprei180.price, sprei200.price],
+      [15000, 15000, 15000],
+    );
+    expect(bajuMuslim.price, 15000);
+    expect(kainMeter.unit, 'M2');
+    expect(kainMeter.price, 3000);
+    expect(kiloan.price, 7000);
     final order = container
         .read(previewDataProvider.notifier)
         .createOrderWithItems(
@@ -271,6 +287,12 @@ void main() {
     final migration = File(
       '../supabase/migrations/20260831080857_categorize_unit_price_list.sql',
     ).readAsStringSync();
+    final sizeMigration = File(
+      '../supabase/migrations/20260918134834_split_sprei_sizes_and_customer_points.sql',
+    ).readAsStringSync();
+    final finalUnitPriceMigration = File(
+      '../supabase/migrations/20260920143000_update_unit_prices_from_final_catalog.sql',
+    ).readAsStringSync();
     String quote(String value) => "'${value.replaceAll("'", "''")}'";
     for (final service in services) {
       final values = [
@@ -283,9 +305,40 @@ void main() {
         '${service.isExpress}',
         '${service.sortOrder}',
       ].join(', ');
+      final finalValues = [
+        quote(service.id),
+        quote(service.effectiveCategory),
+        quote(service.effectiveItem),
+        quote(service.effectiveVariant),
+        quote(service.unit),
+        '${service.price}',
+        '${service.sortOrder}',
+      ].join(', ');
       expect(seed, contains('$values)'), reason: service.id);
-      if (service.effectiveGroup == 'Satuan') {
-        expect(migration, contains('$values)'), reason: service.id);
+      if (service.id.startsWith('sprei-besar-')) {
+        if (service.effectiveVariant.endsWith('Cuci Setrika')) {
+          expect(
+            finalUnitPriceMigration,
+            contains('($finalValues)'),
+            reason: service.id,
+          );
+        } else {
+          final variant = service.effectiveVariant.split(' ');
+          final size = variant.first;
+          final treatment = variant.skip(1).join(' ');
+          expect(
+            sizeMigration,
+            contains(
+              "('$size', '$treatment', ${service.price}, ${service.sortOrder})",
+            ),
+            reason: service.id,
+          );
+        }
+      } else if (service.effectiveGroup == 'Satuan') {
+        final existsInCatalog =
+            migration.contains('$values)') ||
+            finalUnitPriceMigration.contains('($finalValues)');
+        expect(existsInCatalog, isTrue, reason: service.id);
       } else {
         expect(migration, isNot(contains(quote(service.id))));
       }
