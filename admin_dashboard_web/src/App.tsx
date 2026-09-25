@@ -17,7 +17,9 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Signal,
   Users,
+  WifiOff,
   X,
   XCircle,
 } from 'lucide-react'
@@ -130,7 +132,10 @@ type DashboardData = {
   inventoryMovements: InventoryMovement[]
   auditLogs: AuditLog[]
   shop: Shop | null
+  totalCustomers: number
 }
+
+type RealtimeState = 'connecting' | 'live' | 'offline'
 
 const tabs = [
   { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
@@ -167,6 +172,7 @@ const demoData: DashboardData = {
   inventoryMovements: [],
   auditLogs: [],
   shop: { id: 'demo-shop', name: 'Idola Laundry', phone: '081234567890', address: 'Alamat toko' },
+  totalCustomers: 1,
 }
 
 function App() {
@@ -186,6 +192,8 @@ function App() {
   const [stockAdjuster, setStockAdjuster] = useState<InventoryItem | null>(null)
   const [shiftEditor, setShiftEditor] = useState<WeeklyShift | 'new' | null>(null)
   const [cashEditor, setCashEditor] = useState(false)
+  const [realtimeState, setRealtimeState] = useState<RealtimeState>('connecting')
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
 
   useEffect(() => {
     if (!supabaseEnabled) return
@@ -195,7 +203,7 @@ function App() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user.id) void loadProfile(session.user.id)
-      else { setProfile(null); setData(demoData) }
+      else { setProfile(null); setData(demoData); setRealtimeState('offline') }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -217,7 +225,11 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_movements', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_transactions', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs', filter: `shop_id=eq.${profile.shop_id}` }, refresh)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeState('live')
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRealtimeState('offline')
+        else setRealtimeState('connecting')
+      })
     const timer = window.setInterval(refreshWhenVisible, 15_000)
     window.addEventListener('focus', refresh)
     document.addEventListener('visibilitychange', refreshWhenVisible)
@@ -231,8 +243,10 @@ function App() {
 
   const metrics = useMemo(() => {
     const today = new Date().toDateString()
-    const income = data.cash.filter((item) => item.type === 'IN').reduce((sum, item) => sum + item.amount, 0)
-    const out = data.cash.filter((item) => item.type === 'OUT').reduce((sum, item) => sum + item.amount, 0)
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+    const monthCash = data.cash.filter((item) => new Date(item.created_at) >= monthStart)
+    const income = monthCash.filter((item) => item.type === 'IN').reduce((sum, item) => sum + item.amount, 0)
+    const out = monthCash.filter((item) => item.type === 'OUT').reduce((sum, item) => sum + item.amount, 0)
     return {
       todayOrders: data.orders.filter((item) => new Date(item.created_at).toDateString() === today).length,
       income,
@@ -240,7 +254,7 @@ function App() {
       balance: income - out,
       pendingRequests: data.requests.filter((item) => item.status.toLowerCase() === 'pending').length,
       activeEmployees: data.employees.filter((item) => item.is_active).length,
-      customers: data.customers.length,
+      customers: data.totalCustomers,
       lowStock: data.inventory.filter((item) => item.is_active && item.stock <= item.min_stock).length,
     }
   }, [data])
@@ -262,20 +276,23 @@ function App() {
 
   async function loadDashboard(shopId: string) {
     try {
-      const [employees, requests, orders, cash, customers, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const [employees, requests, orders, cash, customers, customerCount, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
         supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
         supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
-        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-        supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at').eq('shop_id', shopId).gte('created_at', since).order('created_at', { ascending: false }).limit(1000),
+        supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).gte('created_at', since).order('created_at', { ascending: false }).limit(1000),
         supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
         supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
         supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
         supabase.from('inventory_movements').select('id, item_id, item_name, type, quantity, note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
         supabase.from('audit_logs').select('id, actor_role, action, entity_table, summary, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
         supabase.from('shops').select('id, name, phone, address').eq('id', shopId).single(),
       ])
-      setData({ employees: (employees.data ?? []) as Employee[], requests: (requests.data ?? []) as EmployeeRequest[], orders: (orders.data ?? []) as Order[], cash: (cash.data ?? []) as CashTransaction[], customers: (customers.data ?? []) as Customer[], inventory: (inventory.data ?? []) as InventoryItem[], shifts: (shifts.data ?? []) as WeeklyShift[], inventoryMovements: (inventoryMovements.data ?? []) as InventoryMovement[], auditLogs: (auditLogs.data ?? []) as AuditLog[], shop: (shop.data ?? null) as Shop | null })
-      const firstError = [employees.error, requests.error, orders.error, cash.error, customers.error, inventory.error, shifts.error, inventoryMovements.error, auditLogs.error, shop.error].find(Boolean)
+      setData({ employees: (employees.data ?? []) as Employee[], requests: (requests.data ?? []) as EmployeeRequest[], orders: (orders.data ?? []) as Order[], cash: (cash.data ?? []) as CashTransaction[], customers: (customers.data ?? []) as Customer[], inventory: (inventory.data ?? []) as InventoryItem[], shifts: (shifts.data ?? []) as WeeklyShift[], inventoryMovements: (inventoryMovements.data ?? []) as InventoryMovement[], auditLogs: (auditLogs.data ?? []) as AuditLog[], shop: (shop.data ?? null) as Shop | null, totalCustomers: customerCount.count ?? 0 })
+      setLastSyncedAt(new Date())
+      const firstError = [employees.error, requests.error, orders.error, cash.error, customers.error, customerCount.error, inventory.error, shifts.error, inventoryMovements.error, auditLogs.error, shop.error].find(Boolean)
       if (firstError) setMessage(`Sebagian data gagal dimuat: ${firstError.message}`)
     } catch (e: any) {
       setMessage(e.message || 'Gagal memuat data dashboard.')
@@ -303,7 +320,7 @@ function App() {
     } catch (e: any) {
       setMessage(e.message || 'Proses keluar gagal.')
     } finally {
-      setProfile(null); setData(demoData)
+      setProfile(null); setData(demoData); setRealtimeState('offline')
     }
   }
 
@@ -544,12 +561,12 @@ function App() {
         <nav className="nav-list" aria-label="Menu admin">
           {tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={18} /><span>{tab.label}</span>{tab.id === 'operations' && metrics.pendingRequests > 0 ? <b className="nav-count">{metrics.pendingRequests}</b> : null}</button> })}
         </nav>
-        <div className="sidebar-card"><ShieldCheck size={18} /><div><strong>Tersambung Supabase</strong><span>Data aman dibatasi per toko.</span></div></div>
+        <div className={`sidebar-card sync-card ${realtimeState}`}><ShieldCheck size={18} /><div><strong>{realtimeState === 'live' ? 'Realtime aktif' : realtimeState === 'connecting' ? 'Menghubungkan realtime' : 'Realtime terputus'}</strong><span>{realtimeState === 'live' ? 'Perubahan aplikasi langsung masuk.' : 'Polling cadangan berjalan tiap 15 detik.'}</span></div></div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
-          <div><p className="eyebrow">Admin Dashboard</p><h1>{profile.full_name}</h1></div>
+          <div><p className="eyebrow">Admin Dashboard</p><h1>{profile.full_name}</h1><div className={`live-status ${realtimeState}`}>{realtimeState === 'offline' ? <WifiOff size={14} /> : <Signal size={14} />}<span>{realtimeState === 'live' ? 'Live' : realtimeState === 'connecting' ? 'Menghubungkan' : 'Mode cadangan'}{lastSyncedAt ? ` • diperbarui ${lastSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : ''}</span></div></div>
           <div className="topbar-actions">
             <label className="search-box"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari data" /></label>
             <button className="icon-button" type="button" onClick={() => void loadDashboard(profile.shop_id)} aria-label="Refresh data"><RefreshCw size={18} /></button>
@@ -582,11 +599,25 @@ function LoginPanel({ email, password, loading, onEmail, onPassword, onSubmit }:
 }
 
 function Overview({ metrics, data, onOpenOperations }: { metrics: ReturnType<typeof useDashboardMetrics>; data: DashboardData; onOpenOperations: () => void }) {
-  const cards = [['Pesanan hari ini', metrics.todayOrders, ReceiptText], ['Request pending', metrics.pendingRequests, ClipboardCheck], ['Karyawan aktif', metrics.activeEmployees, Users], ['Stok menipis', metrics.lowStock, AlertTriangle], ['Pemasukan', rupiah(metrics.income), Banknote], ['Saldo', rupiah(metrics.balance), PackageCheck]] as const
-  return <section className="section-grid"><div className="metrics-grid">{cards.map(([label, value, Icon]) => <article className="metric-card" key={label}><Icon size={20} /><strong>{value}</strong><span>{label}</span></article>)}</div><article className="wide-panel"><PanelHeader title="Butuh tindakan" description="Request karyawan yang menunggu keputusan Owner." action="Buka Operasional" onAction={onOpenOperations} /><RequestList requests={data.requests.filter((item) => item.status === 'pending').slice(0, 5)} /></article><article className="wide-panel"><PanelHeader title="Aktivitas pesanan" description="Status produksi dan pembayaran terbaru." /><OrderList orders={data.orders.slice(0, 6)} /></article></section>
+  const cards = [['Pesanan hari ini', metrics.todayOrders, ReceiptText], ['Pelanggan', metrics.customers, Contact], ['Karyawan aktif', metrics.activeEmployees, Users], ['Stok menipis', metrics.lowStock, AlertTriangle], ['Pemasukan bulan ini', rupiah(metrics.income), Banknote], ['Saldo bulan ini', rupiah(metrics.balance), PackageCheck]] as const
+  return <section className="section-grid"><div className="metrics-grid">{cards.map(([label, value, Icon]) => <article className="metric-card" key={label}><Icon size={20} /><strong>{value}</strong><span>{label}</span></article>)}</div><DashboardAnalytics orders={data.orders} cash={data.cash} /><article className="wide-panel"><PanelHeader title="Butuh tindakan" description={`${metrics.pendingRequests} request karyawan menunggu keputusan Owner.`} action="Buka Operasional" onAction={onOpenOperations} /><RequestList requests={data.requests.filter((item) => item.status === 'pending').slice(0, 5)} /></article><article className="wide-panel"><PanelHeader title="Aktivitas pesanan" description="Status produksi dan pembayaran terbaru dari semua perangkat." /><OrderList orders={data.orders.slice(0, 6)} /></article></section>
 }
 
 function useDashboardMetrics() { return { todayOrders: 0, income: 0, out: 0, balance: 0, pendingRequests: 0, activeEmployees: 0, customers: 0, lowStock: 0 } }
+
+function DashboardAnalytics({ orders, cash }: { orders: Order[]; cash: CashTransaction[] }) {
+  const days = dailySeries(orders, cash, 7)
+  const maxCash = Math.max(1, ...days.map((day) => Math.max(day.income, day.out)))
+  const statusRows = [
+    ['received', 'Diterima'],
+    ['processing', 'Diproses'],
+    ['ready', 'Siap diambil'],
+    ['picked_up', 'Sudah diambil'],
+  ].map(([id, label]) => ({ id, label, count: orders.filter((order) => order.order_status === id).length }))
+  const statusTotal = Math.max(1, statusRows.reduce((sum, row) => sum + row.count, 0))
+  const unpaid = orders.filter((order) => order.payment_status !== 'paid').reduce((sum, order) => sum + Math.max(0, order.total_price - order.paid_amount), 0)
+  return <div className="analytics-grid"><article className="wide-panel chart-panel"><PanelHeader title="Arus kas 7 hari" description="Grafik otomatis berubah saat pembayaran atau pengeluaran dicatat." /><div className="chart-legend"><span><i className="legend-dot income" />Pemasukan</span><span><i className="legend-dot expense" />Pengeluaran</span></div><div className="cash-chart" role="img" aria-label="Grafik pemasukan dan pengeluaran tujuh hari terakhir">{days.map((day) => <div className="chart-day" key={day.key}><div className="bar-area"><div className="chart-bar income" style={{ height: `${Math.max(day.income ? 8 : 0, day.income / maxCash * 100)}%` }} title={`Pemasukan ${day.label}: ${rupiah(day.income)}`} /><div className="chart-bar expense" style={{ height: `${Math.max(day.out ? 8 : 0, day.out / maxCash * 100)}%` }} title={`Pengeluaran ${day.label}: ${rupiah(day.out)}`} /></div><strong>{day.orders}</strong><span>{day.label}</span></div>)}</div><p className="chart-footnote">Angka di bawah grafik menunjukkan jumlah pesanan per hari.</p></article><article className="wide-panel chart-panel"><PanelHeader title="Posisi pesanan" description="Ringkasan 30 hari terakhir, diperbarui secara realtime." /><div className="status-summary">{statusRows.map((row) => <div className="status-line" key={row.id}><div><span>{row.label}</span><strong>{row.count}</strong></div><div className="status-track"><i className={row.id} style={{ width: `${row.count / statusTotal * 100}%` }} /></div></div>)}</div><div className="receivable-card"><span>Sisa tagihan belum lunas</span><strong>{rupiah(unpaid)}</strong><small>Dari {orders.filter((order) => order.payment_status !== 'paid').length} pesanan aktif dalam 30 hari terakhir</small></div></article></div>
+}
 
 function OperationsPanel({ view, setView, requests, orders, inventory, inventoryMovements, loading, onReview, onAddInventory, onAdjustStock, onUpdateOrder, onRecordPayment }: { view: 'approval' | 'orders' | 'inventory'; setView: (value: 'approval' | 'orders' | 'inventory') => void; requests: EmployeeRequest[]; orders: Order[]; inventory: InventoryItem[]; inventoryMovements: InventoryMovement[]; loading: boolean; onReview: (request: EmployeeRequest, status: 'approved' | 'rejected' | 'completed' | 'paid') => Promise<void>; onAddInventory: () => void; onAdjustStock: (item: InventoryItem) => void; onUpdateOrder: (order: Order, status: string) => Promise<void>; onRecordPayment: (order: Order) => Promise<void> }) {
   return <section><SegmentedControl value={view} items={[['approval', 'Approval'], ['orders', 'Pesanan'], ['inventory', 'Stok']]} onChange={setView} />{view === 'approval' ? <ApprovalPanel requests={requests} loading={loading} onReview={onReview} /> : null}{view === 'orders' ? <section className="wide-panel"><PanelHeader title="Pesanan" description="Ubah progres produksi dan catat pembayaran tanpa pindah halaman." /><OrderList orders={orders} onUpdateStatus={onUpdateOrder} onRecordPayment={onRecordPayment} /></section> : null}{view === 'inventory' ? <InventoryPanel items={inventory} movements={inventoryMovements} onAdd={onAddInventory} onAdjust={onAdjustStock} /> : null}</section>
@@ -676,6 +707,24 @@ function Checklist({ items }: { items: string[] }) { return <ul className="check
 function StatusBadge({ label }: { label: string }) { return <span className={`status ${label.toLowerCase()}`}>{label}</span> }
 function rupiah(value: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value) }
 function dateLabel(value: string) { return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
+function localDayKey(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+function dailySeries(orders: Order[], cash: CashTransaction[], totalDays: number) {
+  return Array.from({ length: totalDays }, (_, index) => {
+    const date = new Date(); date.setHours(0, 0, 0, 0); date.setDate(date.getDate() - (totalDays - 1 - index))
+    const key = localDayKey(date)
+    const dayCash = cash.filter((item) => localDayKey(item.created_at) === key)
+    return {
+      key,
+      label: new Intl.DateTimeFormat('id-ID', { weekday: 'short' }).format(date).replace('.', ''),
+      orders: orders.filter((order) => localDayKey(order.created_at) === key).length,
+      income: dayCash.filter((item) => item.type === 'IN').reduce((sum, item) => sum + item.amount, 0),
+      out: dayCash.filter((item) => item.type === 'OUT').reduce((sum, item) => sum + item.amount, 0),
+    }
+  })
+}
 function shortTime(value: string) { return value.slice(0, 5) }
 function statusLabel(status: string) { return status === 'approved' ? 'Disetujui Owner.' : status === 'rejected' ? 'Ditolak Owner.' : status === 'paid' ? 'Sudah dibayar.' : 'Sudah diselesaikan.' }
 function dayLabel(day: number) { return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][day - 1] ?? 'Hari' }

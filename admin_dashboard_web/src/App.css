@@ -170,6 +170,25 @@ button:disabled {
   padding: 14px;
 }
 
+.sync-card {
+  align-items: flex-start;
+}
+
+.sync-card.live {
+  border-color: #a7f3d0;
+  background: #f0fdf4;
+}
+
+.sync-card.connecting {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.sync-card.offline {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
 .workspace {
   min-width: 0;
   padding: 28px 30px;
@@ -203,6 +222,29 @@ button:disabled {
   font-size: 28px;
   line-height: 1.12;
   font-weight: 800;
+}
+
+.live-status {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.live-status.live {
+  color: #027a48;
+}
+
+.live-status.offline {
+  color: #b54708;
+}
+
+.live-status.live svg {
+  animation: live-pulse 1.8s ease-in-out infinite;
 }
 
 .topbar-actions {
@@ -356,6 +398,156 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(310px, 0.85fr);
+  gap: 18px;
+}
+
+.chart-panel {
+  min-height: 360px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 18px;
+  margin: -6px 0 18px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.legend-dot.income,
+.chart-bar.income {
+  background: linear-gradient(180deg, #0f766e, #14b8a6);
+}
+
+.legend-dot.expense,
+.chart-bar.expense {
+  background: linear-gradient(180deg, #f59e0b, #fbbf24);
+}
+
+.cash-chart {
+  height: 220px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(40px, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 16px 10px 0;
+  border-bottom: 1px solid #d8deea;
+  background: repeating-linear-gradient(to top, transparent 0, transparent 54px, #edf0f5 55px);
+}
+
+.chart-day {
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 20px 24px;
+  align-items: end;
+  text-align: center;
+}
+
+.bar-area {
+  height: 100%;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 5px;
+}
+
+.chart-bar {
+  width: min(15px, 38%);
+  min-height: 0;
+  border-radius: 5px 5px 0 0;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+  transition: height 280ms ease;
+}
+
+.chart-day > strong {
+  color: #0b2d71;
+  font-size: 12px;
+}
+
+.chart-day > span,
+.chart-footnote {
+  color: #667085;
+  font-size: 11px;
+}
+
+.chart-footnote {
+  margin: 14px 0 0;
+}
+
+.status-summary {
+  display: grid;
+  gap: 17px;
+}
+
+.status-line > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+  color: #475467;
+  font-size: 13px;
+}
+
+.status-line strong {
+  color: #121826;
+}
+
+.status-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf0f5;
+}
+
+.status-track i {
+  height: 100%;
+  min-width: 0;
+  display: block;
+  border-radius: inherit;
+  background: #3973c9;
+  transition: width 280ms ease;
+}
+
+.status-track i.processing { background: #f59e0b; }
+.status-track i.ready { background: #14b8a6; }
+.status-track i.picked_up { background: #16a34a; }
+
+.receivable-card {
+  display: grid;
+  gap: 5px;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fffbeb, #fff7ed);
+}
+
+.receivable-card span,
+.receivable-card small {
+  color: #786036;
+}
+
+.receivable-card strong {
+  color: #92400e;
+  font-size: 24px;
 }
 
 .metric-card {
@@ -915,6 +1107,11 @@ button:disabled {
   }
 }
 
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 @media (max-width: 1180px) {
   .metrics-grid,
   .shift-grid {
@@ -922,6 +1119,10 @@ button:disabled {
   }
 
   .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -968,6 +1169,11 @@ button:disabled {
   .metrics-grid,
   .shift-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cash-chart {
+    gap: 6px;
+    padding-inline: 2px;
   }
 }
 
