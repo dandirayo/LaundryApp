@@ -1,8 +1,8 @@
 # 1. Product Requirements Document
 
 **Produk:** Idola One  
-**Versi acuan:** 2.1.2+18  
-**Tanggal:** 20 September 2026  
+**Versi acuan:** 2.1.3+19  
+**Tanggal:** 25 September 2026  
 **Platform utama:** Android
 
 ## 1. Ringkasan produk

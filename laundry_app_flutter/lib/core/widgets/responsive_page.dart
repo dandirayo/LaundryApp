@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_spacing.dart';
+
 class ResponsivePage extends StatelessWidget {
   const ResponsivePage({
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.fromLTRB(
+      AppSpacing.pageHorizontal,
+      AppSpacing.pageTop,
+      AppSpacing.pageHorizontal,
+      AppSpacing.pageBottom,
+    ),
     this.maxWidth = 900,
     super.key,
   });

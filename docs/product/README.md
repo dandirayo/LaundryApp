@@ -1,6 +1,6 @@
 # Dokumentasi Produk Idola One
 
-Dokumen ini merangkum produk dan implementasi **Idola One 2.1.2+18** per 20 September 2026. Isinya disusun dari kode aplikasi, migrasi dan schema Supabase produksi, histori Git, dokumentasi repository, serta empat task Codex yang relevan dengan LaundryApp.
+Dokumen ini merangkum produk dan implementasi **Idola One 2.1.3+19** per 26 September 2026. Isinya disusun dari kode aplikasi, migrasi dan schema Supabase produksi, histori Git, dokumentasi repository, serta task Codex yang relevan dengan LaundryApp.
 
 ## Cara membaca status
 
@@ -17,6 +17,7 @@ Dokumen ini merangkum produk dan implementasi **Idola One 2.1.2+18** per 20 Sept
 5. [Backend Schema](05-BACKEND-SCHEMA.md)
 6. [Implementation Plan](06-IMPLEMENTATION-PLAN.md)
 7. [Admin Dashboard Blueprint](07-ADMIN-DASHBOARD-BLUEPRINT.md)
+8. [Audit dan Upgrade Aplikasi Tahap 1–12](08-FOUNDATION-AUDIT-AND-UPGRADE.md)
 
 Dokumentasi operasional terpisah tersedia di [Deployment dan VPS](../deployment/README.md).
 

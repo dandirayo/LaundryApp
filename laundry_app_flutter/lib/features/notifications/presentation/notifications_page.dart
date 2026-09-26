@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/errors/user_error_message.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_snack_bar.dart';
@@ -136,7 +136,7 @@ class NotificationsPage extends ConsumerWidget {
                           }
                           if (!context.mounted) return;
                           if (route != null) {
-                            context.go(route);
+                            AppNavigation.open(context, route);
                           }
                         },
                         trailing: IconButton(

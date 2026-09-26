@@ -150,6 +150,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           'Meter persegi',
                           '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M2')).toStringAsFixed(1)} m2',
                         ),
+                        _Metric(
+                          'Meter panjang',
+                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M')).toStringAsFixed(1)} m',
+                        ),
                         _Metric('Nilai pesanan', orderValue.toRupiah()),
                         _Metric('Pembayaran diterima', paid.toRupiah()),
                         _Metric('Sisa tagihan', remaining.toRupiah()),

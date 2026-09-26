@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/user_error_message.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -128,7 +128,8 @@ class PayrollPage extends ConsumerWidget {
                 ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => context.go(AppRoutes.requestReview),
+              onPressed: () =>
+                  AppNavigation.open(context, AppRoutes.requestReview),
               icon: const Icon(Icons.rule_folder_outlined),
               label: const Text('Review Pengajuan Karyawan'),
             ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/app_shell.dart';
 import '../../../core/localization/app_language.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -280,7 +280,15 @@ class _MenuTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right),
       onTap:
           item.onTap ??
-          (item.route == null ? null : () => context.go(item.route!)),
+          (item.route == null
+              ? null
+              : () {
+                  if (item.route == AppRoutes.businessSelector) {
+                    AppNavigation.replace(context, item.route!);
+                  } else {
+                    AppNavigation.open(context, item.route!);
+                  }
+                }),
     );
   }
 }

@@ -141,6 +141,8 @@ class OrderDetailPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
+            _OrderProgressCard(status: order.orderStatus),
+            const SizedBox(height: 12),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -481,6 +483,96 @@ class _OrderEditInput {
   final PreviewOrderStatus status;
   final String employeeId;
   final String note;
+}
+
+class _OrderProgressCard extends StatelessWidget {
+  const _OrderProgressCard({required this.status});
+
+  final PreviewOrderStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == PreviewOrderStatus.cancelled) {
+      return Card(
+        color: AppColors.error.withValues(alpha: 0.08),
+        child: const ListTile(
+          leading: Icon(Icons.cancel_outlined, color: AppColors.error),
+          title: Text(
+            'Pesanan dibatalkan',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Text('Pesanan ini tidak dilanjutkan ke proses berikutnya.'),
+        ),
+      );
+    }
+    final current = switch (status) {
+      PreviewOrderStatus.received => 0,
+      PreviewOrderStatus.processing => 1,
+      PreviewOrderStatus.ready => 2,
+      PreviewOrderStatus.pickedUp => 3,
+      PreviewOrderStatus.cancelled => 0,
+    };
+    const labels = ['Diterima', 'Diproses', 'Siap ambil', 'Diambil'];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Progres Pesanan',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                for (var index = 0; index < labels.length; index++) ...[
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Icon(
+                          index <= current
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: index <= current
+                              ? AppColors.success
+                              : AppColors.outline,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          labels[index],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: index == current
+                                ? FontWeight.w900
+                                : FontWeight.w600,
+                            color: index <= current
+                                ? AppColors.mainText
+                                : AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (index < labels.length - 1)
+                    Expanded(
+                      child: Divider(
+                        color: index < current
+                            ? AppColors.success
+                            : AppColors.outline,
+                        thickness: 2,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Pill extends StatelessWidget {

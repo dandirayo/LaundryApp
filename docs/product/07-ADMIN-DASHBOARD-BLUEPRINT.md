@@ -1,7 +1,7 @@
 # Blueprint Dashboard Admin Idola One
 
-**Status diverifikasi:** 20 September 2026  
-**Aplikasi Android:** 2.1.2+18  
+**Status diverifikasi:** 25 September 2026  
+**Aplikasi Android:** 2.1.3+19  
 **Backend:** Supabase production `sqydcdhvsmmkvlpsjzgx`
 
 ## 1. Posisi dashboard dalam produk
@@ -73,7 +73,7 @@ Source dashboard masih terpusat pada `admin_dashboard_web/src/App.tsx` dengan Re
 
 ## 5. Kontrak realtime produksi
 
-Tabel dalam publication `supabase_realtime` per 20 September 2026:
+Tabel dalam publication `supabase_realtime` per 25 September 2026:
 
 `attendance_records`, `audit_logs`, `cash_closings`, `cash_transactions`, `customer_point_balances`, `customers`, `employee_requests`, `employees`, `expenses`, `inventory_items`, `inventory_movements`, `notifications`, `order_items`, `orders`, `payments`, `payroll_payments`, `profiles`, `services`, dan `weekly_shifts`.
 

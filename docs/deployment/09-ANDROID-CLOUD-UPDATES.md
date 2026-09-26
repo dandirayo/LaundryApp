@@ -1,8 +1,8 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 20 September 2026  
-**Rilis aktif:** 2.1.2+18  
-**Dipublikasikan:** 20 September 2026
+**Diverifikasi:** 25 September 2026  
+**Rilis aktif:** 2.1.3+19  
+**Dipublikasikan:** 25 September 2026
 
 ## Status rilis
 
@@ -12,7 +12,7 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release notes aktif mencakup pembulatan pesanan selalu ke atas per Rp1.000, notifikasi alur pesanan/pembayaran, akses pelanggan dari beranda karyawan, dan layout ringkasan Buku Kas untuk keterangan panjang.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release produksi saat ini adalah 2.1.3+19. Kandidat 2.1.4+20 merapikan fondasi UI dan navigasi, alur buat pesanan, pencarian katalog, keranjang, pembayaran, status, cetak satu per satu, daftar pesanan, serta detail pesanan tanpa mengubah harga dan aturan bisnis.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 

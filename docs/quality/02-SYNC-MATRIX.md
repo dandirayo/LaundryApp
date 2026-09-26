@@ -1,7 +1,7 @@
 # Matriks Sinkronisasi Idola One
 
-**Status:** 20 September 2026  
-**Baseline:** Android 2.1.2+18, dashboard web saat ini, schema Supabase production
+**Status:** 25 September 2026  
+**Baseline:** Android 2.1.3+19, dashboard web saat ini, schema Supabase production
 
 ## 1. Arti status
 

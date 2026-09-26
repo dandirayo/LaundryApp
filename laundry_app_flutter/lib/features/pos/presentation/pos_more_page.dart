@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/app_shell.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -55,7 +55,10 @@ class PosMorePage extends ConsumerWidget {
                       ref
                           .read(businessControllerProvider.notifier)
                           .clearSelection();
-                      context.go(AppRoutes.businessSelector);
+                      AppNavigation.replace(
+                        context,
+                        AppRoutes.businessSelector,
+                      );
                     },
                   ),
                   if (role == UserRole.owner) ...[
@@ -64,7 +67,10 @@ class PosMorePage extends ConsumerWidget {
                       leading: const Icon(Icons.storefront_outlined),
                       title: const Text('Kelola Usaha & Karyawan'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go(AppRoutes.businessManagement),
+                      onTap: () => AppNavigation.open(
+                        context,
+                        AppRoutes.businessManagement,
+                      ),
                     ),
                   ],
                   const Divider(height: 1),
@@ -72,7 +78,7 @@ class PosMorePage extends ConsumerWidget {
                     leading: const Icon(Icons.person_outline),
                     title: const Text('Profil'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.go(AppRoutes.profile),
+                    onTap: () => AppNavigation.open(context, AppRoutes.profile),
                   ),
                   const Divider(height: 1),
                   ListTile(

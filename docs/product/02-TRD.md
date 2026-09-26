@@ -1,6 +1,6 @@
 # 2. Technical Requirements Document
 
-**Acuan:** Idola One 2.1.2+18, schema produksi 20 September 2026
+**Acuan:** Idola One 2.1.3+19, schema produksi 25 September 2026
 
 ## 1. Arsitektur
 

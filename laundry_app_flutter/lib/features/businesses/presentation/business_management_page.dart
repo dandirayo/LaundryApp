@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../core/router/app_navigation_history.dart';
 
 import '../../../core/errors/user_error_message.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -24,10 +23,8 @@ class BusinessManagementPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Kelola Usaha'),
         leading: IconButton(
-          onPressed: () => context.go(
-            AppNavigationHistory.instance.takePrevious() ??
-                AppRoutes.businessSelector,
-          ),
+          onPressed: () =>
+              AppNavigation.back(context, fallback: AppRoutes.businessSelector),
           icon: const Icon(Icons.arrow_back),
         ),
       ),

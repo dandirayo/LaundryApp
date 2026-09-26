@@ -216,6 +216,14 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                     ),
                   ),
                   Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: _OrderReadinessBar(
+                      hasCustomer: selectedCustomer != null,
+                      hasItems: _items.isNotEmpty,
+                      hasPayment: total > 0,
+                    ),
+                  ),
+                  Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,20 +232,39 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                "Keranjang Pesanan",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                  color: AppColors.primaryNavy,
+                              const Expanded(
+                                child: Text(
+                                  "Keranjang Pesanan",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    color: AppColors.primaryNavy,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                "${_items.length} Item",
-                                style: const TextStyle(
-                                  color: AppColors.primaryBlue,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "${_items.length} Item",
+                                    style: const TextStyle(
+                                      color: AppColors.primaryBlue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    tooltip: 'Hapus semua item',
+                                    onPressed: () => setState(_items.clear),
+                                    color: AppColors.error,
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(
+                                      Icons.delete_sweep_outlined,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -651,7 +678,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                     ),
                     if (subtotal != total)
                       Text(
-                        'Dibulatkan dari ${subtotal.toRupiah()}',
+                        'Subtotal ${subtotal.toRupiah()} + pembulatan ${(total - subtotal).toRupiah()}',
                         style: const TextStyle(
                           color: AppColors.secondaryText,
                           fontSize: 11,
@@ -735,8 +762,8 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                 strings,
               ),
               icon: const Icon(Icons.tune_outlined, size: 18),
-              label: const Text(
-                "Nominal Manual, Metode Bayar & Kasir",
+              label: Text(
+                "$_paymentMethod · Nominal Manual & Kasir",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: FilledButton.styleFrom(
@@ -1317,6 +1344,91 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OrderReadinessBar extends StatelessWidget {
+  const _OrderReadinessBar({
+    required this.hasCustomer,
+    required this.hasItems,
+    required this.hasPayment,
+  });
+
+  final bool hasCustomer;
+  final bool hasItems;
+  final bool hasPayment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Kelengkapan pesanan',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.outline),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ReadinessStep(label: 'Pelanggan', done: hasCustomer),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: AppColors.secondaryText,
+              ),
+              Expanded(
+                child: _ReadinessStep(label: 'Layanan', done: hasItems),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: AppColors.secondaryText,
+              ),
+              Expanded(
+                child: _ReadinessStep(label: 'Bayar', done: hasPayment),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadinessStep extends StatelessWidget {
+  const _ReadinessStep({required this.label, required this.done});
+
+  final String label;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          done ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 16,
+          color: done ? AppColors.success : AppColors.secondaryText,
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: done ? AppColors.mainText : AppColors.secondaryText,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

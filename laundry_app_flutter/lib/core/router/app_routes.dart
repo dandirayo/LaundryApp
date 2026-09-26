@@ -83,4 +83,37 @@ class AppRoutes {
     }
     return true;
   }
+
+  /// Safe destination when a page is opened from a notification, deep link,
+  /// or restored session without a Navigator stack.
+  static String? parentFor(String path, UserRole role) {
+    final ordersRoot = role == UserRole.employee ? ordersMine : orders;
+
+    if (path == dashboard || path == posHome || path == businessSelector) {
+      return null;
+    }
+    if (path == orderCreate || path.startsWith('/orders/')) {
+      return ordersRoot;
+    }
+    if (path == orders || path == ordersMine || path == customers) {
+      return dashboard;
+    }
+    if (path == attendance || path == attendanceMine) {
+      return dashboard;
+    }
+    if (path == stockRequest ||
+        path == overtimeRequest ||
+        path == shiftSwapRequest ||
+        path == leaveRequest ||
+        path == incentiveRequest ||
+        path == cashAdvanceRequest) {
+      return requestsMine;
+    }
+    if (path == posCashier || path == posProducts || path == posMore) {
+      return posHome;
+    }
+    if (path == businessManagement) return businessSelector;
+    if (path == more) return dashboard;
+    return more;
+  }
 }

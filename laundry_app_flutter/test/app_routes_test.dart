@@ -23,4 +23,23 @@ void main() {
     expect(AppRoutes.canOpen(AppRoutes.posHome, UserRole.owner), isTrue);
     expect(AppRoutes.canOpen(AppRoutes.posCashier, UserRole.employee), isTrue);
   });
+
+  test('halaman detail kembali ke induk yang sesuai peran', () {
+    expect(
+      AppRoutes.parentFor('/orders/order-1', UserRole.owner),
+      AppRoutes.orders,
+    );
+    expect(
+      AppRoutes.parentFor('/orders/order-1', UserRole.employee),
+      AppRoutes.ordersMine,
+    );
+    expect(
+      AppRoutes.parentFor(AppRoutes.leaveRequest, UserRole.employee),
+      AppRoutes.requestsMine,
+    );
+    expect(
+      AppRoutes.parentFor(AppRoutes.posProducts, UserRole.employee),
+      AppRoutes.posHome,
+    );
+  });
 }

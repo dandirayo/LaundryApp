@@ -70,7 +70,7 @@ void main() {
   );
 
   testWidgets(
-    'luas satuan bisa diedit menjadi 2,25 m2 tanpa pembulatan barang',
+    'meter panjang bisa diedit menjadi 2,25 m tanpa pembulatan barang',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -91,10 +91,10 @@ void main() {
       await tester.ensureVisible(category);
       await tester.tap(category);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Gorden'));
-      await tester.tap(find.text('Gorden'));
+      await tester.ensureVisible(find.text('Kain Gorden Tipis'));
+      await tester.tap(find.text('Kain Gorden Tipis'));
       await tester.pumpAndSettle();
-      final quantityButton = find.widgetWithText(OutlinedButton, '1 M2');
+      final quantityButton = find.widgetWithText(OutlinedButton, '1 M');
       await tester.ensureVisible(quantityButton);
       await tester.tap(quantityButton);
       await tester.pumpAndSettle();
@@ -105,8 +105,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Simpan'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.textContaining('2.25 M2 x'), findsOneWidget);
-      expect(find.textContaining('33.750'), findsWidgets);
+      expect(find.textContaining('2.25 M x'), findsOneWidget);
+      expect(find.textContaining('11.250'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
@@ -129,15 +129,40 @@ void main() {
     expect(find.text('Handuk'), findsNothing);
     await tester.tap(find.text('Satuan'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Handuk'), 180);
+    await tester.scrollUntilVisible(
+      find.text('Handuk'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Handuk'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Handuk').last);
     await tester.tap(find.text('Handuk').last);
     await tester.pumpAndSettle();
-    expect(find.textContaining('10.000'), findsOneWidget);
-    expect(find.textContaining('15.000'), findsOneWidget);
-    expect(find.textContaining('20.000'), findsOneWidget);
+    expect(find.text('Rp5.000'), findsOneWidget);
+    expect(find.text('Rp7.500'), findsOneWidget);
+    expect(find.text('Rp10.000'), findsOneWidget);
+    expect(find.text('Rp15.000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('daftar harga dapat dicari berdasarkan nama barang', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(theme: AppTheme.light(), home: const ServicesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Handuk Kecil');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('layanan ditemukan'), findsOneWidget);
+    expect(find.text('Handuk Kecil'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

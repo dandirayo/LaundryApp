@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/user_error_message.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -103,7 +103,8 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
               stock: inventory,
               procurement: procurement,
               isOwner: isOwner,
-              onManageStock: () => context.go(AppRoutes.inventory),
+              onManageStock: () =>
+                  AppNavigation.open(context, AppRoutes.inventory),
             ),
             _ExpenseList(
               items: operational,

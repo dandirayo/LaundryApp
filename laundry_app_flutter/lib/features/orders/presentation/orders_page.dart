@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/localization/app_language.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -97,6 +97,20 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
       };
       return queryMatch && statusMatch && speedMatch;
     }).toList();
+    final activeCount = allOrders
+        .where(
+          (order) =>
+              order.orderStatus == PreviewOrderStatus.received ||
+              order.orderStatus == PreviewOrderStatus.processing,
+        )
+        .length;
+    final completedCount = allOrders
+        .where(
+          (order) =>
+              order.orderStatus == PreviewOrderStatus.ready ||
+              order.orderStatus == PreviewOrderStatus.pickedUp,
+        )
+        .length;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -110,7 +124,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           ),
           IconButton(
             tooltip: strings.addOrder,
-            onPressed: () => context.go(AppRoutes.orderCreate),
+            onPressed: () => AppNavigation.open(context, AppRoutes.orderCreate),
             icon: const Icon(Icons.add_business_outlined),
           ),
         ],
@@ -118,7 +132,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
       floatingActionButton: orders.isEmpty
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => context.go(AppRoutes.orderCreate),
+              onPressed: () =>
+                  AppNavigation.open(context, AppRoutes.orderCreate),
               icon: const Icon(Icons.add),
               label: Text(strings.orders),
             ),
@@ -173,9 +188,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
                         label: Text(switch (filter) {
-                          _OrderFilter.all => strings.all,
-                          _OrderFilter.active => 'Belum selesai',
-                          _OrderFilter.completed => 'Selesai',
+                          _OrderFilter.all =>
+                            '${strings.all} (${allOrders.length})',
+                          _OrderFilter.active => 'Belum selesai ($activeCount)',
+                          _OrderFilter.completed => 'Selesai ($completedCount)',
                         }, style: _filterChipTextStyle(_filter == filter)),
                         selected: _filter == filter,
                         selectedColor: AppColors.lightGold,
@@ -223,7 +239,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                             title: strings.noOrdersTitle,
                             message: strings.noOrdersMessage,
                             actionLabel: strings.addOrder,
-                            onAction: () => context.go(AppRoutes.orderCreate),
+                            onAction: () => AppNavigation.open(
+                              context,
+                              AppRoutes.orderCreate,
+                            ),
                           ),
                         ],
                       ),
@@ -244,7 +263,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                               order.assignedEmployeeId,
                             ),
                             strings: strings,
-                            onDetail: () => context.go('/orders/${order.id}'),
+                            onDetail: () => AppNavigation.open(
+                              context,
+                              '/orders/${order.id}',
+                            ),
                             onWhatsApp: orderHasReadyPickupWhatsApp(order)
                                 ? () => _sendReadyPickupWhatsApp(order)
                                 : null,

@@ -19,16 +19,17 @@ class AppBackGuard extends ConsumerWidget {
         ref.watch(authControllerProvider).value?.user?.role ??
         UserRole.employee;
     final path = GoRouterState.of(context).uri.path;
+    final routerCanPop = GoRouter.of(context).canPop();
 
     return PopScope(
-      canPop: false,
+      canPop: routerCanPop,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
         }
         final target =
             AppNavigationHistory.instance.takePrevious() ??
-            _backTarget(path, role);
+            AppRoutes.parentFor(path, role);
         if (target == null) {
           showAppSnackBar('Sudah di Beranda.');
           return;
@@ -37,33 +38,5 @@ class AppBackGuard extends ConsumerWidget {
       },
       child: child,
     );
-  }
-
-  String? _backTarget(String path, UserRole role) {
-    if (path == AppRoutes.dashboard) {
-      return null;
-    }
-    final ordersRoot = role == UserRole.employee
-        ? AppRoutes.ordersMine
-        : AppRoutes.orders;
-    if (path.startsWith('/orders')) {
-      return path == ordersRoot ? AppRoutes.dashboard : ordersRoot;
-    }
-    if (path.startsWith('/customers')) {
-      return path == AppRoutes.customers
-          ? AppRoutes.dashboard
-          : AppRoutes.customers;
-    }
-    if (path.startsWith('/attendance')) {
-      return path == AppRoutes.attendanceMine || path == AppRoutes.attendance
-          ? AppRoutes.dashboard
-          : role == UserRole.employee
-          ? AppRoutes.attendanceMine
-          : AppRoutes.attendance;
-    }
-    if (path == AppRoutes.more) {
-      return AppRoutes.dashboard;
-    }
-    return AppRoutes.more;
   }
 }

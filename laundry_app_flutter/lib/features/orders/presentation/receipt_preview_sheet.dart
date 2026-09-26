@@ -19,6 +19,21 @@ extension ReceiptCopyTypeLabel on ReceiptCopyType {
     ReceiptCopyType.laundryLabel => 'Label Cucian',
     ReceiptCopyType.pickup => 'Bukti Pengambilan',
   };
+
+  String get purpose => switch (this) {
+    ReceiptCopyType.customer =>
+      'Untuk pelanggan sebagai bukti pesanan dan pembayaran.',
+    ReceiptCopyType.laundryLabel =>
+      'Tempel pada cucian agar isi, layanan, dan status bayar mudah dikenali.',
+    ReceiptCopyType.pickup =>
+      'Serahkan setelah pesanan lunas dan sudah diambil pelanggan.',
+  };
+
+  IconData get icon => switch (this) {
+    ReceiptCopyType.customer => Icons.receipt_long_outlined,
+    ReceiptCopyType.laundryLabel => Icons.local_offer_outlined,
+    ReceiptCopyType.pickup => Icons.verified_outlined,
+  };
 }
 
 Future<void> showReceiptPreviewSheet({
@@ -70,6 +85,42 @@ Future<void> showReceiptPreviewSheet({
               showSelectedIcon: false,
               onSelectionChanged: (value) =>
                   setModalState(() => selectedCopy = value.first),
+            ),
+          ),
+          const SizedBox(height: 12),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.softBlue,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(selectedCopy.icon, color: AppColors.primaryBlue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedCopy.label,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          selectedCopy.purpose,
+                          style: const TextStyle(
+                            color: AppColors.secondaryText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),

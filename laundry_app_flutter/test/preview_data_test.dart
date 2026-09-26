@@ -186,7 +186,7 @@ void main() {
       note: '',
     );
 
-    expect(order.totalPrice, 5 * 7000 + 2 * 25000 + 1 * 20000);
+    expect(order.totalPrice, 5 * 7000 + 2 * 35000 + 1 * 35000);
     expect(order.laundryWeightKg, 5);
     expect(order.quantityForUnit('PAIR'), 2);
     expect(order.quantityForUnit('ITEM'), 1);
@@ -225,58 +225,124 @@ void main() {
     expect(incentives.first.type, 'OUT');
   });
 
-  test('harga foto, varian setrika, dan luas tidak mengubah berat kiloan', () {
+  test(
+    'harga foto dan meter panjang tidak mengubah harga atau berat kiloan',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final state = container.read(previewDataProvider);
+      PreviewService service(String item, String variant) =>
+          state.services.singleWhere(
+            (s) => s.effectiveItem == item && s.effectiveVariant == variant,
+          );
+      final gorden = service('Kain Gorden', 'Tipis');
+      final setrika = service('Kaos + Celana', 'Setrika Saja');
+      final cuci = service('Kaos + Celana', 'Cuci Setrika');
+      final sprei160 = service('Sprei Besar', '160x200 Cuci Setrika');
+      final sprei180 = service('Sprei Besar', '180x200 Cuci Setrika');
+      final sprei200 = service('Sprei Besar', '200x200 Cuci Setrika');
+      final bajuMuslim = service('Baju Muslim', '');
+      final kainMeter = service('Kain (>3 M) / Meter', '');
+      final kiloan = state.services.singleWhere(
+        (item) => item.id == 'service-cs-reguler',
+      );
+      expect(gorden.unit, 'M');
+      expect(gorden.price, 5000);
+      expect(setrika.price, 15000);
+      expect(cuci.price, 25000);
+      expect(
+        [sprei160.price, sprei180.price, sprei200.price],
+        [15000, 15000, 15000],
+      );
+      expect(bajuMuslim.price, 15000);
+      expect(kainMeter.unit, 'M2');
+      expect(kainMeter.price, 3000);
+      expect(kiloan.price, 7000);
+      final order = container
+          .read(previewDataProvider.notifier)
+          .createOrderWithItems(
+            customerId: state.customers.first.id,
+            items: [
+              (serviceId: gorden.id, quantity: 2.25),
+              (serviceId: setrika.id, quantity: 2),
+              (serviceId: cuci.id, quantity: 1),
+              (serviceId: 'service-cs-reguler', quantity: 3),
+            ],
+            paidAmount: 0,
+            paymentMethod: 'Tunai',
+            employeeId: state.employees.first.id,
+            note: '',
+          );
+      expect(order.itemSubtotal, 87250);
+      expect(order.totalPrice, 88000);
+      expect(order.laundryWeightKg, 3);
+      expect(order.quantityForUnit('M'), 2.25);
+      expect(formatQuantityForUnit(2.25, 'M'), '2.25 M');
+      expect(order.quantityForUnit('SET'), 3);
+    },
+  );
+
+  test('harga satuan tulisan tangan tersimpan dan katalog kiloan tetap', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    final state = container.read(previewDataProvider);
-    PreviewService service(String item, String variant) =>
-        state.services.singleWhere(
-          (s) => s.effectiveItem == item && s.effectiveVariant == variant,
-        );
-    final gorden = service('Gorden', '');
-    final setrika = service('Kaos + Celana', 'Setrika Saja');
-    final cuci = service('Kaos + Celana', 'Cuci Setrika');
-    final sprei160 = service('Sprei Besar', '160x200 Cuci Setrika');
-    final sprei180 = service('Sprei Besar', '180x200 Cuci Setrika');
-    final sprei200 = service('Sprei Besar', '200x200 Cuci Setrika');
-    final bajuMuslim = service('Baju Muslim', '');
-    final kainMeter = service('Kain (>3 M) / Meter', '');
-    final kiloan = state.services.singleWhere(
-      (item) => item.id == 'service-cs-reguler',
-    );
-    expect(gorden.unit, 'M2');
-    expect(gorden.price, 15000);
-    expect(setrika.price, 15000);
-    expect(cuci.price, 25000);
+    final byId = {
+      for (final service in container.read(previewDataProvider).services)
+        service.id: service,
+    };
+
+    final expectedUnitPrices = <String, int>{
+      'service-pakaian-kaos-sedang-normal': 10000,
+      'service-pakaian-kaos-sedang-bagus': 15000,
+      'service-pakaian-kaos-besar-normal': 15000,
+      'service-setelan-atasan-bawahan-baju-damkar-kilat': 40000,
+      'service-setelan-atasan-bawahan-baju-tentara-reguler': 30000,
+      'service-perlengkapan-tidur-sprei-small': 10000,
+      'service-perlengkapan-tidur-sprei-set-besar': 20000,
+      'service-perlengkapan-tidur-bed-cover-besar-bulu-angsa': 35000,
+      'service-handuk-handuk-sedang': 7500,
+      'service-handuk-handuk-jumbo': 15000,
+      'service-perlengkapan-rumah-karpet-per-m2': 20000,
+      'service-kain-dan-gorden-gorden-tebal': 7500,
+      'service-tas-tas-ransel-besar': 45000,
+      'service-boneka-boneka-xxl': 50000,
+      'service-boneka-boneka-xxxl': 70000,
+      'service-sepatu-reguler': 35000,
+      'service-sepatu-bagus': 40000,
+      'service-helm-reguler': 35000,
+    };
+    for (final entry in expectedUnitPrices.entries) {
+      expect(byId[entry.key]?.price, entry.value, reason: entry.key);
+    }
+    expect(byId['service-perlengkapan-rumah-karpet-per-m2']?.unit, 'M');
+    expect(byId['service-kain-dan-gorden-gorden-tebal']?.unit, 'M');
+
     expect(
-      [sprei160.price, sprei180.price, sprei200.price],
-      [15000, 15000, 15000],
+      {
+        for (final id in const [
+          'service-cs-reguler',
+          'service-cs-express',
+          'service-cs-kilat',
+          'service-ckl-reguler',
+          'service-ckl-express',
+          'service-ckl-kilat',
+          'service-sl-reguler',
+          'service-sl-express',
+          'service-sl-kilat',
+        ])
+          id: byId[id]?.price,
+      },
+      {
+        'service-cs-reguler': 7000,
+        'service-cs-express': 9000,
+        'service-cs-kilat': 12000,
+        'service-ckl-reguler': 4000,
+        'service-ckl-express': 6000,
+        'service-ckl-kilat': 9000,
+        'service-sl-reguler': 5000,
+        'service-sl-express': 7000,
+        'service-sl-kilat': 10000,
+      },
     );
-    expect(bajuMuslim.price, 15000);
-    expect(kainMeter.unit, 'M2');
-    expect(kainMeter.price, 3000);
-    expect(kiloan.price, 7000);
-    final order = container
-        .read(previewDataProvider.notifier)
-        .createOrderWithItems(
-          customerId: state.customers.first.id,
-          items: [
-            (serviceId: gorden.id, quantity: 2.25),
-            (serviceId: setrika.id, quantity: 2),
-            (serviceId: cuci.id, quantity: 1),
-            (serviceId: 'service-cs-reguler', quantity: 3),
-          ],
-          paidAmount: 0,
-          paymentMethod: 'Tunai',
-          employeeId: state.employees.first.id,
-          note: '',
-        );
-    expect(order.itemSubtotal, 109750);
-    expect(order.totalPrice, 110000);
-    expect(order.laundryWeightKg, 3);
-    expect(order.quantityForUnit('M2'), 2.25);
-    expect(formatQuantityForUnit(2.25, 'M2'), '2.25 M2');
-    expect(order.quantityForUnit('SET'), 3);
   });
 
   test('fallback, seed, dan migrasi memakai katalog harga yang sama', () {
@@ -293,6 +359,9 @@ void main() {
     final finalUnitPriceMigration = File(
       '../supabase/migrations/20260920143000_update_unit_prices_from_final_catalog.sql',
     ).readAsStringSync();
+    final handwrittenPriceMigration = File(
+      '../supabase/migrations/20260925100000_update_unit_prices_from_handwritten_list.sql',
+    ).readAsStringSync();
     String quote(String value) => "'${value.replaceAll("'", "''")}'";
     for (final service in services) {
       final values = [
@@ -307,6 +376,14 @@ void main() {
       ].join(', ');
       final finalValues = [
         quote(service.id),
+        quote(service.effectiveCategory),
+        quote(service.effectiveItem),
+        quote(service.effectiveVariant),
+        quote(service.unit),
+        '${service.price}',
+        '${service.sortOrder}',
+      ].join(', ');
+      final handwrittenValues = [
         quote(service.effectiveCategory),
         quote(service.effectiveItem),
         quote(service.effectiveVariant),
@@ -337,7 +414,8 @@ void main() {
       } else if (service.effectiveGroup == 'Satuan') {
         final existsInCatalog =
             migration.contains('$values)') ||
-            finalUnitPriceMigration.contains('($finalValues)');
+            finalUnitPriceMigration.contains('($finalValues)') ||
+            handwrittenPriceMigration.contains('$handwrittenValues)');
         expect(existsInCatalog, isTrue, reason: service.id);
       } else {
         expect(migration, isNot(contains(quote(service.id))));

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/user_error_message.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/localization/app_language.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
@@ -51,7 +51,8 @@ class DashboardPage extends ConsumerWidget {
           const _OperationalSummaryAction(),
           IconButton(
             tooltip: strings.notifications,
-            onPressed: () => context.go(AppRoutes.notifications),
+            onPressed: () =>
+                AppNavigation.open(context, AppRoutes.notifications),
             icon: Badge(
               isLabelVisible: unreadNotifications > 0,
               label: Text('$unreadNotifications'),
@@ -168,6 +169,11 @@ class _OwnerDashboard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _DashboardSectionTitle(
+          title: 'Ringkasan hari ini',
+          subtitle: 'Ketuk kartu untuk membuka rincian.',
+        ),
+        const SizedBox(height: 8),
         _SummaryGrid(
           cards: [
             _MetricCard(
@@ -175,14 +181,14 @@ class _OwnerDashboard extends ConsumerWidget {
               value: '${todayOrders.length}',
               icon: Icons.receipt_long,
               color: AppColors.primaryBlue,
-              onTap: () => context.go(AppRoutes.orders),
+              onTap: () => AppNavigation.open(context, AppRoutes.orders),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Total customers' : 'Total pelanggan',
               value: '$customerTotal',
               icon: Icons.people,
               color: AppColors.softBlue,
-              onTap: () => context.go(AppRoutes.customers),
+              onTap: () => AppNavigation.open(context, AppRoutes.customers),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Total kilograms' : 'Total kilogram',
@@ -190,14 +196,14 @@ class _OwnerDashboard extends ConsumerWidget {
                   '${todayOrders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
               icon: Icons.scale,
               color: AppColors.success,
-              onTap: () => context.go(AppRoutes.reports),
+              onTap: () => AppNavigation.open(context, AppRoutes.reports),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Income today' : 'Pemasukan hari ini',
               value: todayIncome.toRupiah(),
               icon: Icons.payments,
               color: AppColors.primaryNavy,
-              onTap: () => context.go(AppRoutes.cashbook),
+              onTap: () => AppNavigation.open(context, AppRoutes.cashbook),
             ),
             _MetricCard(
               label: strings.isEnglish
@@ -206,14 +212,14 @@ class _OwnerDashboard extends ConsumerWidget {
               value: todayOut.toRupiah(),
               icon: Icons.trending_down,
               color: AppColors.error,
-              onTap: () => context.go(AppRoutes.expenses),
+              onTap: () => AppNavigation.open(context, AppRoutes.expenses),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Balance today' : 'Saldo hari ini',
               value: (todayIncome - todayOut).toRupiah(),
               icon: Icons.account_balance_wallet,
               color: AppColors.success,
-              onTap: () => context.go(AppRoutes.cashbook),
+              onTap: () => AppNavigation.open(context, AppRoutes.cashbook),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Ready for pickup' : 'Siap diambil',
@@ -221,14 +227,14 @@ class _OwnerDashboard extends ConsumerWidget {
                   '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready).length}',
               icon: Icons.inventory_2,
               color: AppColors.warning,
-              onTap: () => context.go(AppRoutes.orders),
+              onTap: () => AppNavigation.open(context, AppRoutes.orders),
             ),
             _MetricCard(
               label: strings.isEnglish ? 'Low stock' : 'Stok menipis',
               value: '$lowStock',
               icon: Icons.warning_amber_outlined,
               color: AppColors.warning,
-              onTap: () => context.go(AppRoutes.inventory),
+              onTap: () => AppNavigation.open(context, AppRoutes.inventory),
             ),
             _MetricCard(
               label: strings.isEnglish
@@ -237,7 +243,7 @@ class _OwnerDashboard extends ConsumerWidget {
               value: '$pendingRequests',
               icon: Icons.task_alt,
               color: AppColors.primaryBlue,
-              onTap: () => context.go(AppRoutes.requestReview),
+              onTap: () => AppNavigation.open(context, AppRoutes.requestReview),
             ),
           ],
         ),
@@ -302,7 +308,7 @@ class _LatestCustomersSection extends ConsumerWidget {
               ),
             ),
             TextButton.icon(
-              onPressed: () => context.go(AppRoutes.customers),
+              onPressed: () => AppNavigation.open(context, AppRoutes.customers),
               icon: const Icon(Icons.arrow_forward),
               label: Text(strings.isEnglish ? 'View All' : 'Lihat Semua'),
             ),
@@ -354,7 +360,8 @@ class _LatestCustomersSection extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      onTap: () => context.go(AppRoutes.customers),
+                      onTap: () =>
+                          AppNavigation.open(context, AppRoutes.customers),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -434,6 +441,11 @@ class _EmployeeDashboard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _DashboardSectionTitle(
+          title: 'Aktivitas hari ini',
+          subtitle: 'Shift, absensi, pesanan, dan pengajuan Anda.',
+        ),
+        const SizedBox(height: 8),
         _SummaryGrid(
           cards: [
             _MetricCard(
@@ -445,28 +457,29 @@ class _EmployeeDashboard extends ConsumerWidget {
                   : '${todayShift.startTime}-${todayShift.endTime}',
               icon: Icons.calendar_today,
               color: AppColors.primaryBlue,
-              onTap: () => context.go(AppRoutes.shiftsMine),
+              onTap: () => AppNavigation.open(context, AppRoutes.shiftsMine),
             ),
             _MetricCard(
               label: 'Status absensi',
               value: myAttendance.isEmpty ? 'Belum' : 'Hadir',
               icon: Icons.fact_check,
               color: AppColors.warning,
-              onTap: () => context.go(AppRoutes.attendanceMine),
+              onTap: () =>
+                  AppNavigation.open(context, AppRoutes.attendanceMine),
             ),
             _MetricCard(
               label: 'Pesanan hari ini',
               value: '${todayOrders.length}',
               icon: Icons.assignment,
               color: AppColors.primaryNavy,
-              onTap: () => context.go(AppRoutes.ordersMine),
+              onTap: () => AppNavigation.open(context, AppRoutes.ordersMine),
             ),
             _MetricCard(
               label: 'Pengajuan aktif',
               value: '${myRequests.length}',
               icon: Icons.pending_actions,
               color: AppColors.success,
-              onTap: () => context.go(AppRoutes.requestsMine),
+              onTap: () => AppNavigation.open(context, AppRoutes.requestsMine),
             ),
           ],
         ),
@@ -503,6 +516,34 @@ class _EmployeeDashboard extends ConsumerWidget {
               AppRoutes.shiftsMine,
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardSectionTitle extends StatelessWidget {
+  const _DashboardSectionTitle({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            color: AppColors.primaryNavy,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: const TextStyle(color: AppColors.secondaryText, fontSize: 12),
         ),
       ],
     );
@@ -556,7 +597,8 @@ class _EmployeeOrderPeek extends StatelessWidget {
               for (final order in latest) ...[
                 InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () => context.go('/orders/${order.id}'),
+                  onTap: () =>
+                      AppNavigation.open(context, '/orders/${order.id}'),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
@@ -619,7 +661,8 @@ class _EmployeeOrderPeek extends StatelessWidget {
               ],
             if (orders.length > latest.length)
               TextButton(
-                onPressed: () => context.go(AppRoutes.ordersMine),
+                onPressed: () =>
+                    AppNavigation.open(context, AppRoutes.ordersMine),
                 child: Text(
                   'Lihat ${orders.length - latest.length} pesanan lainnya',
                 ),
@@ -744,7 +787,7 @@ class _QuickActions extends StatelessWidget {
           itemBuilder: (context, index) {
             final action = actions[index];
             return InkWell(
-              onTap: () => context.go(action.route),
+              onTap: () => AppNavigation.open(context, action.route),
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 decoration: BoxDecoration(

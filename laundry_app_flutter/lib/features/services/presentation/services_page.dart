@@ -13,11 +13,25 @@ import '../../../shared/preview_data.dart';
 import '../../../shared/service_categories.dart';
 import 'service_controller.dart';
 
-class ServicesPage extends ConsumerWidget {
+class ServicesPage extends ConsumerStatefulWidget {
   const ServicesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends ConsumerState<ServicesPage> {
+  final _searchController = TextEditingController();
+  var _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final previewServices = ref.watch(
       previewDataProvider.select((state) => state.services),
     );
@@ -26,6 +40,21 @@ class ServicesPage extends ConsumerWidget {
             .where((service) => service.isActive)
             .toList();
     final groupedServices = _groupServices(services);
+    final normalizedQuery = _query.trim().toLowerCase();
+    final searchResults = normalizedQuery.isEmpty
+        ? <PreviewService>[]
+        : services.where((service) {
+            final searchable = [
+              service.name,
+              service.effectiveGroup,
+              service.effectiveCategory,
+              service.effectiveItem,
+              service.effectiveVariant,
+              service.unit,
+            ].join(' ').toLowerCase();
+            return searchable.contains(normalizedQuery);
+          }).toList();
+    searchResults.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final strings = ref.strings;
 
     return Scaffold(
@@ -61,111 +90,180 @@ class ServicesPage extends ConsumerWidget {
                     : 'Tambah layanan',
                 onAction: () => _showServiceDialog(context, ref),
               )
-            : ListView.separated(
+            : ListView(
                 padding: const EdgeInsets.only(bottom: 24),
-                itemCount: groupedServices.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final group = groupedServices[index];
-                  final expansionTheme = Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                    expansionTileTheme: const ExpansionTileThemeData(
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: Colors.transparent),
-                      ),
-                      collapsedShape: RoundedRectangleBorder(
-                        side: BorderSide(color: Colors.transparent),
-                      ),
-                    ),
-                  );
-                  return Theme(
-                    data: expansionTheme,
-                    child: Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: ExpansionTile(
-                        initiallyExpanded: false,
-                        leading: const Icon(Icons.category_outlined),
-                        title: Text(
-                          group.category,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        subtitle: Text(
-                          strings.isEnglish
-                              ? '${group.services.length} price variants'
-                              : '${group.services.length} varian harga',
-                        ),
-                        childrenPadding: const EdgeInsets.fromLTRB(
-                          12,
-                          0,
-                          12,
-                          12,
-                        ),
-                        children: [
-                          for (final categoryGroup in group.categories)
-                            ExpansionTile(
-                              title: Text(categoryGroup.category),
-                              subtitle: Text(
-                                '${categoryGroup.services.length} pilihan',
-                              ),
-                              children: [
-                                for (final itemGroup in categoryGroup.items)
-                                  ExpansionTile(
-                                    tilePadding: EdgeInsets.zero,
-                                    childrenPadding: const EdgeInsets.only(
-                                      left: 8,
-                                      bottom: 8,
-                                    ),
-                                    title: Text(
-                                      itemGroup.itemName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      '${itemGroup.services.length} pilihan',
-                                    ),
-                                    children: [
-                                      for (final service in itemGroup.services)
-                                        ListTile(
-                                          dense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          leading: Icon(
-                                            service.isExpress
-                                                ? Icons.flash_on_outlined
-                                                : Icons
-                                                      .local_laundry_service_outlined,
-                                            color: service.isExpress
-                                                ? AppColors.warning
-                                                : AppColors.primaryBlue,
-                                          ),
-                                          title: Text(
-                                            service.effectiveVariant.isEmpty
-                                                ? service.name
-                                                : service.effectiveVariant,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          subtitle: Text(
-                                            '${service.unit} · ${service.estimatedHours} jam',
-                                          ),
-                                          trailing: Text(
-                                            service.price.toRupiah(),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              color: AppColors.primaryNavy,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                              ],
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      hintText: strings.isEnglish
+                          ? 'Search service, item, or size'
+                          : 'Cari layanan, barang, atau ukuran',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Hapus pencarian',
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                              icon: const Icon(Icons.close),
                             ),
-                        ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (normalizedQuery.isNotEmpty) ...[
+                    Text(
+                      '${searchResults.length} layanan ditemukan',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.secondaryText,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(height: 8),
+                    if (searchResults.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text(
+                            'Layanan tidak ditemukan. Coba nama barang atau ukuran lain.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else
+                      for (final service in searchResults) ...[
+                        _ServiceSearchResult(service: service),
+                        const SizedBox(height: 8),
+                      ],
+                  ] else
+                    for (
+                      var index = 0;
+                      index < groupedServices.length;
+                      index++
+                    ) ...[
+                      Builder(
+                        builder: (context) {
+                          final group = groupedServices[index];
+                          final expansionTheme = Theme.of(context).copyWith(
+                            dividerColor: Colors.transparent,
+                            expansionTileTheme: const ExpansionTileThemeData(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(color: Colors.transparent),
+                              ),
+                              collapsedShape: RoundedRectangleBorder(
+                                side: BorderSide(color: Colors.transparent),
+                              ),
+                            ),
+                          );
+                          return Theme(
+                            data: expansionTheme,
+                            child: Card(
+                              clipBehavior: Clip.antiAlias,
+                              child: ExpansionTile(
+                                initiallyExpanded: false,
+                                leading: const Icon(Icons.category_outlined),
+                                title: Text(
+                                  group.category,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  strings.isEnglish
+                                      ? '${group.services.length} price variants'
+                                      : '${group.services.length} varian harga',
+                                ),
+                                childrenPadding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  12,
+                                ),
+                                children: [
+                                  for (final categoryGroup in group.categories)
+                                    ExpansionTile(
+                                      title: Text(categoryGroup.category),
+                                      subtitle: Text(
+                                        '${categoryGroup.services.length} pilihan',
+                                      ),
+                                      children: [
+                                        for (final itemGroup
+                                            in categoryGroup.items)
+                                          ExpansionTile(
+                                            tilePadding: EdgeInsets.zero,
+                                            childrenPadding:
+                                                const EdgeInsets.only(
+                                                  left: 8,
+                                                  bottom: 8,
+                                                ),
+                                            title: Text(
+                                              itemGroup.itemName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              '${itemGroup.services.length} pilihan',
+                                            ),
+                                            children: [
+                                              for (final service
+                                                  in itemGroup.services)
+                                                ListTile(
+                                                  dense: true,
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                  leading: Icon(
+                                                    service.isExpress
+                                                        ? Icons
+                                                              .flash_on_outlined
+                                                        : Icons
+                                                              .local_laundry_service_outlined,
+                                                    color: service.isExpress
+                                                        ? AppColors.warning
+                                                        : AppColors.primaryBlue,
+                                                  ),
+                                                  title: Text(
+                                                    service
+                                                            .effectiveVariant
+                                                            .isEmpty
+                                                        ? service.name
+                                                        : service
+                                                              .effectiveVariant,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  subtitle: Text(
+                                                    '${service.unit} · ${service.estimatedHours} jam',
+                                                  ),
+                                                  trailing: Text(
+                                                    service.price.toRupiah(),
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      color:
+                                                          AppColors.primaryNavy,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      if (index != groupedServices.length - 1)
+                        const SizedBox(height: 12),
+                    ],
+                ],
               ),
       ),
     );
@@ -443,6 +541,48 @@ class _ServiceInput {
   final int price;
   final int estimatedHours;
   final bool isExpress;
+}
+
+class _ServiceSearchResult extends StatelessWidget {
+  const _ServiceSearchResult({required this.service});
+
+  final PreviewService service;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = [
+      service.effectiveGroup,
+      service.effectiveCategory,
+      service.effectiveItem,
+      if (service.effectiveVariant.isNotEmpty) service.effectiveVariant,
+    ].join(' · ');
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(
+          service.isExpress
+              ? Icons.flash_on_outlined
+              : Icons.local_laundry_service_outlined,
+          color: service.isExpress ? AppColors.warning : AppColors.primaryBlue,
+        ),
+        title: Text(
+          service.name,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          '$detail\n${service.unit} · ${service.estimatedHours} jam',
+        ),
+        isThreeLine: true,
+        trailing: Text(
+          service.price.toRupiah(),
+          style: const TextStyle(
+            color: AppColors.primaryNavy,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ServiceMainGroup {

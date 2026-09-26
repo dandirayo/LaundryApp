@@ -1,7 +1,7 @@
 # Manual Smoke Test — Owner, Karyawan, Multi-Usaha, dan POS
 
-**Baseline:** Idola One 2.1.2+18  
-**Diperbarui:** 20 September 2026
+**Baseline:** Idola One 2.1.3+19  
+**Diperbarui:** 25 September 2026
 
 ## 1. Persiapan
 
@@ -96,7 +96,7 @@ Catat `Pass/Fail`, waktu, perangkat, build, dan bukti. Untuk uji realtime, amati
 | ---: | --- | --- | --- | --- |
 | 47 | Ubah status kerja/pembayaran pesanan, lalu buka notifikasi unread dan tandai semua. | Penerima yang relevan mendapat notifikasi; badge dan row read berubah tanpa reload penuh; deep link membuka route aman. | | |
 | 48 | Putus jaringan, buka halaman data, sambungkan, lalu retry/refresh. | Data lama tidak crash dan data terbaru kembali tanpa listener ganda. | | |
-| 49 | Cek update dari build lebih lama. | Rilis 2.1.2+18 atau rilis lebih baru terdeteksi sesuai manifest. | | |
+| 49 | Cek update dari build lebih lama. | Rilis 2.1.3+19 atau rilis lebih baru terdeteksi sesuai manifest. | | |
 | 50 | Instal update. | Package/signature valid dan data aplikasi tidak terhapus. | | |
 
 ## 9. Pemeriksaan database/RLS

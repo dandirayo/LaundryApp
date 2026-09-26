@@ -1,6 +1,6 @@
 # 6. Implementation Plan
 
-**Baseline:** Idola One 2.1.2+18, 20 September 2026
+**Baseline:** Idola One 2.1.3+19, 25 September 2026
 
 ## 1. Posisi saat ini
 

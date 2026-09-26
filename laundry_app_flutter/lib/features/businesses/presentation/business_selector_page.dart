@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_shell.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_state_view.dart';
@@ -78,7 +79,8 @@ class BusinessSelectorPage extends ConsumerWidget {
               if (user?.role == UserRole.owner) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () => context.go(AppRoutes.businessManagement),
+                  onPressed: () =>
+                      AppNavigation.open(context, AppRoutes.businessManagement),
                   icon: const Icon(Icons.storefront_outlined),
                   label: const Text('Kelola Usaha & Karyawan'),
                 ),

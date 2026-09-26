@@ -315,38 +315,38 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-pakaian-kaos-sedang-normal',
     'Pakaian',
     'Kaos',
-    'Sedang Normal',
+    'Normal',
     'PIECE',
-    5000,
+    10000,
     126,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-pakaian-kaos-sedang-bagus',
     'Pakaian',
     'Kaos',
-    'Sedang Bagus',
+    'Bagus',
     'PIECE',
-    7000,
+    15000,
     127,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-pakaian-kaos-besar-normal',
     'Pakaian',
     'Kaos',
     'Besar Normal',
     'PIECE',
-    6000,
+    15000,
     128,
     hours: 72,
     express: false,
@@ -507,14 +507,14 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-setelan-atasan-bawahan-baju-damkar-cuci-setrika',
     'Setelan (Atasan + Bawahan)',
     'Baju Damkar',
-    'Cuci Setrika',
+    'Reguler',
     'SET',
-    25000,
+    30000,
     142,
     hours: 72,
     express: false,
@@ -826,62 +826,62 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-tidur-sprei-small',
     'Perlengkapan Tidur',
-    'Sprei',
-    'Small',
+    'Sprei Saja',
+    '',
     'PIECE',
     10000,
     166,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-tidur-sprei-medium',
     'Perlengkapan Tidur',
-    'Sprei',
-    'Medium',
+    'Sprei Set',
+    'Sedang',
     'PIECE',
-    13000,
+    15000,
     167,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-tidur-bed-cover-sedang-katun',
     'Perlengkapan Tidur',
     'Bed Cover',
-    'Sedang Katun',
+    'Sedang',
     'PIECE',
-    35000,
+    25000,
     168,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-tidur-bed-cover-besar-katun',
     'Perlengkapan Tidur',
     'Bed Cover',
-    'Besar Katun',
+    'Besar',
     'PIECE',
-    50000,
+    30000,
     169,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-tidur-bed-cover-besar-bulu-angsa',
     'Perlengkapan Tidur',
     'Bed Cover',
-    'Besar Bulu Angsa',
+    'Jumbo',
     'PIECE',
-    130000,
+    35000,
     170,
     hours: 72,
     express: false,
@@ -898,38 +898,38 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-handuk-handuk-kecil',
     'Handuk',
     'Handuk',
     'Kecil',
     'PIECE',
-    10000,
+    5000,
     172,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-handuk-handuk-sedang',
     'Handuk',
     'Handuk',
     'Sedang',
     'PIECE',
-    15000,
+    7500,
     173,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-handuk-handuk-besar',
     'Handuk',
     'Handuk',
     'Besar',
     'PIECE',
-    20000,
+    10000,
     174,
     hours: 72,
     express: false,
@@ -1222,14 +1222,14 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-perlengkapan-rumah-karpet-per-m2',
     'Perlengkapan Rumah',
     'Karpet',
-    'per m2',
-    'M2',
-    47000,
+    'Tebal',
+    'M',
+    20000,
     199,
     hours: 72,
     express: false,
@@ -1294,62 +1294,62 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-kain-dan-gorden-gorden',
     'Kain dan Gorden',
-    'Gorden',
-    '',
-    'M2',
-    15000,
+    'Kain Gorden',
+    'Dalam',
+    'M',
+    3500,
     205,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-kain-dan-gorden-gorden-setrika-saja',
     'Kain dan Gorden',
-    'Gorden',
-    'Setrika Saja',
-    'M2',
-    9000,
+    'Kain Gorden',
+    'Tipis',
+    'M',
+    5000,
     206,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-tas-tas-ransel-kecil',
     'Tas',
     'Tas Ransel',
     'Kecil',
     'PIECE',
-    10000,
+    25000,
     207,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-tas-tas-ransel-sedang',
     'Tas',
     'Tas Ransel',
     'Sedang',
     'PIECE',
-    15000,
+    35000,
     208,
     hours: 72,
     express: false,
   ),
-  // photo
+  // handwritten price list
   _catalogService(
     'service-tas-tas-ransel-besar',
     'Tas',
     'Tas Ransel',
     'Besar',
     'PIECE',
-    20000,
+    45000,
     209,
     hours: 72,
     express: false,
@@ -1390,86 +1390,86 @@ final _defaultServiceCatalog = <PreviewService>[
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-boneka-boneka-xs',
     'Boneka',
     'Boneka',
     'XS',
     'PIECE',
-    38000,
+    10000,
     213,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-boneka-boneka-s',
     'Boneka',
     'Boneka',
     'S',
     'PIECE',
-    45000,
+    15000,
     214,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-boneka-boneka-m',
     'Boneka',
     'Boneka',
     'M',
     'PIECE',
-    53000,
+    20000,
     215,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-boneka-boneka-l',
     'Boneka',
     'Boneka',
     'L',
     'PIECE',
-    67000,
+    25000,
     216,
     hours: 72,
     express: false,
   ),
-  // existing
+  // handwritten price list
   _catalogService(
     'service-boneka-boneka-xl',
     'Boneka',
     'Boneka',
     'XL',
     'PIECE',
-    158000,
+    35000,
     217,
     hours: 72,
     express: false,
   ),
-  // existing-app
+  // handwritten price list
   _catalogService(
     'service-sepatu-reguler',
     'Sepatu',
-    'Cuci Sepatu',
-    'Reguler',
+    'Sepatu',
+    'Biasa',
     'PAIR',
-    25000,
+    35000,
     218,
     hours: 72,
     express: false,
   ),
-  // existing-app
+  // handwritten price list
   _catalogService(
     'service-helm-reguler',
     'Helm',
-    'Cuci Helm',
-    'Reguler',
+    'Helm',
+    '',
     'ITEM',
-    20000,
+    35000,
     219,
     hours: 72,
     express: false,
@@ -1735,6 +1735,126 @@ final _defaultServiceCatalog = <PreviewService>[
     'M2',
     3000,
     246,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-setelan-atasan-bawahan-baju-damkar-kilat',
+    'Setelan (Atasan + Bawahan)',
+    'Baju Damkar',
+    'Kilat',
+    'SET',
+    40000,
+    247,
+    hours: 72,
+    express: true,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-setelan-atasan-bawahan-baju-tentara-reguler',
+    'Setelan (Atasan + Bawahan)',
+    'Baju Tentara',
+    'Reguler',
+    'SET',
+    30000,
+    248,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-setelan-atasan-bawahan-baju-tentara-kilat',
+    'Setelan (Atasan + Bawahan)',
+    'Baju Tentara',
+    'Kilat',
+    'SET',
+    40000,
+    249,
+    hours: 72,
+    express: true,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-perlengkapan-tidur-sprei-set-besar',
+    'Perlengkapan Tidur',
+    'Sprei Set',
+    'Besar',
+    'PIECE',
+    20000,
+    250,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-handuk-handuk-jumbo',
+    'Handuk',
+    'Handuk',
+    'Jumbo',
+    'PIECE',
+    15000,
+    251,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-perlengkapan-rumah-karpet-tipis',
+    'Perlengkapan Rumah',
+    'Karpet',
+    'Tipis',
+    'M',
+    15000,
+    252,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-kain-dan-gorden-gorden-tebal',
+    'Kain dan Gorden',
+    'Kain Gorden',
+    'Tebal',
+    'M',
+    7500,
+    253,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-boneka-boneka-xxl',
+    'Boneka',
+    'Boneka',
+    'XXL',
+    'PIECE',
+    50000,
+    254,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-boneka-boneka-xxxl',
+    'Boneka',
+    'Boneka',
+    'XXXL',
+    'PIECE',
+    70000,
+    255,
+    hours: 72,
+    express: false,
+  ),
+  // handwritten price list
+  _catalogService(
+    'service-sepatu-bagus',
+    'Sepatu',
+    'Sepatu',
+    'Bagus',
+    'PAIR',
+    40000,
+    256,
+    hours: 72,
+    express: false,
   ),
 ];
 
