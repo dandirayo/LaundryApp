@@ -1,8 +1,8 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 25 September 2026  
-**Rilis aktif:** 2.1.3+19  
-**Dipublikasikan:** 25 September 2026
+**Diverifikasi:** 26 September 2026  
+**Rilis aktif:** 2.1.4+20  
+**Dipublikasikan:** 26 September 2026
 
 ## Status rilis
 
@@ -12,7 +12,9 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release produksi saat ini adalah 2.1.3+19. Kandidat 2.1.4+20 merapikan fondasi UI dan navigasi, alur buat pesanan, pencarian katalog, keranjang, pembayaran, status, cetak satu per satu, daftar pesanan, serta detail pesanan tanpa mengubah harga dan aturan bisnis.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.4+20 merapikan fondasi UI dan navigasi, alur buat pesanan, pencarian katalog, keranjang, pembayaran, status, cetak satu per satu, daftar pesanan, serta detail pesanan tanpa mengubah harga dan aturan bisnis.
+
+Titik source release disimpan pada tag Git `v2.1.4-build20`. Keadaan sebelum release disimpan pada `pre-v2.1.4-build20`.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 
@@ -91,8 +93,9 @@ Publisher menolak APK dengan certificate berbeda. Keystore harus dicadangkan di 
 Android tidak menerima downgrade build.
 
 - Untuk perangkat yang belum update, pulihkan manifest lama agar penawaran buruk hilang.
-- Untuk perangkat yang sudah update, buat hotfix dengan build lebih tinggi.
+- Untuk perangkat yang sudah update, checkout `pre-v2.1.4-build20`, naikkan nomor menjadi build 21 atau lebih tinggi, lalu publikasikan source lama sebagai release rollback. Android tidak dapat memasang build 19 di atas build 20.
 - Pertahankan APK immutable yang dirujuk manifest rollback.
+- Pertahankan tag `v2.1.4-build20` agar perubahan baru dapat diedit dan diterbitkan lagi setelah masalah diperbaiki.
 - Jangan membuat build fiktif hanya untuk menguji notifikasi production.
 - Setelah hotfix, uji login, order, POS, printer, dan update dari build sebelumnya.
 

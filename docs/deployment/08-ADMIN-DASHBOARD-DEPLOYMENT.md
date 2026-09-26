@@ -14,6 +14,7 @@ Dashboard admin dibangun oleh GitHub Actions dan diterbitkan sebagai file statis
 | GitHub secrets | Enam nama secret yang diwajibkan terdaftar |
 | Deploy sukses terakhir yang terlihat | 6 September 2026, run `34026106625` |
 | Pemeriksaan host 20 September 2026 | Port 80, 443, dan 8081 timeout; perlu pemeriksaan VPS/firewall/provider |
+| Percobaan deploy 26 September 2026 | Build lulus; upload dihentikan karena host SSH menyajikan fingerprint baru yang belum diverifikasi |
 
 ## Alur deployment
 
@@ -78,5 +79,6 @@ Backup saat ini hanya satu generasi. Untuk rollback:
 5. verifikasi URL dan login/data dasar;
 6. catat commit serta penyebab rollback.
 
-Peningkatan yang masih diperlukan: backup bertimestamp, retensi beberapa rilis, artifact CI, HTTPS/domain, timeout job, dan auto rollback jika health check gagal. Rincian operasional ada di [CI/CD](02-CICD-AUTO-DEPLOY.md), [Runbook](05-OPERATIONS-RUNBOOK.md), dan [Backup/DR](06-BACKUP-ROLLBACK-DR.md).
+Rollback webroot tidak menghapus source. Tag `pre-v2.1.4-build20` menyimpan keadaan sebelumnya dan `v2.1.4-build20` menyimpan source release baru, sehingga perubahan dapat diperbaiki dan diterbitkan lagi.
 
+Peningkatan yang masih diperlukan: backup bertimestamp, retensi beberapa rilis, artifact CI, HTTPS/domain, timeout job, dan auto rollback jika health check gagal. Rincian operasional ada di [CI/CD](02-CICD-AUTO-DEPLOY.md), [Runbook](05-OPERATIONS-RUNBOOK.md), dan [Backup/DR](06-BACKUP-ROLLBACK-DR.md).
