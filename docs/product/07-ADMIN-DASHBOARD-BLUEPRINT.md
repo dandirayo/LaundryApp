@@ -1,8 +1,9 @@
 # Blueprint Dashboard Admin Idola One
 
-**Status diverifikasi:** 25 September 2026  
-**Aplikasi Android:** 2.1.3+19  
-**Backend:** Supabase production `sqydcdhvsmmkvlpsjzgx`
+**Implementasi lokal diperiksa:** 29 September 2026<br>
+**Versi source Android:** 2.1.4+20 (`laundry_app_flutter/pubspec.yaml`)<br>
+**Backend bersama:** Supabase production `sqydcdhvsmmkvlpsjzgx`<br>
+**Status website:** desain dan navigasi baru tersedia di source lokal; belum diterbitkan ke VPS.
 
 ## 1. Posisi dashboard dalam produk
 
@@ -28,23 +29,26 @@ flowchart LR
 - Operasi finansial dan operasi atomik memakai RPC/trigger yang sama dengan Android.
 - Snapshot nama pelanggan, layanan, produk, dan harga harus dipertahankan untuk histori.
 
-## 3. Implementasi dashboard saat ini
+## 3. Implementasi dashboard web lokal saat ini
 
-Source dashboard masih terpusat pada `admin_dashboard_web/src/App.tsx` dengan React, TypeScript, Vite, Supabase JS, dan Lucide.
+Source dashboard masih terpusat pada `admin_dashboard_web/src/App.tsx` dengan React, TypeScript, Vite, Supabase JS, dan Lucide. Desain terbaru memakai sidebar biru pada desktop, menu geser pada ponsel, kartu KPI, dan tabel pesanan. Beranda dibuat ringkas; modul lain dibuka dari menu kiri. Preview data contoh hanya aktif saat Vite berjalan dalam mode development dengan `?preview=1`.
+
+Menu kiri saat ini: **Beranda, Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Tim, Laporan, Pengaturan**. Kartu KPI di Beranda membuka modul terkait. Pencarian dari Beranda atau modul non-data membawa pengguna ke Pesanan; di Pelanggan dan Tim pencarian bekerja pada data modul tersebut.
 
 | Area | Kemampuan aktual | Status |
 | --- | --- | --- |
 | Login | Email/username, hanya profil owner aktif | Selesai |
-| Beranda | Pesanan hari ini, request pending, karyawan aktif, pelanggan, stok menipis, pemasukan, pengeluaran, saldo | Selesai untuk dataset kecil |
+| Beranda | Enam KPI: pesanan hari ini, pesanan baru, pelanggan, karyawan aktif, pemasukan bulan ini, stok menipis; pengajuan pending dan tujuh pesanan terbaru | Selesai sebagai ringkasan lokal; angka pesanan/kas masih mengikuti hasil query terbatas |
+| Analitik | Grafik pesanan masuk dan selesai untuk minggu kalender Senin–Minggu atau bulan kalender penuh yang dipilih, posisi pesanan, sisa tagihan | Selesai untuk data yang termuat; histori progres belum berbasis log transisi |
 | Pengajuan | Filter status, setujui, tolak, bayar, selesaikan, catatan owner | Sebagian; istilah/status web perlu disamakan dengan Android |
-| Pesanan | Maksimal 50 terbaru, ubah status, catat pembayaran | Sebagian; belum ada detail item lengkap/cetak |
-| Pelanggan | Cari lokal dari 50 terbaru, tambah, ubah, soft delete | Sebagian; belum ada poin dan pagination server |
+| Pesanan | Cari, filter status, tabel 10 baris per halaman, ubah status, catat pembayaran | Sebagian; pagination masih di browser, belum ada detail item lengkap/cetak |
+| Pelanggan | Cari, tambah, ubah, soft delete, 12 baris per halaman, jumlah total dari count terpisah | Sebagian; daftar dibatasi query dan belum ada poin/pagination server |
 | Inventaris | Item, stok minimum, tambah item, adjustment, riwayat mutasi | Selesai untuk kebutuhan dasar |
 | Karyawan | Tambah akun melalui Edge Function, ubah profil, aktif/nonaktif | Selesai untuk Laundry |
 | Shift | CRUD jadwal mingguan dan hari libur | Selesai |
-| Laporan | 50 transaksi kas terbaru, input manual, ekspor CSV, 15 audit log | Sebagian; belum agregat periode/pagination |
+| Laporan | Pemasukan, pengeluaran, saldo bulan berjalan; kas manual, ekspor CSV, 12 transaksi per halaman, 15 audit log terbaru | Sebagian; pagination masih di browser dan belum ada agregat periode server |
 | Pengaturan | Nama, telepon, dan alamat toko | Selesai |
-| Realtime | Request, order, employee, customer, inventory, shift, movement, cash, audit | Selesai dengan rekonsiliasi berkala |
+| Realtime | Request, order, employee, customer, inventory, shift, movement, cash, audit; refresh fokus dan polling 15 detik | Diimplementasikan; uji lintas perangkat pada versi lokal baru belum dilakukan |
 | Multi-usaha | Belum ada pemilih/kelola usaha atau assignment | Belum |
 | POS minuman | Belum ada produk, transaksi, status buka, laporan, dan kas | Belum |
 | Poin pelanggan | Belum menampilkan saldo/event | Belum |
@@ -70,6 +74,17 @@ Source dashboard masih terpusat pada `admin_dashboard_web/src/App.tsx` dengan Re
 | POS minuman | Produk, kasir, sale, status buka | Belum | `pos_*`, `business_daily_operations` |
 | Audit | Tidak menjadi layar utama | 15 aktivitas terbaru | `audit_logs` |
 | Update Android | Cek dan instal APK | Tidak relevan | Storage `app-releases` |
+
+### Definisi angka dan periode pada tampilan lokal
+
+- **Pesanan hari ini** menghitung `orders.created_at` menurut tanggal perangkat browser.
+- **Pesanan baru** menghitung seluruh order yang termuat dengan `order_status = received`.
+- **Pelanggan** menggunakan count aktif dari query terpisah, bukan panjang daftar pelanggan yang dimuat.
+- **Pemasukan, pengeluaran, dan saldo bulan ini** memakai transaksi kas yang termuat sejak tanggal 1 bulan berjalan.
+- **Minggu ini** berarti Senin–Minggu kalender; **Per bulan** berarti tanggal 1 sampai hari terakhir bulan pilihan, misalnya 1–31 Agustus, bukan 30 hari berjalan.
+- Grafik **Masuk** mengelompokkan `orders.created_at`. Grafik **Selesai** mengelompokkan `orders.updated_at` dari order yang statusnya saat ini `ready` atau `picked_up`. Ini belum merupakan histori kejadian selesai yang presisi apabila order berubah lagi setelah selesai.
+- Sisa tagihan dihitung dari `total_price - paid_amount` pada order belum lunas yang termuat.
+- Query order dan kas mengambil data sejak 1 Januari tahun sebelumnya, masing-masing meminta maksimal 5.000 baris; query pelanggan meminta maksimal 5.000 baris. Batas maksimal baris pada API Supabase dapat membuat hasil aktual lebih kecil. Pagination pada UI hanya memecah data yang sudah diterima browser.
 
 ## 5. Kontrak realtime produksi
 
@@ -125,10 +140,11 @@ Android menampilkan `completed` non-uang sebagai **Disetujui** agar owner tidak 
 ### P0 — integritas dan konsistensi
 
 - Gunakan `.select()` atau RPC result pada seluruh update/delete agar nol-row akibat RLS dianggap gagal.
-- Ganti metrik berbasis array 50 terbaru dengan aggregate/RPC server.
+- Ganti metrik order dan kas yang masih berbasis hasil query terbatas dengan aggregate/RPC server. Count pelanggan sudah memakai query count terpisah.
 - Samakan label pengajuan dengan Android dan hilangkan tombol “Selesaikan” yang ambigu.
 - Pastikan transisi `picked_up` belum lunas ditampilkan dengan sisa bayar, bukan ditolak oleh validasi web lama.
-- Tambah pagination/filter server untuk order, customer, kas, dan audit.
+- Ganti pagination lokal dengan pagination/filter server untuk order, customer, kas, dan audit.
+- Simpan histori transisi order agar grafik selesai merepresentasikan tanggal kejadian, bukan `updated_at` terakhir.
 
 ### P1 — parity Laundry
 
@@ -153,7 +169,11 @@ Android menampilkan `completed` non-uang sebagai **Disetujui** agar owner tidak 
 - Backup/export owner dengan kontrol akses.
 - Pemecahan `App.tsx` menjadi module feature-first.
 
-## 8. Struktur target dashboard
+## 8. Struktur halaman dan target kode dashboard
+
+Alur saat ini: **Beranda → menu modul di sidebar → tabel/filter → tindakan**. Pada layar kecil, sidebar dibuka lewat tombol menu. Beranda hanya memuat ringkasan dan pesanan terbaru; grafik berada di Analitik, pengajuan di Pengajuan, dan mutasi stok di Stok. Daftar panjang di Pesanan, Pelanggan, serta kas Laporan memiliki pagination lokal. Tombol perubahan data tetap memanggil operasi Supabase yang sudah ada.
+
+Struktur kode jangka panjang:
 
 ```text
 src/
@@ -188,3 +208,8 @@ Dashboard dianggap sinkron dengan project saat ini bila:
 - RLS lintas shop/business diuji;
 - lint, build, dan smoke test browser lulus.
 
+## 10. Validasi dan penerbitan
+
+- Pada 29 September 2026, perubahan lokal `admin_dashboard_web/src/App.tsx` dan `App.css` lulus lint serta production build. Tampilan desktop dan ponsel, sembilan menu, pencarian, dan contoh Agustus 31 hari diperiksa di preview lokal.
+- Preview `?preview=1` memakai data contoh dan tidak memverifikasi sinkronisasi produksi. Login biasa tetap membaca Supabase sesuai konfigurasi lokal.
+- Website baru **belum** di-push atau diterbitkan. VPS lama tidak sedang dipakai; setelah VPS pengganti tersedia, perbarui host, SSH key/known_hosts, webroot, dan health check pada workflow deployment sebelum menerbitkan build.

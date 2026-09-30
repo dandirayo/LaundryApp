@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tutorial Singkat Karyawan — Idola One</title>
+  <style>
+    :root { --navy:#071f70; --blue:#123fc4; --soft:#eef3ff; --gold:#f5a800; --ink:#172033; --muted:#667085; --line:#dfe5f0; --ok:#15803d; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#f4f6fa; font-family:"Segoe UI",Arial,sans-serif; line-height:1.55; }
+    header { padding:42px 20px 54px; color:white; background:linear-gradient(135deg,var(--navy),var(--blue)); }
+    header>div,main { width:min(1050px,calc(100% - 28px)); margin:auto; }
+    h1 { margin:8px 0 6px; font-size:clamp(2rem,6vw,3.7rem); line-height:1.05; }
+    .eyebrow { color:#ffd76c; font-size:.8rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .lead { max-width:720px; margin:12px 0 0; color:#e8edff; }
+    main { margin-top:-28px; padding-bottom:60px; }
+    .notice,.flow,.page { background:white; border:1px solid var(--line); border-radius:22px; box-shadow:0 12px 36px #071f7012; }
+    .notice { padding:18px 20px; }
+    .notice strong { color:var(--navy); }
+    .flow { margin:18px 0; padding:22px; }
+    .flow h2 { margin:0 0 14px; }
+    .flow ol { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:0; padding:0; list-style:none; counter-reset:step; }
+    .flow li { min-height:82px; padding:12px; background:var(--soft); border-radius:14px; font-size:.85rem; font-weight:700; }
+    .flow li::before { counter-increment:step; content:counter(step); display:block; width:26px; height:26px; margin-bottom:7px; color:white; background:var(--blue); border-radius:50%; text-align:center; line-height:26px; }
+    .page { display:grid; grid-template-columns:minmax(250px,340px) 1fr; gap:28px; margin:18px 0; padding:24px; }
+    .phone { align-self:start; overflow:hidden; border:8px solid #111827; border-radius:27px; background:white; box-shadow:0 14px 30px #0b163529; }
+    .phone img { display:block; width:100%; height:auto; }
+    .tag { display:inline-flex; align-items:center; gap:7px; padding:5px 10px; color:var(--blue); background:var(--soft); border-radius:999px; font-size:.76rem; font-weight:800; }
+    h2 { color:var(--navy); }
+    .page h2 { margin:10px 0 8px; font-size:1.55rem; }
+    .page h3 { margin:18px 0 7px; font-size:1rem; }
+    ul,ol { padding-left:22px; }
+    li+li { margin-top:6px; }
+    .tip { margin-top:16px; padding:12px 14px; color:#614300; background:#fff7d9; border-left:4px solid var(--gold); border-radius:9px; }
+    .done { color:var(--ok); font-weight:800; }
+    footer { padding:28px; color:var(--muted); text-align:center; }
+    .print { position:fixed; right:18px; bottom:18px; padding:12px 16px; color:white; background:var(--navy); border:0; border-radius:999px; box-shadow:0 8px 22px #071f7040; font-weight:800; cursor:pointer; }
+    @media(max-width:760px) { .flow ol { grid-template-columns:1fr 1fr; } .page { grid-template-columns:1fr; padding:18px; } .phone { width:min(100%,340px); margin:auto; } }
+    @media print { body { background:white; } header { padding:24px 0; } main { margin-top:14px; } .notice,.flow,.page { box-shadow:none; break-inside:avoid; } .page { grid-template-columns:245px 1fr; } .print { display:none; } }
+  </style>
+</head>
+<body>
+  <header><div><span class="eyebrow">Panduan operasional karyawan</span><h1>Idola One</h1><p class="lead">Tutorial singkat untuk menerima pesanan, mencatat pembayaran, memperbarui status cucian, mencetak nota, absensi, dan membuat pengajuan.</p></div></header>
+  <main>
+    <section class="notice"><strong>Sebelum mulai:</strong> masuk memakai nama akun dan PIN karyawan, pilih usaha <strong>Laundry</strong> yang berstatus Aktif, lalu pastikan internet menyala agar perubahan tersinkron dengan Owner. Screenshot memakai data contoh—jangan menyalin nama atau nomor pelanggannya.</section>
+    <section class="flow"><h2>Alur kerja paling sering</h2><ol><li>Pilih atau tambah pelanggan</li><li>Buat pesanan dan pilih layanan</li><li>Pilih status pembayaran</li><li>Simpan lalu cetak satu per satu</li><li>Ubah status sampai diambil</li></ol></section>
+
+    <section class="page"><div class="phone"><img src="images/01-beranda-karyawan.png" alt="Beranda karyawan"></div><div><span class="tag">1 · Mulai dari sini</span><h2>Beranda Karyawan</h2><p>Beranda menampilkan shift, status absensi, pesanan hari ini, dan pengajuan aktif.</p><h3>Aksi cepat</h3><ul><li><strong>Absen Masuk/Keluar</strong> untuk mencatat kehadiran.</li><li><strong>Pesanan</strong> untuk melihat pekerjaan yang sedang berjalan.</li><li><strong>Pelanggan</strong> untuk mencari atau menambah pelanggan.</li><li><strong>Pengajuan Saya</strong> untuk menghubungi Owner secara tercatat.</li></ul><div class="tip">Biasakan memeriksa kartu “Cek pesanan hari ini” setelah login.</div></div></section>
+
+    <section class="page"><div class="phone"><img src="images/03-buat-pesanan.png" alt="Buat pesanan"></div><div><span class="tag">2 · Transaksi baru</span><h2>Buat Pesanan</h2><ol><li>Pilih pelanggan. Tambahkan pelanggan baru bila belum terdaftar.</li><li>Pilih <strong>Kiloan</strong>, <strong>Satuan</strong>, atau <strong>Gabung</strong>.</li><li>Tekan layanan yang dibutuhkan. Untuk satuan, pilih barang dan ukuran yang benar.</li><li>Periksa keranjang, jumlah/kg, catatan, dan total.</li><li>Pilih <strong>Belum</strong>, <strong>DP 50%</strong>, atau <strong>Lunas</strong>. Gunakan menu nominal manual untuk jumlah lain atau transfer/QR.</li><li>Tekan <strong>Simpan &amp; Cetak Nota</strong>.</li></ol><div class="tip">Total dibulatkan ke atas per Rp1.000. Selalu bacakan total dan sisa bayar kepada pelanggan.</div></div></section>
+
+    <section class="page"><div class="phone"><img src="images/04-pelanggan.png" alt="Daftar pelanggan"></div><div><span class="tag">3 · Data pelanggan</span><h2>Pelanggan</h2><ul><li>Cari berdasarkan nama, telepon, atau alamat.</li><li>Tekan ikon telepon untuk menghubungi pelanggan.</li><li>Gunakan <strong>Tambah Pelanggan</strong> bila pelanggan belum ada.</li><li>Pastikan nomor WhatsApp benar agar pesan “siap diambil” dapat dikirim.</li></ul><div class="tip">Hindari membuat pelanggan ganda. Cari nomor telepon lebih dulu.</div></div></section>
+
+    <section class="page"><div class="phone"><img src="images/02-daftar-pesanan.png" alt="Daftar pesanan"></div><div><span class="tag">4 · Pantau pekerjaan</span><h2>Daftar Pesanan</h2><ul><li>Gunakan kolom pencarian untuk nomor nota atau nama pelanggan.</li><li>Filter <strong>Belum selesai</strong> untuk cucian yang masih dikerjakan.</li><li>Filter <strong>Selesai</strong> untuk pesanan siap ambil atau sudah diambil.</li><li>Tekan kartu pesanan untuk membuka detail.</li><li>Tombol bawah digunakan untuk membuat pesanan baru.</li></ul></div></section>
+
+    <section class="page"><div class="phone"><img src="images/10-detail-pesanan.png" alt="Detail pesanan"></div><div><span class="tag">5 · Status, pembayaran, cetak</span><h2>Detail Pesanan</h2><p>Periksa pelanggan, petugas, item, total, pembayaran, waktu, dan catatan sebelum melakukan aksi.</p><h3>Urutan status</h3><p><strong>Diterima → Diproses → Siap ambil → Diambil.</strong></p><ul><li>Catat pembayaran tambahan sampai status <strong>Lunas</strong>.</li><li>Tekan WhatsApp Siap Ambil ketika cucian benar-benar siap.</li><li>Pilih preview cetak sesuai kebutuhan.</li></ul><div class="tip"><strong>Cetak satu per satu:</strong> Nota Pelanggan, sobek; Label Cucian, sobek; Bukti Pengambilan dicetak saat pesanan lunas dan diambil.</div></div></section>
+
+    <section class="page"><div class="phone"><img src="images/05-absensi.png" alt="Absensi karyawan"></div><div><span class="tag">6 · Kehadiran</span><h2>Absensi</h2><ol><li>Periksa jadwal hari ini.</li><li>Tekan <strong>Absen Masuk</strong> saat mulai bekerja.</li><li>Izinkan kamera dan ambil foto sesuai ketentuan toko.</li><li>Tekan <strong>Absen Keluar</strong> setelah pekerjaan selesai.</li></ol><p class="done">Status berhasil akan muncul pada halaman ini dan dapat dilihat Owner.</p></div></section>
+
+    <section class="page"><div class="phone"><img src="images/06-pengajuan.png" alt="Pengajuan karyawan"></div><div><span class="tag">7 · Hubungi Owner</span><h2>Pengajuan Saya</h2><ul><li>Pilih kategori: stok, lembur, tukar shift, izin, atau kebutuhan lain yang tersedia.</li><li>Isi kolom yang diminta dan catatan seperlunya.</li><li>Tekan tombol kirim ke Owner.</li><li>Pantau status: <strong>Menunggu</strong>, <strong>Disetujui</strong>, atau <strong>Ditolak</strong>.</li></ul><div class="tip">Status “Selesai” berarti keputusan sudah diproses, bukan sekadar dibaca.</div></div></section>
+
+    <section class="page"><div class="phone"><img src="images/07-stok-pengeluaran.png" alt="Stok dan pengeluaran"></div><div><span class="tag">8 · Catatan operasional</span><h2>Stok &amp; Pengeluaran</h2><ul><li>Pilih periode Hari Ini, Kemarin, atau Seminggu.</li><li>Buka bagian pengeluaran untuk melihat transaksi.</li><li>Tekan tambah pengeluaran dan isi nominal, kategori, metode, serta keterangan.</li><li>Untuk kebutuhan stok, gunakan pengajuan agar Owner dapat menyetujui dan mencatat pengadaan.</li></ul></div></section>
+
+    <section class="page"><div class="phone"><img src="images/08-notifikasi.png" alt="Notifikasi"></div><div><span class="tag">9 · Informasi baru</span><h2>Notifikasi</h2><ul><li>Titik merah menandakan notifikasi belum dibaca.</li><li>Tekan notifikasi untuk membuka halaman terkait.</li><li>Gunakan tombol tandai dibaca setelah informasi ditindaklanjuti.</li></ul></div></section>
+
+    <section class="page"><div class="phone"><img src="images/09-menu-lainnya.png" alt="Menu lainnya"></div><div><span class="tag">10 · Menu tambahan</span><h2>Menu Lainnya</h2><p>Di sini tersedia pembaruan aplikasi, jadwal, printer, profil/PIN, dan menu tambahan sesuai izin karyawan.</p><ul><li><strong>Pembaruan aplikasi:</strong> instal jika Owner meminta update.</li><li><strong>Printer:</strong> sambungkan printer Bluetooth sebelum mencetak nota.</li><li><strong>Profil/PIN:</strong> jaga PIN dan jangan diberikan kepada orang lain.</li></ul></div></section>
+  </main>
+  <footer>Idola One · Tutorial Karyawan · Dibuat dari tampilan aplikasi versi 2.1.4+20</footer>
+  <button class="print" onclick="window.print()">Cetak / Simpan PDF</button>
+</body>
+</html>

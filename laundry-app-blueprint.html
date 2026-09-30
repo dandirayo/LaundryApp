@@ -293,6 +293,7 @@
         <a href="#peta">Peta Sistem</a>
         <a href="#alur">Alur</a>
         <a href="#fitur">Fitur</a>
+        <a href="#dashboard">Dashboard Web</a>
         <a href="#cetak">Cetak</a>
         <a href="#arsitektur">Arsitektur</a>
         <a href="#roadmap">Roadmap</a>
@@ -313,8 +314,8 @@
           </div>
         </div>
         <aside class="release-card" aria-label="Status rilis">
-          <div class="mini">Snapshot produk</div>
-          <div class="version">v2.1.3+19</div>
+          <div class="mini">Versi source Android</div>
+          <div class="version">v2.1.4+20</div>
           <div class="release-list">
             <div class="release-item"><div class="release-icon">2</div><div><strong>Dua jenis usaha</strong><span>Laundry aktif dan POS minuman sederhana</span></div></div>
             <div class="release-item"><div class="release-icon">3</div><div><strong>Tiga peran utama</strong><span>Owner, karyawan laundry, anggota POS</span></div></div>
@@ -456,13 +457,27 @@
           <article class="card feature-card" data-category="platform"><span class="tag done">Selesai</span><h3>Multi-Usaha &amp; Akses</h3><p>Pemilih usaha, tambah usaha minuman, status aktif, membership, dan assignment karyawan.</p></article>
           <article class="card feature-card" data-category="platform"><span class="tag done">Selesai</span><h3>Notifikasi</h3><p>Inbox, badge, baca/hapus, realtime pengajuan dan pesanan, serta deep link internal yang dibatasi.</p></article>
           <article class="card feature-card" data-category="platform"><span class="tag done">Selesai</span><h3>Pengaturan &amp; Update</h3><p>Profil/PIN, toko, printer, backup, audit, dan pembaruan APK melalui manifest cloud.</p></article>
+          <article class="card feature-card" data-category="platform laundry"><span class="tag partial">Web lokal</span><h3>Dashboard Owner Web</h3><p>Sidebar biru, KPI, tabel pesanan, analitik kalender, pengajuan, stok, pelanggan, tim, kas, dan pengaturan. Desain baru masih lokal.</p></article>
         </div>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <div class="wrap">
+        <div class="section-head"><div><div class="kicker">04 — Owner Web</div><h2>Dashboard yang ringkas dan mudah dipantau</h2></div><p>Desain web terbaru sudah ada pada source lokal. Beranda berisi ringkasan; pekerjaan lebih rinci dibuka lewat sidebar agar pemilik tidak perlu menggulir satu halaman panjang.</p></div>
+        <div class="tech-grid">
+          <article class="card tech-card"><span class="tag done">Lokal</span><h3>Beranda</h3><p>Enam kartu KPI, pengajuan yang menunggu, dan tabel tujuh pesanan terbaru. Kartu langsung membuka menu terkait.</p></article>
+          <article class="card tech-card"><span class="tag done">Lokal</span><h3>Menu kerja</h3><p>Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Tim, Laporan, dan Pengaturan ada di sidebar biru. Ponsel memakai menu geser.</p></article>
+          <article class="card tech-card"><span class="tag partial">Bertahap</span><h3>Data &amp; sinkronisasi</h3><p>Web memakai Supabase toko yang sama dengan Android. Realtime memiliki refresh fokus dan polling cadangan 15 detik; halaman lokal baru belum diuji lintas perangkat produksi.</p></article>
+        </div>
+        <p class="flow-note"><strong>Periode analitik:</strong> Minggu mengikuti Senin–Minggu, sedangkan pilihan bulanan memuat tanggal 1 sampai akhir bulan, misalnya 1–31 Agustus. Grafik selesai saat ini membaca status order dan tanggal pembaruan terakhir; histori transisi yang presisi masih menjadi pekerjaan berikutnya.</p>
+        <p class="flow-note"><strong>Status rilis web:</strong> lint, build, dan preview desktop/ponsel lulus pada 29 September 2026. Desain baru belum diterbitkan karena VPS pengganti belum tersedia. Dokumentasi teknis lengkap ada di <a href="docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md">Blueprint Dashboard Admin</a>.</p>
       </div>
     </section>
 
     <section id="cetak">
       <div class="wrap">
-        <div class="section-head"><div><div class="kicker">04 — Thermal Documents</div><h2>Tiga dokumen, tiga tujuan</h2></div><p>Setiap hasil cetak dipilih dan dicetak secara terpisah supaya kertas dapat dipotong dan diberikan ke penerima yang benar.</p></div>
+        <div class="section-head"><div><div class="kicker">05 — Thermal Documents</div><h2>Tiga dokumen, tiga tujuan</h2></div><p>Setiap hasil cetak dipilih dan dicetak secara terpisah supaya kertas dapat dipotong dan diberikan ke penerima yang benar.</p></div>
         <div class="print-grid">
           <article class="card print-card"><span class="print-no">1</span><h3>Nota Pelanggan / CS</h3><p>Bukti pesanan saat cucian diterima.</p><ul><li>Nomor dan tanggal nota</li><li>Pelanggan, item, berat/jumlah</li><li>Total, dibayar, sisa, dan metode</li><li>Status pembayaran</li></ul></article>
           <article class="card print-card"><span class="print-no">2</span><h3>Label Cucian</h3><p>Ditempelkan pada cucian agar karyawan tidak tertukar.</p><ul><li>Teks besar untuk nomor dan nama</li><li>Berat/jumlah serta layanan</li><li>Status bayar</li><li>Catatan pesanan</li></ul></article>
@@ -473,11 +488,11 @@
 
     <section id="arsitektur">
       <div class="wrap">
-        <div class="section-head"><div><div class="kicker">05 — Technical Blueprint</div><h2>Arsitektur dan data</h2></div><p>Aplikasi Android menjadi alat operasional utama. Supabase menyimpan sumber data bersama dan membatasi akses dengan tenant, peran, serta membership.</p></div>
+        <div class="section-head"><div><div class="kicker">06 — Technical Blueprint</div><h2>Arsitektur dan data</h2></div><p>Aplikasi Android menjadi alat operasional utama. Supabase menyimpan sumber data bersama dan membatasi akses dengan tenant, peran, serta membership.</p></div>
         <div class="tech-grid">
           <article class="card tech-card"><span class="tag done">Client</span><h3>Flutter Android</h3><p>Riverpod, GoRouter, data repository, printer Bluetooth, Firebase Messaging, cache lokal, dan cloud updater.</p></article>
           <article class="card tech-card"><span class="tag done">Backend</span><h3>Supabase</h3><p>Auth, PostgreSQL, RPC transaksi, RLS, Realtime, Edge Functions, Storage, trigger poin, dan audit.</p></article>
-          <article class="card tech-card"><span class="tag partial">Companion</span><h3>Dashboard Web</h3><p>Owner dashboard berfokus pada operasional Laundry. Paritas POS, poin, dan laporan skala besar masih bertahap.</p></article>
+          <article class="card tech-card"><span class="tag partial">Companion</span><h3>Dashboard Web</h3><p>Owner dashboard Laundry memakai Supabase yang sama. Sidebar, KPI, tabel, dan analitik kalender telah dibangun lokal; POS, poin, dan laporan skala besar masih bertahap.</p></article>
         </div>
         <div class="data-strip">
           <div class="data-box"><strong>Identitas &amp; Akses</strong><span>profiles · employees · businesses · business_members</span></div><div class="arrow">→</div>
@@ -489,8 +504,9 @@
 
     <section id="roadmap">
       <div class="wrap">
-        <div class="section-head"><div><div class="kicker">06 — Next Steps</div><h2>Roadmap prioritas</h2></div><p>Fokus berikutnya memperkuat POS tanpa menambah kerumitan sebelum dibutuhkan operasional.</p></div>
+        <div class="section-head"><div><div class="kicker">07 — Next Steps</div><h2>Roadmap prioritas</h2></div><p>Fokus berikutnya memperkuat keakuratan dashboard web dan kemampuan POS yang dibutuhkan operasional.</p></div>
         <div class="roadmap">
+          <article class="card road-item"><div class="priority">P0</div><div><strong>Dashboard web siap produksi</strong><span>Periksa mutasi nol baris, agregat server, pagination server, grafik dari histori transisi, dan uji sinkron lintas perangkat. Terbitkan setelah VPS baru siap.</span></div><span class="tag partial">Lokal</span></article>
           <article class="card road-item"><div class="priority">P1</div><div><strong>Struk dan histori POS</strong><span>Cetak transaksi, cari histori, dan cetak ulang.</span></div><span class="tag plan">Rencana</span></article>
           <article class="card road-item"><div class="priority">P1</div><div><strong>Tutup kas dan pengeluaran per usaha</strong><span>Rekonsiliasi omzet, kas aktual, selisih, dan biaya POS.</span></div><span class="tag plan">Rencana</span></article>
           <article class="card road-item"><div class="priority">P1</div><div><strong>Portal pelanggan berbasis web</strong><span>Cek status cucian dan saldo poin dengan akses yang aman.</span></div><span class="tag plan">Rencana</span></article>
@@ -504,7 +520,7 @@
   <footer>
     <div class="wrap footer-inner">
       <div><span class="standalone">Standalone blueprint</span><br>File ini berdiri sendiri dan tidak dimuat oleh Laundry App.</div>
-      <div>Snapshot: Idola One 2.1.3+19 · 26 September 2026</div>
+      <div>Source Android: 2.1.4+20 · Blueprint diperbarui 29 September 2026</div>
     </div>
   </footer>
 
