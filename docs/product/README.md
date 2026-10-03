@@ -18,6 +18,7 @@ Dokumen ini merangkum produk dan implementasi **Idola One 2.1.3+19** per 26 Sept
 6. [Implementation Plan](06-IMPLEMENTATION-PLAN.md)
 7. [Admin Dashboard Blueprint](07-ADMIN-DASHBOARD-BLUEPRINT.md)
 8. [Audit dan Upgrade Aplikasi Tahap 1–12](08-FOUNDATION-AUDIT-AND-UPGRADE.md)
+9. [Panduan pindah dari buku manual ke aplikasi (1 Oktober 2026)](09-GO-LIVE-BUKU-MANUAL-KE-APLIKASI.md)
 
 Dokumentasi operasional terpisah tersedia di [Deployment dan VPS](../deployment/README.md).
 

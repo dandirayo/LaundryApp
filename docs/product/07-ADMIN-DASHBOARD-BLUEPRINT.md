@@ -213,3 +213,18 @@ Dashboard dianggap sinkron dengan project saat ini bila:
 - Pada 29 September 2026, perubahan lokal `admin_dashboard_web/src/App.tsx` dan `App.css` lulus lint serta production build. Tampilan desktop dan ponsel, sembilan menu, pencarian, dan contoh Agustus 31 hari diperiksa di preview lokal.
 - Preview `?preview=1` memakai data contoh dan tidak memverifikasi sinkronisasi produksi. Login biasa tetap membaca Supabase sesuai konfigurasi lokal.
 - Website baru **belum** di-push atau diterbitkan. VPS lama tidak sedang dipakai; setelah VPS pengganti tersedia, perbarui host, SSH key/known_hosts, webroot, dan health check pada workflow deployment sebelum menerbitkan build.
+
+## 11. Peralihan dari buku manual per 1 Oktober 2026
+
+Panduan operasional terperinci ada di [Panduan pindah dari buku manual ke aplikasi](09-GO-LIVE-BUKU-MANUAL-KE-APLIKASI.md). Blueprint ini menetapkan batas teknis agar angka dashboard tidak keliru dibaca pada hari pertama:
+
+| Jenis angka | Aturan peralihan |
+| --- | --- |
+| Pesanan hari ini | Hanya pesanan baru sejak jam mulai yang ditetapkan owner. Nota buku lama yang diinput melalui form biasa akan terlihat sebagai pesanan baru hari input. |
+| Pemasukan dan saldo | Pembayaran lama/DP sebelum jam mulai bukan penerimaan baru. Buku Kas berasal dari `cash_transactions`; saat ini belum ada alur UI yang terbukti untuk migrasi saldo awal per metode. |
+| Piutang | Pisahkan piutang nota lama dari sisa tagihan pesanan baru sampai tersedia importer yang menjaga pembayaran dan tanggal asli. |
+| Pelanggan | Impor akun Google terpilih dan cek duplikat; reset hasil sinkron tidak sama dengan reset seluruh data toko. |
+| Stok | Isi stok fisik awal sebagai stok awal item. Mutasi masuk/keluar setelah titik potong saja dihitung sebagai pergerakan baru. |
+| Grafik bulan | Per bulan berarti bulan kalender penuh. Jika data historis buku belum dimigrasikan, grafik Oktober hanya menggambarkan data aplikasi sejak titik potong, bukan seluruh histori toko. |
+
+**Kebutuhan produk berikutnya:** importer nota aktif yang idempoten dan dapat diaudit, saldo pembuka kas terpisah per metode, rekonsiliasi piutang lama, serta metrik server untuk dashboard. Sebelum fitur itu selesai, jangan membuat pesanan/pembayaran palsu hanya agar angka dashboard sama dengan buku manual.
