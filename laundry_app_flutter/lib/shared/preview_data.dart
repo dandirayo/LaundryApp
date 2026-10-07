@@ -1292,6 +1292,49 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     );
   }
 
+  void updatePaymentPaidAt(String paymentId, DateTime paidAt) {
+    final payment = state.payments
+        .where((entry) => entry.id == paymentId)
+        .firstOrNull;
+    if (payment == null) {
+      throw StateError('Pembayaran tidak ditemukan.');
+    }
+    state = state.copyWith(
+      payments: [
+        for (final entry in state.payments)
+          if (entry.id == paymentId)
+            PreviewPayment(
+              id: entry.id,
+              orderId: entry.orderId,
+              amount: entry.amount,
+              method: entry.method,
+              paidAt: paidAt,
+              receiverName: entry.receiverName,
+            )
+          else
+            entry,
+      ],
+      cashTransactions: [
+        for (final entry in state.cashTransactions)
+          if (entry.referenceType == 'PAYMENT' &&
+              entry.referenceId == paymentId)
+            PreviewCashTransaction(
+              id: entry.id,
+              referenceId: entry.referenceId,
+              referenceType: entry.referenceType,
+              type: entry.type,
+              category: entry.category,
+              description: entry.description,
+              amount: entry.amount,
+              method: entry.method,
+              createdAt: paidAt,
+            )
+          else
+            entry,
+      ],
+    );
+  }
+
   void updateOrderStatus(String orderId, PreviewOrderStatus status) {
     final currentOrder = _orderById(orderId);
     final nextOrder = currentOrder.copyWith(orderStatus: status);

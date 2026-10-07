@@ -53,6 +53,8 @@ class OrderDetailPage extends ConsumerWidget {
       ),
     );
     final orders = ref.watch(orderControllerProvider).value ?? data.orders;
+    final allPayments =
+        ref.watch(orderPaymentControllerProvider).value ?? data.payments;
     final employees =
         ref.watch(employeeDirectoryProvider).value ?? data.employees;
     final services =
@@ -71,7 +73,7 @@ class OrderDetailPage extends ConsumerWidget {
       );
     }
 
-    final payments = data.payments
+    final payments = allPayments
         .where((payment) => payment.orderId == order.id)
         .toList();
     final canSendWhatsApp = orderHasReadyPickupWhatsApp(order);
@@ -232,6 +234,19 @@ class OrderDetailPage extends ConsumerWidget {
                           subtitle: Text(
                             '${payment.method} - ${payment.paidAt.toIndonesianDate()} ${payment.paidAt.toIndonesianTime()}',
                           ),
+                          trailing: isOwner
+                              ? IconButton(
+                                  key: ValueKey(
+                                    'edit-payment-date-${payment.id}',
+                                  ),
+                                  tooltip: 'Edit tanggal pembayaran',
+                                  onPressed: () =>
+                                      _editPaymentDate(context, ref, payment),
+                                  icon: const Icon(
+                                    Icons.edit_calendar_outlined,
+                                  ),
+                                )
+                              : null,
                         ),
                   ],
                 ),
@@ -285,6 +300,60 @@ class OrderDetailPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editPaymentDate(
+    BuildContext context,
+    WidgetRef ref,
+    PreviewPayment payment,
+  ) async {
+    final now = DateTime.now();
+    final initialDate = payment.paidAt.isAfter(now) ? now : payment.paidAt;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      helpText: 'Pilih tanggal pembayaran',
+      cancelText: 'Batal',
+      confirmText: 'Lanjut',
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(payment.paidAt),
+      helpText: 'Pilih jam pembayaran',
+      cancelText: 'Batal',
+      confirmText: 'Simpan',
+    );
+    if (time == null || !context.mounted) return;
+    final paidAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (paidAt.isAfter(DateTime.now())) {
+      showAppSnackBar('Tanggal pembayaran tidak boleh di masa depan.');
+      return;
+    }
+    try {
+      await ref
+          .read(orderPaymentControllerProvider.notifier)
+          .updatePaidAt(paymentId: payment.id, paidAt: paidAt);
+      if (context.mounted) {
+        showAppSnackBar('Tanggal pembayaran berhasil diperbarui.');
+      }
+    } catch (error) {
+      if (!context.mounted) return;
+      showAppSnackBar(
+        userErrorMessage(
+          error,
+          fallback: 'Tanggal pembayaran belum dapat diperbarui.',
+        ),
+      );
+    }
   }
 
   Future<void> _showEditOrderSheet(

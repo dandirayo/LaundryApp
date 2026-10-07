@@ -17,6 +17,11 @@ final orderControllerProvider =
       OrderController.new,
     );
 
+final orderPaymentControllerProvider =
+    AsyncNotifierProvider<OrderPaymentController, List<PreviewPayment>>(
+      OrderPaymentController.new,
+    );
+
 class OrderController extends AsyncNotifier<List<PreviewOrder>> {
   late OrderRepository _repository;
   RealtimeChannel? _channel;
@@ -86,6 +91,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
         ],
       );
       await refresh();
+      await ref.read(orderPaymentControllerProvider.notifier).refresh();
       await ref.read(cashbookControllerProvider.notifier).refresh();
       return order;
     }
@@ -163,6 +169,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
     if (shopId != null) {
       await _repository.delete(shopId: shopId, orderId: orderId);
       await refresh();
+      await ref.read(orderPaymentControllerProvider.notifier).refresh();
     } else {
       ref.read(previewDataProvider.notifier).deleteOrder(orderId);
     }
@@ -180,6 +187,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
         method: method,
       );
       await refresh();
+      await ref.read(orderPaymentControllerProvider.notifier).refresh();
       await ref.read(cashbookControllerProvider.notifier).refresh();
     } else {
       ref
@@ -198,6 +206,83 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
       );
     }
     return _repository.fetch(shopId);
+  }
+
+  String? _shopId() {
+    final user = ref.read(authControllerProvider).value?.user;
+    if (!_repository.isOnline ||
+        user == null ||
+        user.shopId.startsWith('preview-shop')) {
+      return null;
+    }
+    return user.shopId;
+  }
+
+  void _queueRefresh() {
+    if (_refreshQueued) return;
+    _refreshQueued = true;
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 150), () async {
+        _refreshQueued = false;
+        await refresh();
+      }),
+    );
+  }
+
+  void _removeChannel() {
+    final channel = _channel;
+    _channel = null;
+    if (channel != null) unawaited(_repository.removeChannel(channel));
+  }
+}
+
+class OrderPaymentController extends AsyncNotifier<List<PreviewPayment>> {
+  late OrderRepository _repository;
+  RealtimeChannel? _channel;
+  bool _refreshQueued = false;
+
+  @override
+  Future<List<PreviewPayment>> build() async {
+    ref.watch(authControllerProvider.select((session) => session.value?.user));
+    _repository = ref.watch(orderRepositoryProvider);
+    ref.onDispose(_removeChannel);
+    return _load(subscribe: true);
+  }
+
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(() => _load(subscribe: false));
+  }
+
+  Future<void> updatePaidAt({
+    required String paymentId,
+    required DateTime paidAt,
+  }) async {
+    final shopId = _shopId();
+    if (shopId != null) {
+      await _repository.updatePaymentPaidAt(
+        paymentId: paymentId,
+        paidAt: paidAt,
+      );
+      await refresh();
+      await ref.read(cashbookControllerProvider.notifier).refresh();
+    } else {
+      ref
+          .read(previewDataProvider.notifier)
+          .updatePaymentPaidAt(paymentId, paidAt);
+      state = AsyncData(ref.read(previewDataProvider).payments);
+    }
+  }
+
+  Future<List<PreviewPayment>> _load({required bool subscribe}) async {
+    final shopId = _shopId();
+    if (shopId == null) return ref.read(previewDataProvider).payments;
+    if (subscribe && _channel == null) {
+      _channel = _repository.subscribePayments(
+        shopId: shopId,
+        onChanged: _queueRefresh,
+      );
+    }
+    return _repository.fetchPayments(shopId);
   }
 
   String? _shopId() {

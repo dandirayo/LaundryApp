@@ -291,6 +291,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     if (!mounted) return;
     await Future.wait([
       ref.read(orderControllerProvider.notifier).refresh(),
+      ref.read(orderPaymentControllerProvider.notifier).refresh(),
       ref.read(employeeDirectoryProvider.notifier).refresh(),
     ]);
   }
@@ -425,9 +426,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
         await showReceiptPreviewSheet(
           context: context,
           order: updated,
-          payments: data.payments
-              .where((payment) => payment.orderId == updated.id)
-              .toList(),
+          payments:
+              (ref.read(orderPaymentControllerProvider).value ?? data.payments)
+                  .where((payment) => payment.orderId == updated.id)
+                  .toList(),
           shopName: data.shopName,
           shopAddress: data.shopAddress,
           employeeName: updated.receivedByName.trim().isEmpty
@@ -553,9 +555,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     await showReceiptPreviewSheet(
       context: context,
       order: order,
-      payments: data.payments
-          .where((payment) => payment.orderId == order.id)
-          .toList(),
+      payments:
+          (ref.read(orderPaymentControllerProvider).value ?? data.payments)
+              .where((payment) => payment.orderId == order.id)
+              .toList(),
       shopName: data.shopName,
       shopAddress: data.shopAddress,
       employeeName: order.receivedByName.trim().isEmpty

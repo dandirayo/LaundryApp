@@ -36,7 +36,7 @@ void main() {
             (serviceId: kilo.id, quantity: 5.1),
             (serviceId: unit.id, quantity: 1),
           ],
-          paidAmount: 0,
+          paidAmount: 1000,
           paymentMethod: 'Tunai',
           employeeId: state.employees.first.id,
           note: '',
@@ -52,6 +52,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Riwayat Pembayaran'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Edit tanggal pembayaran'), findsOneWidget);
     await tester.tap(find.byTooltip('Edit pesanan'));
     await tester.pumpAndSettle();
 

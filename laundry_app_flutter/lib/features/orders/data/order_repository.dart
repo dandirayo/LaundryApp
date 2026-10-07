@@ -79,6 +79,15 @@ class OrderRepository {
     return [for (final row in rows) _fromMap(row)];
   }
 
+  Future<List<PreviewPayment>> fetchPayments(String shopId) async {
+    final rows = await _requireClient()
+        .from('payments')
+        .select('id, order_id, amount, method, created_at')
+        .eq('shop_id', shopId)
+        .order('created_at', ascending: false);
+    return [for (final row in rows) _paymentFromMap(row)];
+  }
+
   Future<void> updateStatus({
     required String shopId,
     required String orderId,
@@ -154,6 +163,47 @@ class OrderRepository {
       'record_order_payment',
       params: {'p_order_id': orderId, 'p_amount': amount, 'p_method': method},
     );
+  }
+
+  Future<void> updatePaymentPaidAt({
+    required String paymentId,
+    required DateTime paidAt,
+  }) async {
+    try {
+      await _requireClient().rpc(
+        'update_order_payment_paid_at',
+        params: {
+          'p_payment_id': paymentId,
+          'p_paid_at': paidAt.toUtc().toIso8601String(),
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw Failure(
+        code: error.code ?? 'payment-date-update-failed',
+        message: error.message,
+        details: error,
+      );
+    }
+  }
+
+  RealtimeChannel subscribePayments({
+    required String shopId,
+    required void Function() onChanged,
+  }) {
+    return _requireClient()
+        .channel('public:order-payments:$shopId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'payments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'shop_id',
+            value: shopId,
+          ),
+          callback: (_) => onChanged(),
+        )
+        .subscribe();
   }
 
   RealtimeChannel subscribe({
@@ -321,4 +371,17 @@ PreviewPaymentStatus _paymentFromStorage(String? value) {
     'partial' => PreviewPaymentStatus.partiallyPaid,
     _ => PreviewPaymentStatus.unpaid,
   };
+}
+
+PreviewPayment _paymentFromMap(Map<String, dynamic> map) {
+  return PreviewPayment(
+    id: map['id'] as String,
+    orderId: (map['order_id'] ?? '') as String,
+    amount: (map['amount'] as num? ?? 0).toInt(),
+    method: (map['method'] ?? 'Tunai') as String,
+    paidAt:
+        DateTime.tryParse((map['created_at'] ?? '') as String)?.toLocal() ??
+        DateTime.now(),
+    receiverName: '',
+  );
 }

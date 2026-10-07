@@ -148,6 +148,39 @@ void main() {
     expect(state.cashTransactions.first.type, 'IN');
   });
 
+  test('edit tanggal pembayaran juga memperbarui tanggal Buku Kas', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(previewDataProvider.notifier);
+    final initial = container.read(previewDataProvider);
+    final order = notifier.createOrderWithItems(
+      customerId: initial.customers.first.id,
+      items: [(serviceId: initial.services.first.id, quantity: 3)],
+      paidAmount: 0,
+      paymentMethod: 'Tunai',
+      employeeId: initial.employees.first.id,
+      note: '',
+    );
+    notifier.addPayment(
+      orderId: order.id,
+      amount: order.remainingAmount,
+      method: 'Tunai',
+    );
+    final payment = container.read(previewDataProvider).payments.single;
+    final correctedAt = DateTime(2026, 10, 6, 14, 30);
+
+    notifier.updatePaymentPaidAt(payment.id, correctedAt);
+
+    final updated = container.read(previewDataProvider);
+    expect(updated.payments.single.paidAt, correctedAt);
+    expect(
+      updated.cashTransactions
+          .singleWhere((entry) => entry.referenceId == payment.id)
+          .createdAt,
+      correctedAt,
+    );
+  });
+
   test('request berbayar idempotent saat masuk Buku Kas', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
