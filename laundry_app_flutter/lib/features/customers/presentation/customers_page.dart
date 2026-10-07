@@ -31,6 +31,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   var _isSyncingContacts = false;
   var _isResettingContacts = false;
   var _isRemovingNonCs = false;
+  var _showSyncPrompt = true;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +86,8 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               canImportContacts && !_isSyncingContacts && !_isResettingContacts
               ? () => _syncContacts(context)
               : null,
+          showSyncPrompt: _showSyncPrompt && canImportContacts,
+          onDismissSyncPrompt: () => setState(() => _showSyncPrompt = false),
           onReset: role == UserRole.owner && !_isResettingContacts
               ? () => _resetContacts(context)
               : null,
@@ -296,8 +299,46 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       return;
     }
     try {
+      final customers =
+          ref.read(customerControllerProvider).value?.customers ?? const [];
+      final canonicalName = customerNameWithCs(result.name);
+      final samePhone = result.phone.trim().isEmpty
+          ? null
+          : findCustomerWithNormalizedPhone(customers, result.phone);
+      final duplicatePhone = samePhone?.id == customer?.id ? null : samePhone;
+      final duplicateName = findCustomerWithNormalizedName(
+        customers,
+        canonicalName,
+        excludingId: customer?.id,
+      );
+      final duplicate = duplicatePhone ?? duplicateName;
+      var mergeTarget = duplicate;
+      if (duplicate != null) {
+        if (!context.mounted) return;
+        final choice = await _showCustomerDuplicateDecision(
+          context,
+          incomingName: canonicalName,
+          incomingPhone: result.phone,
+          existing: duplicate,
+          allowSeparate: duplicatePhone == null,
+        );
+        if (!mounted || choice == _CustomerDuplicateChoice.cancel) return;
+        if (choice == _CustomerDuplicateChoice.separate) mergeTarget = null;
+      }
       final controller = ref.read(customerControllerProvider.notifier);
-      if (isEditing) {
+      if (mergeTarget != null) {
+        await controller.updateCustomer(
+          id: mergeTarget.id,
+          name: canonicalName,
+          phone: result.phone.trim().isEmpty
+              ? mergeTarget.phone ?? ''
+              : result.phone,
+          address: result.address.trim().isEmpty
+              ? mergeTarget.address
+              : result.address,
+          note: result.note.trim().isEmpty ? mergeTarget.note : result.note,
+        );
+      } else if (isEditing) {
         await controller.updateCustomer(
           id: customer.id,
           name: result.name,
@@ -313,14 +354,160 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           note: result.note,
         );
       }
+      final saved = _findSavedCustomer(
+        canonicalName,
+        result.phone,
+        preferredId: mergeTarget?.id ?? customer?.id,
+      );
+      if (saved != null && saved.hasPhone) {
+        if (!context.mounted) return;
+        await _syncCustomerBackToGoogle(context, saved);
+      }
       if (mounted) {
-        _showSnack(isEditing ? strings.customerUpdated : strings.customerAdded);
+        _showSnack(
+          mergeTarget != null
+              ? 'Data pelanggan berhasil digabungkan.'
+              : isEditing
+              ? strings.customerUpdated
+              : strings.customerAdded,
+        );
       }
     } catch (error) {
       if (mounted) {
         _showSnack(_messageForError(error));
       }
     }
+  }
+
+  Customer? _findSavedCustomer(
+    String name,
+    String phone, {
+    String? preferredId,
+  }) {
+    final customers =
+        ref.read(customerControllerProvider).value?.customers ?? const [];
+    if (preferredId != null) {
+      final preferred = customers
+          .where((customer) => customer.id == preferredId)
+          .firstOrNull;
+      if (preferred != null) return preferred;
+    }
+    final byPhone = findCustomerWithNormalizedPhone(customers, phone);
+    return byPhone ?? findCustomerWithNormalizedName(customers, name);
+  }
+
+  Future<void> _syncCustomerBackToGoogle(
+    BuildContext context,
+    Customer customer,
+  ) async {
+    final granted = await _deviceContacts.requestReadWritePermission();
+    if (!granted || !context.mounted) {
+      if (context.mounted) {
+        _showSnack(
+          'Pelanggan tersimpan di aplikasi. Beri izin kontak untuk menyimpan ke Google.',
+        );
+      }
+      return;
+    }
+    var account = await _deviceContacts.preferredGoogleAccount();
+    if (account == null && context.mounted) {
+      account = await selectGoogleContactAccount(context, _deviceContacts);
+    }
+    if (account == null || !context.mounted) return;
+    final export = await _deviceContacts.exportCustomers(
+      account: account,
+      customers: [customer],
+    );
+    if (export.mergeCandidates.isEmpty || !context.mounted) return;
+    final merge = await _confirmGoogleContactMerge(
+      context,
+      export.mergeCandidates,
+    );
+    if (merge && context.mounted) {
+      await _deviceContacts.exportCustomers(
+        account: account,
+        customers: [customer],
+        mergeNameConflicts: true,
+      );
+    }
+  }
+
+  Future<_CustomerDuplicateChoice> _showCustomerDuplicateDecision(
+    BuildContext context, {
+    required String incomingName,
+    required String incomingPhone,
+    required Customer existing,
+    required bool allowSeparate,
+  }) async {
+    return await showDialog<_CustomerDuplicateChoice>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Nama pelanggan sudah ada'),
+            content: Text(
+              'Data tersimpan: ${existing.name}\n'
+              'Nomor: ${existing.phone ?? 'Belum ada'}\n\n'
+              'Data baru: $incomingName\n'
+              'Nomor: ${incomingPhone.trim().isEmpty ? 'Belum ada' : incomingPhone}\n\n'
+              '${allowSeparate ? 'Pilih gabungkan atau simpan sebagai pelanggan berbeda.' : 'Nomor yang sama harus digabungkan agar tidak menjadi data ganda.'}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(context, _CustomerDuplicateChoice.cancel),
+                child: const Text('Batal'),
+              ),
+              if (allowSeparate)
+                OutlinedButton(
+                  onPressed: () =>
+                      Navigator.pop(context, _CustomerDuplicateChoice.separate),
+                  child: const Text('Simpan Terpisah'),
+                ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.pop(context, _CustomerDuplicateChoice.merge),
+                child: const Text('Gabungkan'),
+              ),
+            ],
+          ),
+        ) ??
+        _CustomerDuplicateChoice.cancel;
+  }
+
+  Future<bool> _confirmGoogleContactMerge(
+    BuildContext context,
+    List<DeviceContactMergeCandidate> candidates,
+  ) async {
+    final examples = candidates
+        .take(3)
+        .map(
+          (candidate) =>
+              '• ${candidate.contact.displayName ?? candidate.customer.name}: '
+              '${candidate.contact.phones.map((phone) => phone.number).join(', ')} '
+              '→ ${candidate.customer.phone}',
+        )
+        .join('\n');
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Kontak perlu digabungkan'),
+            content: Text(
+              '${candidates.length} nama yang sama memiliki nomor berbeda di Google.\n\n'
+              '$examples\n\n'
+              'Jika digabungkan, nomor pelanggan dari aplikasi ditambahkan ke kontak Google yang sudah ada.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Nanti'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Gabungkan'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _importContact(BuildContext context) async {
@@ -343,7 +530,35 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       selected.phone,
     );
     if (duplicate != null) {
-      await _showDuplicateContactDialog(context, duplicate);
+      final choice = await _showCustomerDuplicateDecision(
+        context,
+        incomingName: customerNameWithCs(selected.name),
+        incomingPhone: selected.phone,
+        existing: duplicate,
+        allowSeparate: false,
+      );
+      if (choice == _CustomerDuplicateChoice.merge && context.mounted) {
+        await ref
+            .read(customerControllerProvider.notifier)
+            .updateCustomer(
+              id: duplicate.id,
+              name: selected.name,
+              phone: selected.phone,
+              address: selected.address.isEmpty
+                  ? duplicate.address
+                  : selected.address,
+              note: duplicate.note,
+            );
+        final merged = _findSavedCustomer(
+          selected.name,
+          selected.phone,
+          preferredId: duplicate.id,
+        );
+        if (merged != null && context.mounted) {
+          await _syncCustomerBackToGoogle(context, merged);
+          _showSnack('Kontak berhasil digabungkan.');
+        }
+      }
       return;
     }
     if (!await _confirmContactImport(context, selected) || !context.mounted) {
@@ -389,7 +604,36 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           .read(customerControllerProvider.notifier)
           .syncContacts(candidates);
       if (context.mounted) {
-        _showSnack(_contactSyncMessage(result));
+        final account = await _deviceContacts.preferredGoogleAccount();
+        final customers =
+            ref.read(customerControllerProvider).value?.customers ?? const [];
+        final exportResult = account == null
+            ? null
+            : await _deviceContacts.exportCustomers(
+                account: account,
+                customers: customers,
+              );
+        if (context.mounted &&
+            exportResult != null &&
+            exportResult.mergeCandidates.isNotEmpty) {
+          final merge = await _confirmGoogleContactMerge(
+            context,
+            exportResult.mergeCandidates,
+          );
+          if (merge && context.mounted) {
+            await _deviceContacts.exportCustomers(
+              account: account!,
+              customers: exportResult.mergeCandidates.map(
+                (candidate) => candidate.customer,
+              ),
+              mergeNameConflicts: true,
+            );
+          }
+        }
+        if (context.mounted) {
+          _showSnack(_contactSyncMessage(result));
+          setState(() => _showSyncPrompt = false);
+        }
       }
     } catch (error) {
       if (context.mounted) {
@@ -526,7 +770,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   ) async {
     bool granted;
     try {
-      granted = await _deviceContacts.requestReadPermission();
+      granted = await _deviceContacts.requestReadWritePermission();
     } catch (error) {
       if (context.mounted) {
         _showSnack(
@@ -705,41 +949,13 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         false;
   }
 
-  Future<void> _showDuplicateContactDialog(
-    BuildContext context,
-    Customer customer,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pelanggan sudah tersedia'),
-        content: Text(
-          'Pelanggan dengan nomor ini sudah tersedia.\n\n${customer.name}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              setState(() => _query = customer.name);
-            },
-            child: const Text('Buka Pelanggan'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _showContactPermissionDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Izin kontak diperlukan'),
         content: const Text(
-          'Izin kontak diperlukan untuk memilih pelanggan dari daftar kontak.',
+          'Izin baca dan tulis kontak diperlukan agar pelanggan dapat disinkronkan dua arah dengan akun Google.',
         ),
         actions: [
           TextButton(
@@ -777,6 +993,8 @@ String _contactSyncMessage(ContactSyncResult result) {
   return '${result.importedCount} kontak berhasil disinkronkan.$skippedText';
 }
 
+enum _CustomerDuplicateChoice { cancel, separate, merge }
+
 class _CustomerListBody extends ConsumerWidget {
   const _CustomerListBody({
     required this.state,
@@ -785,6 +1003,8 @@ class _CustomerListBody extends ConsumerWidget {
     required this.onRefresh,
     required this.onAdd,
     required this.onSync,
+    required this.showSyncPrompt,
+    required this.onDismissSyncPrompt,
     required this.onReset,
     required this.isSyncing,
     required this.isResetting,
@@ -800,6 +1020,8 @@ class _CustomerListBody extends ConsumerWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onAdd;
   final VoidCallback? onSync;
+  final bool showSyncPrompt;
+  final VoidCallback onDismissSyncPrompt;
   final VoidCallback? onReset;
   final VoidCallback? onRemoveNonCs;
   final bool isSyncing;
@@ -822,6 +1044,28 @@ class _CustomerListBody extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(16, 8, 16, customers.isEmpty ? 24 : 96),
       child: Column(
         children: [
+          if (showSyncPrompt) ...[
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: ListTile(
+                leading: const Icon(Icons.sync_alt),
+                title: const Text(
+                  'Sinkronkan kontak HP dan Google',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'Kontak Google masuk ke aplikasi, dan pelanggan aplikasi disimpan kembali dengan akhiran CS.',
+                ),
+                trailing: IconButton(
+                  tooltip: 'Tutup pemberitahuan',
+                  onPressed: onDismissSyncPrompt,
+                  icon: const Icon(Icons.close),
+                ),
+                onTap: onSync,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           TextField(
             decoration: InputDecoration(
               hintText: strings.searchCustomers,

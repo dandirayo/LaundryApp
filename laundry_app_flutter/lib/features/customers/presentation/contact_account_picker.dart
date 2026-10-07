@@ -8,6 +8,15 @@ Future<List<ContactImportCandidate>?> fetchContactsFromSelectedAccount(
   BuildContext context,
   DeviceContactRepository repository,
 ) async {
+  final account = await selectGoogleContactAccount(context, repository);
+  if (!context.mounted || account == null) return null;
+  return repository.fetchContactCandidates(account: account);
+}
+
+Future<Account?> selectGoogleContactAccount(
+  BuildContext context,
+  DeviceContactRepository repository,
+) async {
   final accounts = (await repository.fetchAccounts())
       .where((account) => account.type == 'com.google')
       .toList(growable: false);
@@ -63,16 +72,17 @@ Future<List<ContactImportCandidate>?> fetchContactsFromSelectedAccount(
     ),
   );
   if (!context.mounted || account == null) return null;
-  return repository.fetchContactCandidates(account: account);
+  await repository.rememberGoogleAccount(account);
+  return account;
 }
 
 Future<bool> confirmContactSync(BuildContext context, int count) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Impor kontak akun terpilih?'),
+        title: const Text('Sinkronkan akun terpilih?'),
         content: Text(
-          '$count kontak ditemukan dari satu akun Google yang dipilih. Kontak dengan nomor yang sudah terdaftar akan dilewati.',
+          '$count kontak ditemukan. Kontak Google akan masuk ke aplikasi, lalu pelanggan aplikasi disimpan kembali ke akun Google dengan akhiran CS.',
         ),
         actions: [
           TextButton(
@@ -81,7 +91,7 @@ Future<bool> confirmContactSync(BuildContext context, int count) async =>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Impor'),
+            child: const Text('Sinkronkan'),
           ),
         ],
       ),

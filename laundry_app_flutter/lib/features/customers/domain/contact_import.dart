@@ -1,5 +1,36 @@
 import 'customer.dart';
 
+String customerNameWithCs(String value) {
+  final base = value
+      .trim()
+      .replaceFirst(RegExp(r'\s+cs$', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return base.isEmpty ? '' : '$base CS';
+}
+
+String normalizedCustomerName(String value) => value
+    .trim()
+    .replaceFirst(RegExp(r'\s+cs$', caseSensitive: false), '')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .toLowerCase();
+
+Customer? findCustomerWithNormalizedName(
+  Iterable<Customer> customers,
+  String name, {
+  String? excludingId,
+}) {
+  final normalized = normalizedCustomerName(name);
+  if (normalized.isEmpty) return null;
+  return customers
+      .where(
+        (customer) =>
+            customer.id != excludingId &&
+            normalizedCustomerName(customer.name) == normalized,
+      )
+      .firstOrNull;
+}
+
 class ContactImportCandidate {
   const ContactImportCandidate({
     required this.name,
@@ -125,7 +156,7 @@ ContactImportPlan buildContactImportPlan({
 
       selections.add(
         ContactImportSelection(
-          name: name,
+          name: customerNameWithCs(name),
           phone: phone,
           address: candidate.address,
         ),

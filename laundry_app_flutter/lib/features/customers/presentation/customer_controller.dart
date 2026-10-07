@@ -64,11 +64,12 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
     required String address,
     required String note,
   }) async {
+    final contactName = customerNameWithCs(name);
     final online = _onlineContext(listen: false);
     if (online != null) {
       await online.repository.createCustomer(
         shopId: online.shopId,
-        name: name,
+        name: contactName,
         phone: phone,
         address: address,
         note: note,
@@ -76,7 +77,12 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
     } else {
       ref
           .read(previewDataProvider.notifier)
-          .addCustomer(name: name, phone: phone, address: address, note: note);
+          .addCustomer(
+            name: contactName,
+            phone: phone,
+            address: address,
+            note: note,
+          );
     }
     await refresh();
   }
@@ -88,12 +94,13 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
     required String address,
     required String note,
   }) async {
+    final contactName = customerNameWithCs(name);
     final online = _onlineContext(listen: false);
     if (online != null) {
       await online.repository.updateCustomer(
         shopId: online.shopId,
         id: id,
-        name: name,
+        name: contactName,
         phone: phone,
         address: address,
         note: note,
@@ -103,7 +110,7 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
           .read(previewDataProvider.notifier)
           .updateCustomer(
             id: id,
-            name: name,
+            name: contactName,
             phone: phone,
             address: address,
             note: note,

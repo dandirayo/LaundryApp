@@ -48,6 +48,32 @@ void main() {
     expect(findCustomerWithNormalizedPhone(customers, ''), isNull);
   });
 
+  test('customer names get one CS suffix and compare without the suffix', () {
+    expect(customerNameWithCs('Ayu'), 'Ayu CS');
+    expect(customerNameWithCs('Ayu cs'), 'Ayu CS');
+    expect(customerNameWithCs('  Ayu   CS  '), 'Ayu CS');
+    expect(customerNameWithCs(''), '');
+    expect(normalizedCustomerName('Ayu CS'), 'ayu');
+    expect(normalizedCustomerName('  AYU  '), 'ayu');
+
+    final customers = [
+      Customer(
+        id: 'customer-ayu',
+        shopId: 'shop-1',
+        name: 'Ayu CS',
+        phone: '081200000001',
+        normalizedPhone: '6281200000001',
+        address: '',
+        note: '',
+        createdAt: DateTime(2026),
+      ),
+    ];
+    expect(
+      findCustomerWithNormalizedName(customers, 'ayu')?.id,
+      'customer-ayu',
+    );
+  });
+
   test('bulk import plan skips existing, invalid, and no-phone contacts', () {
     final existingCustomers = [
       Customer(
@@ -80,8 +106,8 @@ void main() {
     );
 
     expect(plan.selections.map((selection) => selection.name), [
-      'Siti',
-      'Nomor Kedua',
+      'Siti CS',
+      'Nomor Kedua CS',
     ]);
     expect(plan.selections.map((selection) => selection.normalizedPhone), [
       '6281300000000',
