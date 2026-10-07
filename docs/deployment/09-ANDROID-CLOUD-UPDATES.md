@@ -2,7 +2,7 @@
 
 **Diverifikasi:** 7 Oktober 2026
 
-**Rilis aktif:** 2.1.6+22
+**Rilis aktif:** 2.1.7+23
 
 **Dipublikasikan:** 7 Oktober 2026
 
@@ -14,9 +14,9 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.6+22 menambahkan sinkron kontak dua arah antara pelanggan aplikasi dan akun Google yang dipilih. Pelanggan dari aplikasi disimpan dengan satu akhiran `CS`; nomor yang sama memperbarui kontak yang sudah ada, sedangkan nama sama dengan nomor berbeda menampilkan pilihan merge. Halaman Pelanggan juga menawarkan sinkronisasi saat dibuka.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.7+23 memungkinkan Owner mengubah tanggal dan jam pada setiap Riwayat Pembayaran di detail pesanan. Perubahan tanggal pembayaran otomatis mengubah tanggal transaksi masuk terkait di Buku Kas; akun karyawan tetap hanya dapat melihat riwayat.
 
-Titik source release disimpan pada tag Git `v2.1.6-build22`. Keadaan sebelum release disimpan pada `pre-v2.1.6-build22`.
+Titik source release disimpan pada tag Git `v2.1.7-build23`. Keadaan sebelum release disimpan pada `pre-v2.1.7-build23`.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 
@@ -95,9 +95,9 @@ Publisher menolak APK dengan certificate berbeda. Keystore harus dicadangkan di 
 Android tidak menerima downgrade build.
 
 - Untuk perangkat yang belum update, pulihkan manifest lama agar penawaran buruk hilang.
-- Untuk perangkat yang sudah update, checkout `pre-v2.1.6-build22`, naikkan nomor menjadi build 23 atau lebih tinggi, lalu publikasikan source lama sebagai release rollback. Android tidak dapat memasang build 21 di atas build 22.
+- Untuk perangkat yang sudah update, checkout `pre-v2.1.7-build23`, naikkan nomor menjadi build 24 atau lebih tinggi, lalu publikasikan source lama sebagai release rollback. Android tidak dapat memasang build 22 di atas build 23.
 - Pertahankan APK immutable yang dirujuk manifest rollback.
-- Pertahankan tag `v2.1.6-build22` agar perubahan baru dapat diedit dan diterbitkan lagi setelah masalah diperbaiki.
+- Pertahankan tag `v2.1.7-build23` agar perubahan baru dapat diedit dan diterbitkan lagi setelah masalah diperbaiki.
 - Jangan membuat build fiktif hanya untuk menguji notifikasi production.
 - Setelah hotfix, uji login, order, POS, printer, dan update dari build sebelumnya.
 
