@@ -28,6 +28,90 @@ void main() {
     expect(order.totalPrice, 17000);
   });
 
+  test(
+    'owner mengganti layanan kiloan dan total serta estimasi dihitung ulang',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(previewDataProvider.notifier);
+      final state = container.read(previewDataProvider);
+      final regular = state.services.singleWhere(
+        (service) => service.id == 'service-cs-reguler',
+      );
+      final express = state.services.singleWhere(
+        (service) => service.id == 'service-cs-express',
+      );
+      final order = notifier.createOrderWithItems(
+        customerId: state.customers.first.id,
+        items: [(serviceId: regular.id, quantity: 5.1)],
+        paidAmount: 0,
+        paymentMethod: 'Tunai',
+        employeeId: state.employees.first.id,
+        note: '',
+      );
+
+      notifier.updateOrderDetails(
+        orderId: order.id,
+        status: order.orderStatus,
+        employeeId: order.assignedEmployeeId,
+        note: order.note,
+        serviceReplacements: {order.items.single.id: express.id},
+      );
+
+      final updated = container
+          .read(previewDataProvider)
+          .orders
+          .singleWhere((entry) => entry.id == order.id);
+      expect(updated.items.single.serviceId, express.id);
+      expect(updated.items.single.serviceNameSnapshot, express.name);
+      expect(updated.items.single.quantity, 5.1);
+      expect(updated.itemSubtotal, 45900);
+      expect(updated.totalPrice, 46000);
+      expect(
+        updated.dueAt,
+        updated.receivedAt.add(Duration(hours: express.estimatedHours)),
+      );
+    },
+  );
+
+  test('layanan item satuan tidak dapat diganti dari detail pesanan', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(previewDataProvider.notifier);
+    final state = container.read(previewDataProvider);
+    final unitService = state.services.firstWhere(
+      (service) => service.unit.toUpperCase() != 'KG',
+    );
+    final kiloService = state.services.firstWhere(
+      (service) => service.unit.toUpperCase() == 'KG',
+    );
+    final order = notifier.createOrderWithItems(
+      customerId: state.customers.first.id,
+      items: [(serviceId: unitService.id, quantity: 1)],
+      paidAmount: 0,
+      paymentMethod: 'Tunai',
+      employeeId: state.employees.first.id,
+      note: '',
+    );
+
+    expect(
+      () => notifier.updateOrderDetails(
+        orderId: order.id,
+        status: order.orderStatus,
+        employeeId: order.assignedEmployeeId,
+        note: order.note,
+        serviceReplacements: {order.items.single.id: kiloService.id},
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('item satuan'),
+        ),
+      ),
+    );
+  });
+
   test('pembayaran melunasi pesanan dan masuk Buku Kas', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

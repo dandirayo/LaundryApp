@@ -123,9 +123,20 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
     required PreviewOrderStatus status,
     required String employeeId,
     required String note,
+    Map<String, String> serviceReplacements = const {},
   }) async {
     final shopId = _shopId();
     if (shopId != null) {
+      await _repository.updateKiloServices(
+        orderId: orderId,
+        replacements: [
+          for (final replacement in serviceReplacements.entries)
+            OrderServiceReplacement(
+              itemId: replacement.key,
+              serviceId: replacement.value,
+            ),
+        ],
+      );
       await _repository.updateDetails(
         shopId: shopId,
         orderId: orderId,
@@ -142,6 +153,7 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
             status: status,
             employeeId: employeeId,
             note: note,
+            serviceReplacements: serviceReplacements,
           );
     }
   }

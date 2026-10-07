@@ -113,6 +113,30 @@ class OrderRepository {
         .eq('shop_id', shopId);
   }
 
+  Future<void> updateKiloServices({
+    required String orderId,
+    required List<OrderServiceReplacement> replacements,
+  }) async {
+    if (replacements.isEmpty) return;
+    try {
+      await _requireClient().rpc(
+        'update_order_kilo_services',
+        params: {
+          'p_order_id': orderId,
+          'p_replacements': [
+            for (final replacement in replacements) replacement.toMap(),
+          ],
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw Failure(
+        code: error.code ?? 'order-service-update-failed',
+        message: error.message,
+        details: error,
+      );
+    }
+  }
+
   Future<void> delete({required String shopId, required String orderId}) async {
     await _requireClient()
         .from('orders')
@@ -218,6 +242,18 @@ class OrderCreateItem {
     'unit_price': unitPrice,
     'subtotal': subtotal,
   };
+}
+
+class OrderServiceReplacement {
+  const OrderServiceReplacement({
+    required this.itemId,
+    required this.serviceId,
+  });
+
+  final String itemId;
+  final String serviceId;
+
+  Map<String, dynamic> toMap() => {'item_id': itemId, 'service_id': serviceId};
 }
 
 PreviewOrder _fromMap(Map<String, dynamic> map) {

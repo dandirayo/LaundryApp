@@ -291,9 +291,12 @@ class PreviewOrder {
   double get laundryWeightKg => quantityForUnit('KG');
 
   PreviewOrder copyWith({
+    List<PreviewOrderItem>? items,
+    int? totalPrice,
     int? paidAmount,
     PreviewOrderStatus? orderStatus,
     PreviewPaymentStatus? paymentStatus,
+    DateTime? dueAt,
     String? assignedEmployeeId,
     String? note,
     String? receivedByName,
@@ -304,13 +307,13 @@ class PreviewOrder {
       customerId: customerId,
       customerNameSnapshot: customerNameSnapshot,
       customerPhoneSnapshot: customerPhoneSnapshot,
-      items: items,
-      totalPrice: totalPrice,
+      items: items ?? this.items,
+      totalPrice: totalPrice ?? this.totalPrice,
       paidAmount: paidAmount ?? this.paidAmount,
       orderStatus: orderStatus ?? this.orderStatus,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       receivedAt: receivedAt,
-      dueAt: dueAt,
+      dueAt: dueAt ?? this.dueAt,
       assignedEmployeeId: assignedEmployeeId ?? this.assignedEmployeeId,
       note: note ?? this.note,
       receivedByName: receivedByName ?? this.receivedByName,
@@ -1312,9 +1315,54 @@ class PreviewDataController extends Notifier<PreviewDataState> {
     required PreviewOrderStatus status,
     required String employeeId,
     required String note,
+    Map<String, String> serviceReplacements = const {},
   }) {
     final currentOrder = _orderById(orderId);
+    final servicesById = {
+      for (final service in state.services) service.id: service,
+    };
+    final orderItemIds = currentOrder.items.map((item) => item.id).toSet();
+    if (serviceReplacements.keys.any((id) => !orderItemIds.contains(id))) {
+      throw StateError('Item pesanan tidak ditemukan.');
+    }
+    final hasServiceChanges = serviceReplacements.isNotEmpty;
+    final updatedItems = [
+      for (final item in currentOrder.items)
+        if (serviceReplacements[item.id] case final serviceId?)
+          _replaceKiloOrderItem(item, servicesById[serviceId])
+        else
+          item,
+    ];
+    final subtotal = updatedItems.fold<int>(0, (sum, item) => sum + item.total);
+    final total = hasServiceChanges
+        ? roundOrderTotal(subtotal)
+        : currentOrder.totalPrice;
+    if (total < currentOrder.paidAmount) {
+      throw StateError(
+        'Total baru tidak boleh lebih kecil dari pembayaran yang sudah diterima.',
+      );
+    }
+    final longestHours = hasServiceChanges
+        ? updatedItems
+              .map((item) => servicesById[item.serviceId]?.estimatedHours ?? 0)
+              .fold<int>(
+                0,
+                (current, value) => value > current ? value : current,
+              )
+        : 0;
     final updatedOrder = currentOrder.copyWith(
+      items: updatedItems,
+      totalPrice: total,
+      paymentStatus: hasServiceChanges
+          ? currentOrder.paidAmount == 0
+                ? PreviewPaymentStatus.unpaid
+                : currentOrder.paidAmount >= total
+                ? PreviewPaymentStatus.paid
+                : PreviewPaymentStatus.partiallyPaid
+          : currentOrder.paymentStatus,
+      dueAt: hasServiceChanges
+          ? currentOrder.receivedAt.add(Duration(hours: longestHours))
+          : currentOrder.dueAt,
       orderStatus: status,
       assignedEmployeeId: employeeId,
       note: note.trim(),
@@ -1331,6 +1379,29 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       ],
       cashTransactions: nextCash,
       expenses: nextExpenses,
+    );
+  }
+
+  PreviewOrderItem _replaceKiloOrderItem(
+    PreviewOrderItem item,
+    PreviewService? service,
+  ) {
+    if (item.unit.trim().toUpperCase() != 'KG') {
+      throw StateError('Layanan item satuan tidak dapat diubah dari pesanan.');
+    }
+    if (service == null ||
+        !service.isActive ||
+        service.unit.trim().toUpperCase() != 'KG') {
+      throw StateError('Pilih layanan kiloan yang masih aktif.');
+    }
+    return PreviewOrderItem(
+      id: item.id,
+      serviceId: service.id,
+      serviceNameSnapshot: service.name,
+      unit: 'KG',
+      quantity: item.quantity,
+      price: service.price,
+      total: (item.quantity * service.price).round(),
     );
   }
 

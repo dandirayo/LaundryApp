@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/extensions/quantity_extensions.dart';
+import '../../../core/errors/user_error_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -17,6 +18,7 @@ import '../../../shared/preview_data.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../employees/presentation/employee_directory_controller.dart';
+import '../../services/presentation/service_controller.dart';
 import 'order_controller.dart';
 import 'order_whatsapp.dart';
 import 'receipt_preview_sheet.dart';
@@ -44,6 +46,7 @@ class OrderDetailPage extends ConsumerWidget {
           orders: state.orders,
           payments: state.payments,
           employees: state.employees,
+          services: state.services,
           shopName: state.shopName,
           shopAddress: state.shopAddress,
         ),
@@ -52,6 +55,8 @@ class OrderDetailPage extends ConsumerWidget {
     final orders = ref.watch(orderControllerProvider).value ?? data.orders;
     final employees =
         ref.watch(employeeDirectoryProvider).value ?? data.employees;
+    final services =
+        ref.watch(serviceControllerProvider).value ?? data.services;
     final order = orders
         .where((entry) => entry.id == orderId)
         .cast<PreviewOrder?>()
@@ -85,7 +90,7 @@ class OrderDetailPage extends ConsumerWidget {
             IconButton(
               tooltip: 'Edit pesanan',
               onPressed: () =>
-                  _showEditOrderSheet(context, ref, order, employees),
+                  _showEditOrderSheet(context, ref, order, employees, services),
               icon: const Icon(Icons.edit_outlined),
             ),
             IconButton(
@@ -287,17 +292,30 @@ class OrderDetailPage extends ConsumerWidget {
     WidgetRef ref,
     PreviewOrder order,
     List<PreviewEmployee> employees,
+    List<PreviewService> services,
   ) async {
-    if (employees.isEmpty) {
-      showAppSnackBar('Tambahkan karyawan dulu sebelum edit pesanan.');
-      return;
-    }
     var status = order.orderStatus == PreviewOrderStatus.processing
         ? PreviewOrderStatus.received
         : order.orderStatus;
-    var employeeId = order.assignedEmployeeId.isEmpty
-        ? employees.first.id
-        : order.assignedEmployeeId;
+    var employeeId =
+        employees.any((employee) => employee.id == order.assignedEmployeeId)
+        ? order.assignedEmployeeId
+        : employees.firstOrNull?.id ?? '';
+    final kiloServices = services
+        .where(
+          (service) =>
+              service.isActive && service.unit.trim().toUpperCase() == 'KG',
+        )
+        .toList();
+    final kiloItems = order.items
+        .where((item) => item.unit.trim().toUpperCase() == 'KG')
+        .toList();
+    final selectedServices = <String, String?>{
+      for (final item in kiloItems)
+        item.id: kiloServices.any((service) => service.id == item.serviceId)
+            ? item.serviceId
+            : null,
+    };
     final noteController = TextEditingController(text: order.note);
     final result = await showAppModalBottomSheet<_OrderEditInput>(
       context: context,
@@ -336,8 +354,51 @@ class OrderDetailPage extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Status'),
                 ),
                 const SizedBox(height: 12),
+                if (kiloItems.isNotEmpty) ...[
+                  Text(
+                    'Layanan Kiloan',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Berat tetap sama. Harga, total, dan estimasi akan dihitung ulang.',
+                  ),
+                  const SizedBox(height: 12),
+                  for (final item in kiloItems) ...[
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('kilo-service-${item.id}'),
+                      initialValue: selectedServices[item.id],
+                      isExpanded: true,
+                      items: [
+                        for (final service in kiloServices)
+                          DropdownMenuItem(
+                            value: service.id,
+                            child: Text(
+                              '${service.name} · ${service.price.toRupiah()}/KG',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: kiloServices.isEmpty
+                          ? null
+                          : (value) => setModalState(
+                              () => selectedServices[item.id] = value,
+                            ),
+                      decoration: InputDecoration(
+                        labelText:
+                            '${formatQuantityForUnit(item.quantity, item.unit)} · ${item.serviceNameSnapshot}',
+                        helperText: kiloServices.isEmpty
+                            ? 'Belum ada layanan kiloan aktif.'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ],
                 DropdownButtonFormField<String>(
-                  initialValue: employeeId,
+                  initialValue: employeeId.isEmpty ? null : employeeId,
                   items: [
                     for (final employee in employees)
                       DropdownMenuItem(
@@ -345,9 +406,17 @@ class OrderDetailPage extends ConsumerWidget {
                         child: Text(employee.name),
                       ),
                   ],
-                  onChanged: (value) =>
-                      setModalState(() => employeeId = value ?? employeeId),
-                  decoration: const InputDecoration(labelText: 'Petugas'),
+                  onChanged: employees.isEmpty
+                      ? null
+                      : (value) => setModalState(
+                          () => employeeId = value ?? employeeId,
+                        ),
+                  decoration: InputDecoration(
+                    labelText: 'Petugas',
+                    helperText: employees.isEmpty
+                        ? 'Belum ada karyawan aktif.'
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -363,6 +432,12 @@ class OrderDetailPage extends ConsumerWidget {
                         status: status,
                         employeeId: employeeId,
                         note: noteController.text,
+                        serviceReplacements: {
+                          for (final item in kiloItems)
+                            if (selectedServices[item.id] case final serviceId?
+                                when serviceId != item.serviceId)
+                              item.id: serviceId,
+                        },
                       ),
                     );
                   },
@@ -391,12 +466,16 @@ class OrderDetailPage extends ConsumerWidget {
             status: result.status,
             employeeId: result.employeeId,
             note: result.note,
+            serviceReplacements: result.serviceReplacements,
           );
       showAppSnackBar('Pesanan berhasil diperbarui.');
     } catch (error) {
       final message = error is StateError
           ? error.message
-          : 'Gagal memperbarui pesanan: $error';
+          : userErrorMessage(
+              error,
+              fallback: 'Pesanan belum dapat diperbarui. Coba lagi.',
+            );
       showAppSnackBar(message);
     }
   }
@@ -478,11 +557,13 @@ class _OrderEditInput {
     required this.status,
     required this.employeeId,
     required this.note,
+    required this.serviceReplacements,
   });
 
   final PreviewOrderStatus status;
   final String employeeId;
   final String note;
+  final Map<String, String> serviceReplacements;
 }
 
 class _OrderProgressCard extends StatelessWidget {
