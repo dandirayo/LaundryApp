@@ -143,6 +143,11 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
               ),
               const SizedBox(height: 6),
               const Text('Pilih barang lalu masukkan total nominal belanja.'),
+              const SizedBox(height: 6),
+              const Text(
+                'Nominal ini masuk Buku Kas. Jumlah fisik Live Stock dicatat terpisah lewat Kelola → Stok Masuk agar tidak menebak jumlah barang.',
+                style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
+              ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -228,7 +233,11 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
     );
     amount.dispose();
     note.dispose();
-    await _save(result, successMessage: 'Pengadaan tersimpan dan tersinkron.');
+    await _save(
+      result,
+      successMessage:
+          'Biaya pengadaan tersimpan. Perbarui jumlah barang di Kelola Live Stock.',
+    );
   }
 
   Future<void> _showExpenseSheet(BuildContext context) async {
@@ -384,7 +393,7 @@ class _ProcurementView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 112,
+          height: stock.isEmpty ? 100 : 202,
           child: stock.isEmpty
               ? Card(
                   margin: EdgeInsets.zero,
@@ -397,71 +406,83 @@ class _ProcurementView extends StatelessWidget {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: stock.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final item = stock[index];
-                    return Container(
-                      width: 150,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: item.isLowStock
-                            ? AppColors.warning.withValues(alpha: 0.10)
-                            : AppColors.primaryBlue.withValues(alpha: 0.06),
-                        border: Border.all(
-                          color: item.isLowStock
-                              ? AppColors.warning
-                              : AppColors.outline,
-                        ),
+              : LayoutBuilder(
+                  builder: (context, constraints) => GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: constraints.maxWidth >= 720 ? 4 : 2,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      mainAxisExtent: 94,
+                    ),
+                    itemCount: stock.length,
+                    itemBuilder: (context, index) {
+                      final item = stock[index];
+                      return InkWell(
+                        onTap: isOwner ? onManageStock : null,
+                        key: ValueKey('live-stock-${item.name}'),
                         borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: item.isLowStock
+                                ? AppColors.warning.withValues(alpha: 0.10)
+                                : AppColors.primaryBlue.withValues(alpha: 0.06),
+                            border: Border.all(
+                              color: item.isLowStock
+                                  ? AppColors.warning
+                                  : AppColors.outline,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                item.isLowStock
-                                    ? Icons.warning_amber
-                                    : Icons.inventory_2_outlined,
-                                size: 18,
-                                color: item.isLowStock
-                                    ? AppColors.warning
-                                    : AppColors.primaryBlue,
-                              ),
-                              const Spacer(),
-                              if (item.isLowStock)
-                                const Text(
-                                  'MENIPIS',
-                                  style: TextStyle(
-                                    color: AppColors.warning,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
+                              Row(
+                                children: [
+                                  Icon(
+                                    item.isLowStock
+                                        ? Icons.warning_amber
+                                        : Icons.inventory_2_outlined,
+                                    size: 18,
+                                    color: item.isLowStock
+                                        ? AppColors.warning
+                                        : AppColors.primaryBlue,
                                   ),
+                                  const Spacer(),
+                                  if (item.isLowStock)
+                                    const Text(
+                                      'MENIPIS',
+                                      style: TextStyle(
+                                        color: AppColors.warning,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                item.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
                                 ),
+                              ),
+                              Text(
+                                '${item.stock == item.stock.roundToDouble() ? item.stock.toStringAsFixed(0) : item.stock.toStringAsFixed(1)} ${item.unit}',
+                                style: const TextStyle(
+                                  color: AppColors.primaryNavy,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
                             ],
                           ),
-                          const Spacer(),
-                          Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            '${item.stock.toStringAsFixed(1)} ${item.unit}',
-                            style: const TextStyle(
-                              color: AppColors.primaryNavy,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 17,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                      );
+                    },
+                  ),
                 ),
         ),
         const SizedBox(height: 18),

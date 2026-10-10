@@ -59,6 +59,34 @@ class InventoryRepository {
     });
   }
 
+  Future<void> updateItem({
+    required String itemId,
+    required String name,
+    required String unit,
+    required double minStock,
+    required int purchasePrice,
+    required String note,
+  }) async {
+    final rows = await _requireClient()
+        .from('inventory_items')
+        .update({
+          'name': name.trim(),
+          'unit': unit.trim(),
+          'min_stock': minStock,
+          'purchase_price': purchasePrice,
+          'note': note.trim(),
+        })
+        .eq('id', itemId)
+        .select('id');
+    if (rows.isEmpty) {
+      throw const Failure(
+        code: 'inventory-update-not-applied',
+        message:
+            'Perubahan barang tidak tersimpan. Periksa izin Owner dan coba lagi.',
+      );
+    }
+  }
+
   Future<void> adjust({
     required String itemId,
     required double quantity,

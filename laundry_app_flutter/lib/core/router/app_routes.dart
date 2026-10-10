@@ -54,7 +54,6 @@ class AppRoutes {
     requestReview,
     reports,
     cashbook,
-    printer,
     backup,
     shopSettings,
     businessManagement,

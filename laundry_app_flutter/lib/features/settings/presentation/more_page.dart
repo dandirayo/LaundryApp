@@ -187,6 +187,11 @@ class MorePage extends ConsumerWidget {
             AppRoutes.expenses,
           ),
           _MenuItem(
+            'Hubungkan Printer',
+            Icons.print_outlined,
+            AppRoutes.printer,
+          ),
+          _MenuItem(
             strings.notifications,
             Icons.notifications_outlined,
             AppRoutes.notifications,

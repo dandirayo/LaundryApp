@@ -104,6 +104,31 @@ class InventoryController extends AsyncNotifier<InventoryState> {
     await refresh();
   }
 
+  Future<void> updateItem({
+    required String itemId,
+    required String name,
+    required String unit,
+    required double minStock,
+    required int purchasePrice,
+    required String note,
+  }) async {
+    if (_onlineShopId() != null) {
+      await _repository.updateItem(
+        itemId: itemId,
+        name: name,
+        unit: unit,
+        minStock: minStock,
+        purchasePrice: purchasePrice,
+        note: note,
+      );
+    } else {
+      throw StateError(
+        'Edit barang hanya tersedia pada data toko yang tersinkron.',
+      );
+    }
+    await refresh();
+  }
+
   Future<InventoryState> _load({required bool subscribe}) async {
     final shopId = _onlineShopId();
     if (shopId == null) {

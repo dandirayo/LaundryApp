@@ -8,6 +8,11 @@ void main() {
     expect(AppRoutes.canOpen(AppRoutes.expenses, UserRole.employee), isTrue);
   });
 
+  test('pengaturan printer lokal bisa dibuka owner dan karyawan', () {
+    expect(AppRoutes.canOpen(AppRoutes.printer, UserRole.owner), isTrue);
+    expect(AppRoutes.canOpen(AppRoutes.printer, UserRole.employee), isTrue);
+  });
+
   test('kelola usaha hanya bisa dibuka owner', () {
     expect(
       AppRoutes.canOpen(AppRoutes.businessManagement, UserRole.owner),

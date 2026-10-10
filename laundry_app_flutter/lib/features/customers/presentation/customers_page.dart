@@ -359,11 +359,12 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         result.phone,
         preferredId: mergeTarget?.id ?? customer?.id,
       );
+      var googleSynced = true;
       if (saved != null && saved.hasPhone) {
         if (!context.mounted) return;
-        await _syncCustomerBackToGoogle(context, saved);
+        googleSynced = await _syncCustomerBackToGoogle(context, saved);
       }
-      if (mounted) {
+      if (mounted && googleSynced) {
         _showSnack(
           mergeTarget != null
               ? 'Data pelanggan berhasil digabungkan.'
@@ -396,7 +397,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     return byPhone ?? findCustomerWithNormalizedName(customers, name);
   }
 
-  Future<void> _syncCustomerBackToGoogle(
+  Future<bool> _syncCustomerBackToGoogle(
     BuildContext context,
     Customer customer,
   ) async {
@@ -407,28 +408,47 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           'Pelanggan tersimpan di aplikasi. Beri izin kontak untuk menyimpan ke Google.',
         );
       }
-      return;
+      return false;
     }
     var account = await _deviceContacts.preferredGoogleAccount();
     if (account == null && context.mounted) {
       account = await selectGoogleContactAccount(context, _deviceContacts);
     }
-    if (account == null || !context.mounted) return;
-    final export = await _deviceContacts.exportCustomers(
-      account: account,
-      customers: [customer],
-    );
-    if (export.mergeCandidates.isEmpty || !context.mounted) return;
-    final merge = await _confirmGoogleContactMerge(
-      context,
-      export.mergeCandidates,
-    );
-    if (merge && context.mounted) {
-      await _deviceContacts.exportCustomers(
+    if (account == null || !context.mounted) {
+      if (context.mounted) {
+        _showSnack(
+          'Pelanggan tersimpan di aplikasi. Pilih akun Google untuk sinkron balik.',
+        );
+      }
+      return false;
+    }
+    try {
+      final export = await _deviceContacts.exportCustomers(
         account: account,
         customers: [customer],
-        mergeNameConflicts: true,
       );
+      if (export.mergeCandidates.isEmpty) return true;
+      if (!context.mounted) return false;
+      final merge = await _confirmGoogleContactMerge(
+        context,
+        export.mergeCandidates,
+      );
+      if (merge && context.mounted) {
+        await _deviceContacts.exportCustomers(
+          account: account,
+          customers: [customer],
+          mergeNameConflicts: true,
+        );
+        return true;
+      }
+      return false;
+    } catch (_) {
+      if (context.mounted) {
+        _showSnack(
+          'Pelanggan sudah tersimpan di aplikasi, tetapi kontak Google belum berhasil diperbarui. Coba sinkronkan lagi.',
+        );
+      }
+      return false;
     }
   }
 

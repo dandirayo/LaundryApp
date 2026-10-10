@@ -1,10 +1,10 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 7 Oktober 2026
+**Diverifikasi:** 10 Oktober 2026
 
-**Rilis aktif:** 2.1.7+23
+**Rilis aktif:** 2.1.8+24
 
-**Dipublikasikan:** 7 Oktober 2026
+**Dipublikasikan:** 10 Oktober 2026
 
 ## Status rilis
 
@@ -14,9 +14,11 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.7+23 memungkinkan Owner mengubah tanggal dan jam pada setiap Riwayat Pembayaran di detail pesanan. Perubahan tanggal pembayaran otomatis mengubah tanggal transaksi masuk terkait di Buku Kas; akun karyawan tetap hanya dapat melihat riwayat.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.8+24 menampilkan Live Stock dalam grid, memberi Owner pengaturan nama/satuan/batas minimum/harga beli item stok, menyediakan daftar cepat Gas, Plastik 30–55, Sabun, dan Pewangi, serta membuka menu printer berikut panduan pairing untuk karyawan. Pesan kegagalan sinkron balik kontak ke Google dibedakan dari kegagalan menyimpan pelanggan. Pengadaan masih mencatat biaya dan perubahan jumlah fisik stok masih dilakukan melalui Stok Masuk/Keluar; belum ada satu transaksi atomik untuk keduanya.
 
-Titik source release disimpan pada tag Git `v2.1.7-build23`. Keadaan sebelum release disimpan pada `pre-v2.1.7-build23`.
+Delapan item stok yang belum ada ditambahkan ke toko produksi dengan stok awal 0. Item `Plastik 45` yang sudah ada dibiarkan pada jumlah dan satuan sebelumnya; Owner perlu memeriksa satuannya setelah opname.
+
+Titik source release 2.1.8 disimpan pada tag Git lokal `v2.1.8-build24`. Tag source versi sebelumnya tetap `v2.1.7-build23`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 
@@ -95,7 +97,7 @@ Publisher menolak APK dengan certificate berbeda. Keystore harus dicadangkan di 
 Android tidak menerima downgrade build.
 
 - Untuk perangkat yang belum update, pulihkan manifest lama agar penawaran buruk hilang.
-- Untuk perangkat yang sudah update, checkout `pre-v2.1.7-build23`, naikkan nomor menjadi build 24 atau lebih tinggi, lalu publikasikan source lama sebagai release rollback. Android tidak dapat memasang build 22 di atas build 23.
+- Untuk perangkat yang sudah update, checkout source versi stabil sebelumnya, naikkan nomor build di atas versi yang terpasang, lalu publikasikan sebagai release rollback. Android tidak menerima downgrade versionCode.
 - Pertahankan APK immutable yang dirujuk manifest rollback.
 - Pertahankan tag `v2.1.7-build23` agar perubahan baru dapat diedit dan diterbitkan lagi setelah masalah diperbaiki.
 - Jangan membuat build fiktif hanya untuk menguji notifikasi production.

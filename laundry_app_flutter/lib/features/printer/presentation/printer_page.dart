@@ -114,8 +114,31 @@ class _PrinterPageState extends ConsumerState<PrinterPage> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text(
-                  'Nyalakan printer, lalu pasangkan melalui Pengaturan Bluetooth HP. Setelah dipasangkan, pilih printer di bawah. Mendukung printer struk Bluetooth ESC/POS.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Panduan sambung printer',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '1. Nyalakan printer thermal ESC/POS dan Bluetooth HP.',
+                    ),
+                    Text(
+                      '2. Pasangkan printer di Pengaturan Bluetooth HP. Masukkan PIN printer jika diminta.',
+                    ),
+                    Text(
+                      '3. Kembali ke aplikasi, tekan Pilih Printer, lalu pilih nama printer yang dipasangkan.',
+                    ),
+                    Text(
+                      '4. Tekan Test Koneksi, kemudian Cetak Tes. Jika tidak keluar kertas, cek daya, kertas, dan pairing Bluetooth.',
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Pilihan printer tersimpan di HP ini. Setiap HP karyawan perlu memilih printer sendiri.',
+                    ),
+                  ],
                 ),
               ),
             ),
