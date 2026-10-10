@@ -1133,11 +1133,15 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       final created = customers
           ?.where(
             (customer) =>
-                customer.name.trim() == result.name.trim() &&
+                normalizedCustomerName(customer.name) ==
+                    normalizedCustomerName(result.name) &&
                 customer.phone == Customer.phoneFromInput(result.phone),
           )
           .firstOrNull;
       if (created == null) return null;
+      if (created.hasPhone) {
+        await _syncQuickCustomerToGoogle(created);
+      }
       return PreviewCustomer(
         id: created.id,
         name: created.name,
@@ -1150,6 +1154,65 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
     } catch (error) {
       showAppSnackBar(error.toString());
       return null;
+    }
+  }
+
+  Future<void> _syncQuickCustomerToGoogle(Customer customer) async {
+    try {
+      if (!await _deviceContacts.requestReadWritePermission() || !mounted) {
+        showAppSnackBar(
+          'Pelanggan tersimpan di aplikasi. Izin kontak diperlukan untuk sinkron Google.',
+        );
+        return;
+      }
+      final account =
+          await _deviceContacts.preferredGoogleAccount() ??
+          (mounted
+              ? await selectGoogleContactAccount(context, _deviceContacts)
+              : null);
+      if (account == null || !mounted) {
+        showAppSnackBar(
+          'Pelanggan tersimpan di aplikasi. Pilih akun Google di menu Pelanggan untuk sinkron otomatis.',
+        );
+        return;
+      }
+      final result = await _deviceContacts.exportCustomers(
+        account: account,
+        customers: [customer],
+      );
+      if (result.mergeCandidates.isEmpty || !mounted) return;
+      final merge = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Nama kontak sudah ada'),
+          content: const Text(
+            'Ada nama yang sama di Google Contacts dengan nomor berbeda. Gabungkan nomor pelanggan ke kontak itu?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Nanti'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Gabungkan'),
+            ),
+          ],
+        ),
+      );
+      if (merge == true && mounted) {
+        await _deviceContacts.exportCustomers(
+          account: account,
+          customers: [customer],
+          mergeNameConflicts: true,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(
+          'Pelanggan tersimpan di aplikasi, tetapi kontak Google belum berhasil diperbarui.',
+        );
+      }
     }
   }
 

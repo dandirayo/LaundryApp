@@ -2,7 +2,7 @@
 
 **Diverifikasi:** 10 Oktober 2026
 
-**Rilis aktif:** 2.1.8+24
+**Rilis aktif:** 2.1.9+25
 
 **Dipublikasikan:** 10 Oktober 2026
 
@@ -14,11 +14,11 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.8+24 menampilkan Live Stock dalam grid, memberi Owner pengaturan nama/satuan/batas minimum/harga beli item stok, menyediakan daftar cepat Gas, Plastik 30–55, Sabun, dan Pewangi, serta membuka menu printer berikut panduan pairing untuk karyawan. Pesan kegagalan sinkron balik kontak ke Google dibedakan dari kegagalan menyimpan pelanggan. Pengadaan masih mencatat biaya dan perubahan jumlah fisik stok masih dilakukan melalui Stok Masuk/Keluar; belum ada satu transaksi atomik untuk keduanya.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.9+25 menambahkan sinkron otomatis pelanggan baru dari akun Google yang pernah dipilih saat halaman Pelanggan dibuka atau aplikasi kembali aktif, serta menulis pelanggan baru dari formulir cepat pesanan ke akun Google tersebut. Kontak yang sudah memiliki nomor sama tidak ditimpa otomatis; nama sama dengan nomor berbeda meminta konfirmasi gabung. Perubahan nama/nomor kontak yang sudah ada di kedua sisi belum direkonsiliasi otomatis. Release 2.1.8+24 sebelumnya menambahkan Live Stock, preset stok, dan akses printer karyawan.
 
 Delapan item stok yang belum ada ditambahkan ke toko produksi dengan stok awal 0. Item `Plastik 45` yang sudah ada dibiarkan pada jumlah dan satuan sebelumnya; Owner perlu memeriksa satuannya setelah opname.
 
-Titik source release 2.1.8 disimpan pada tag Git lokal `v2.1.8-build24`. Tag source versi sebelumnya tetap `v2.1.7-build23`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
+Titik source release 2.1.9 disimpan pada tag Git lokal `v2.1.9-build25`. Tag source versi sebelumnya tetap `v2.1.8-build24`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 

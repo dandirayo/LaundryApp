@@ -120,6 +120,15 @@ flowchart TD
 
 Penghapusan hasil sinkron tidak menghapus kontak asli dari perangkat/akun Google.
 
+Setelah pengguna memilih satu akun Google di perangkat dan memberi izin kontak,
+halaman Pelanggan menyinkron otomatis saat dibuka atau aplikasi kembali aktif
+(maksimal sekali per dua menit). Kontak baru dari akun itu masuk ke data pelanggan
+bersama; pelanggan baru dari aplikasi, termasuk yang ditambahkan cepat saat membuat
+pesanan, ditulis ke akun Google yang dipilih jika memiliki nomor. Sinkron otomatis
+tidak menimpa nama kontak dengan nomor yang sudah ada di kedua sisi. Benturan nama
+dengan nomor berbeda meminta keputusan gabung. Sinkronisasi ke server Google
+tetap bergantung pada pengaturan sinkron kontak Android dan koneksi perangkat.
+
 ## 6. Stok dan pengeluaran
 
 ```mermaid

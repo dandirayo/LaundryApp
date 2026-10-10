@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
@@ -25,13 +26,37 @@ class CustomersPage extends ConsumerStatefulWidget {
   ConsumerState<CustomersPage> createState() => _CustomersPageState();
 }
 
-class _CustomersPageState extends ConsumerState<CustomersPage> {
+class _CustomersPageState extends ConsumerState<CustomersPage>
+    with WidgetsBindingObserver {
   final _deviceContacts = DeviceContactRepository();
   String _query = '';
   var _isSyncingContacts = false;
   var _isResettingContacts = false;
   var _isRemovingNonCs = false;
   var _showSyncPrompt = true;
+  DateTime? _lastAutomaticSync;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncContacts(context, automatic: true);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _syncContacts(context, automatic: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -610,28 +635,62 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     }
   }
 
-  Future<void> _syncContacts(BuildContext context) async {
+  Future<void> _syncContacts(
+    BuildContext context, {
+    bool automatic = false,
+  }) async {
     if (_isSyncingContacts) return;
+    if (automatic &&
+        _lastAutomaticSync != null &&
+        DateTime.now().difference(_lastAutomaticSync!) <
+            const Duration(minutes: 2)) {
+      return;
+    }
     setState(() => _isSyncingContacts = true);
     try {
-      final candidates = await _loadDeviceContactCandidates(context);
+      final account = automatic
+          ? await _deviceContacts.preferredGoogleAccount()
+          : null;
+      if (automatic && account == null) return;
+      if (!context.mounted) return;
+      final candidates = automatic
+          ? await _autoContactCandidates(account!)
+          : await _loadDeviceContactCandidates(context);
       if (candidates == null || !context.mounted) return;
-      if (!await confirmContactSync(context, candidates.length) ||
-          !context.mounted) {
+      if (!automatic &&
+          (!await confirmContactSync(context, candidates.length) ||
+              !context.mounted)) {
         return;
       }
+      if (automatic) _lastAutomaticSync = DateTime.now();
       final result = await ref
           .read(customerControllerProvider.notifier)
           .syncContacts(candidates);
       if (context.mounted) {
-        final account = await _deviceContacts.preferredGoogleAccount();
+        final targetAccount =
+            account ?? await _deviceContacts.preferredGoogleAccount();
         final customers =
             ref.read(customerControllerProvider).value?.customers ?? const [];
-        final exportResult = account == null
+        final googlePhones = automatic
+            ? {
+                for (final candidate in candidates)
+                  for (final phone in candidate.phones)
+                    if (Customer.normalizeIndonesianPhone(phone) != null)
+                      Customer.normalizeIndonesianPhone(phone)!,
+              }
+            : const <String>{};
+        final customersToExport = automatic
+            ? customers.where(
+                (customer) =>
+                    customer.normalizedPhone != null &&
+                    !googlePhones.contains(customer.normalizedPhone),
+              )
+            : customers;
+        final exportResult = targetAccount == null
             ? null
             : await _deviceContacts.exportCustomers(
-                account: account,
-                customers: customers,
+                account: targetAccount,
+                customers: customersToExport,
               );
         if (context.mounted &&
             exportResult != null &&
@@ -642,7 +701,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           );
           if (merge && context.mounted) {
             await _deviceContacts.exportCustomers(
-              account: account!,
+              account: targetAccount!,
               customers: exportResult.mergeCandidates.map(
                 (candidate) => candidate.customer,
               ),
@@ -651,12 +710,14 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           }
         }
         if (context.mounted) {
-          _showSnack(_contactSyncMessage(result));
+          if (!automatic || result.importedCount > 0) {
+            _showSnack(_contactSyncMessage(result));
+          }
           setState(() => _showSyncPrompt = false);
         }
       }
     } catch (error) {
-      if (context.mounted) {
+      if (context.mounted && !automatic) {
         _showSnack(
           userErrorMessage(
             error,
@@ -669,6 +730,13 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
         setState(() => _isSyncingContacts = false);
       }
     }
+  }
+
+  Future<List<ContactImportCandidate>?> _autoContactCandidates(
+    Account account,
+  ) async {
+    if (!await _deviceContacts.requestReadWritePermission()) return null;
+    return _deviceContacts.fetchContactCandidates(account: account);
   }
 
   Future<void> _resetContacts(BuildContext context) async {
