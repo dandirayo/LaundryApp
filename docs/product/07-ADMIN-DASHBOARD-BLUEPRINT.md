@@ -1,7 +1,8 @@
 # Blueprint Dashboard Admin Idola One
 
-**Implementasi lokal diperiksa:** 29 September 2026<br>
-**Versi source Android:** 2.1.4+20 (`laundry_app_flutter/pubspec.yaml`)<br>
+**Blueprint diperbarui:** 11 Oktober 2026<br>
+**Versi Android terakhir dirilis:** 2.1.11+27<br>
+**Perubahan laporan pembayaran:** implementasi lokal, belum tercakup dalam APK berikutnya<br>
 **Backend bersama:** Supabase production `sqydcdhvsmmkvlpsjzgx`<br>
 **Status website:** desain dan navigasi baru tersedia di source lokal; belum diterbitkan ke VPS.
 
@@ -66,6 +67,7 @@ Menu kiri saat ini: **Beranda, Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Ti
 | Printer | Nota, label, bukti pengambilan terpisah | Belum | Device Bluetooth, data order |
 | Stok | Item dan mutasi | Item dan mutasi | `inventory_items`, `inventory_movements` |
 | Pengeluaran/kas | Riwayat dan filter periode | Kas manual/dasar | `expenses`, `cash_transactions` |
+| Laporan pembayaran | Rincian pembayaran pelanggan per metode, total tunai/transfer/QRIS/lainnya, hybrid dan draf WhatsApp; rentang hari ini, kemarin, minggu/bulan kalender, 3/6/12 bulan, dan tanggal khusus | Laporan kas dashboard masih modul terpisah | `payments`, `orders`, profil owner untuk nomor WhatsApp |
 | Karyawan/shift | Lengkap sesuai role | CRUD owner | `employees`, `profiles`, `weekly_shifts` |
 | Absensi | Check-in/out dan foto | Belum | `attendance_records`, Storage |
 | Pengajuan | Buat/pantau/review | Review dasar | `employee_requests` |
@@ -105,6 +107,15 @@ Pola halaman realtime:
 7. mutation harus mengembalikan row/RPC result dan tidak boleh menampilkan sukses jika nol row berubah.
 
 ## 6. Aturan bisnis yang harus sama
+
+### Laporan pembayaran karyawan
+
+- Laporan merangkum pembayaran pelanggan yang tercatat pada periode terpilih; transaksi kas manual dan pengeluaran tetap ada pada Buku Kas Owner.
+- Metode pembayaran dinormalisasi menjadi Tunai, Transfer, QRIS, dan Lainnya. Total laporan adalah jumlah pembayaran pada periode, bukan total nilai nota.
+- Pesanan Hybrid berarti memiliki pembayaran Tunai dan Transfer. Nilai Hybrid ditampilkan sebagai informasi tambahan yang sudah termasuk pada angka Tunai dan Transfer, sehingga tidak dijumlahkan kembali.
+- Draf WhatsApp memuat nama pengirim, periode, rincian metode, jumlah transaksi, dan Hybrid. Aplikasi membuka WhatsApp untuk diperiksa dan dikirim pengguna.
+- Layar portrait memakai satu kolom. Layar tablet landscape lebar memakai dua panel: periode, total, dan cakupan di kiri; rincian metode dan aksi WhatsApp di kanan. Pada kondisi memuat/gagal, halaman tetap memakai susunan satu kolom.
+- Query pembayaran dan kas memakai pagination berurutan per 500 baris agar batas respons server tidak memotong ringkasan.
 
 ### Pesanan dan pembayaran
 

@@ -55,109 +55,155 @@ class _PaymentReportPageState extends ConsumerState<PaymentReportPage> {
         ],
       ),
       body: ResponsivePage(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: ListView(
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _rangeLabel(range),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final period in _PaymentPeriod.values) ...[
-                            ChoiceChip(
-                              label: Text(period.label),
-                              selected: _period == period,
-                              onSelected: (_) => _changePeriod(period),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (summary == null)
-              Card(
-                child: ListTile(
-                  title: Text(
-                    paymentState.hasError
-                        ? 'Laporan belum berhasil dimuat'
-                        : 'Memuat pembayaran...',
-                  ),
-                  trailing: paymentState.hasError
-                      ? TextButton(
-                          onPressed: () => ref
-                              .read(orderPaymentControllerProvider.notifier)
-                              .refresh(),
-                          child: const Text('Coba lagi'),
-                        )
-                      : const CircularProgressIndicator(),
-                ),
-              )
-            else ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
-                child: Text(
-                  'Hanya pembayaran pelanggan; transaksi kas lain dan pengeluaran ada di Buku Kas Owner.',
-                  style: TextStyle(
-                    color: AppColors.secondaryText,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text('Total pembayaran pelanggan'),
-                  subtitle: Text(
-                    '${summary.paymentCount} transaksi pada periode ini',
-                  ),
-                  trailing: Text(
-                    summary.total.toRupiah(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primaryNavy,
+        maxWidth: 1200,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final useLandscapeLayout =
+                MediaQuery.orientationOf(context) == Orientation.landscape &&
+                constraints.maxWidth >= 760;
+            if (useLandscapeLayout && summary != null) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: constraints.maxWidth * .38,
+                    child: ListView(
+                      children: [
+                        _periodCard(range),
+                        const SizedBox(height: 12),
+                        _totalCard(summary),
+                        _scopeNote(),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              PaymentMethodSummaryCard(
-                title: 'Rincian pembayaran',
-                totals: summary.methods,
-                hybridOrderCount: summary.hybridOrderCount,
-                hybridAmount: summary.hybridAmountInRange,
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _openingWhatsApp
-                    ? null
-                    : () =>
-                          _sendReport(summary, range, user?.name ?? 'Karyawan'),
-                icon: const Icon(Icons.send_outlined),
-                label: const Text('Kirim laporan via WhatsApp'),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'WhatsApp membuka draf pesan. Periksa angka dan penerimanya sebelum menekan Kirim.',
-                style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
-              ),
-            ],
-          ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        PaymentMethodSummaryCard(
+                          title: 'Rincian pembayaran',
+                          totals: summary.methods,
+                          hybridOrderCount: summary.hybridOrderCount,
+                          hybridAmount: summary.hybridAmountInRange,
+                        ),
+                        const SizedBox(height: 12),
+                        _whatsAppActions(
+                          summary,
+                          range,
+                          user?.name ?? 'Karyawan',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            return ListView(
+              children: [
+                _periodCard(range),
+                if (summary == null)
+                  _loadingCard(paymentState.hasError)
+                else ...[
+                  _scopeNote(),
+                  _totalCard(summary),
+                  PaymentMethodSummaryCard(
+                    title: 'Rincian pembayaran',
+                    totals: summary.methods,
+                    hybridOrderCount: summary.hybridOrderCount,
+                    hybridAmount: summary.hybridAmountInRange,
+                  ),
+                  const SizedBox(height: 10),
+                  _whatsAppActions(summary, range, user?.name ?? 'Karyawan'),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
+
+  Widget _periodCard(DateTimeRange range) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_rangeLabel(range), style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final period in _PaymentPeriod.values) ...[
+                  ChoiceChip(
+                    label: Text(period.label),
+                    selected: _period == period,
+                    onSelected: (_) => _changePeriod(period),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _scopeNote() => const Padding(
+    padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
+    child: Text(
+      'Hanya pembayaran pelanggan; transaksi kas lain dan pengeluaran ada di Buku Kas Owner.',
+      style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
+    ),
+  );
+
+  Widget _totalCard(CustomerPaymentSummary summary) => Card(
+    child: ListTile(
+      title: const Text('Total pembayaran pelanggan'),
+      subtitle: Text('${summary.paymentCount} transaksi pada periode ini'),
+      trailing: Text(
+        summary.total.toRupiah(),
+        style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primaryNavy),
+      ),
+    ),
+  );
+
+  Widget _loadingCard(bool hasError) => Card(
+    child: ListTile(
+      title: Text(hasError ? 'Laporan belum berhasil dimuat' : 'Memuat pembayaran...'),
+      trailing: hasError
+          ? TextButton(
+              onPressed: () => ref.read(orderPaymentControllerProvider.notifier).refresh(),
+              child: const Text('Coba lagi'),
+            )
+          : const CircularProgressIndicator(),
+    ),
+  );
+
+  Widget _whatsAppActions(
+    CustomerPaymentSummary summary,
+    DateTimeRange range,
+    String senderName,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      FilledButton.icon(
+        onPressed: _openingWhatsApp
+            ? null
+            : () => _sendReport(summary, range, senderName),
+        icon: const Icon(Icons.send_outlined),
+        label: const Text('Kirim laporan via WhatsApp'),
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'WhatsApp membuka draf pesan. Periksa angka dan penerimanya sebelum menekan Kirim.',
+        style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
+      ),
+    ],
+  );
 
   Future<void> _changePeriod(_PaymentPeriod period) async {
     if (period == _PaymentPeriod.custom) {

@@ -316,7 +316,7 @@
         </div>
         <aside class="release-card" aria-label="Status rilis">
           <div class="mini">Versi source Android</div>
-          <div class="version">v2.1.4+20</div>
+          <div class="version">v2.1.11+27</div>
           <div class="release-list">
             <div class="release-item"><div class="release-icon">2</div><div><strong>Dua jenis usaha</strong><span>Laundry aktif dan POS minuman sederhana</span></div></div>
             <div class="release-item"><div class="release-icon">3</div><div><strong>Tiga peran utama</strong><span>Owner, karyawan laundry, anggota POS</span></div></div>
@@ -451,6 +451,7 @@
           <article class="card feature-card" data-category="people"><span class="tag partial">Sebagian</span><h3>Poin Pelanggan</h3><p>Saldo otomatis 1 poin per Rp10.000 pesanan lunas. Redeem dan portal pelanggan masih direncanakan.</p></article>
           <article class="card feature-card" data-category="finance"><span class="tag done">Selesai</span><h3>Stok &amp; Pengadaan</h3><p>Item, stok minimum, mutasi, harga beli, pengadaan stok, dan daftar pengeluaran ringkas.</p></article>
           <article class="card feature-card" data-category="finance"><span class="tag done">Selesai</span><h3>Buku Kas &amp; Laporan</h3><p>Pemasukan order, pengeluaran, transaksi manual, ringkasan, filter periode, dan laporan operasional.</p></article>
+          <article class="card feature-card" data-category="finance people"><span class="tag partial">Implementasi lokal</span><h3>Laporan Pembayaran</h3><p>Ringkasan pembayaran pelanggan per metode (Tunai, Transfer, QRIS, lainnya), Hybrid Tunai + Transfer, filter periode kalender/tanggal khusus, serta draf WhatsApp untuk konfirmasi ke owner.</p></article>
           <article class="card feature-card" data-category="people"><span class="tag done">Selesai</span><h3>Karyawan &amp; Absensi</h3><p>Akun/PIN, posisi, jadwal, absensi, gaji mingguan, payroll, status aktif, dan akses pelanggan.</p></article>
           <article class="card feature-card" data-category="people finance"><span class="tag done">Selesai</span><h3>Pengajuan Karyawan</h3><p>Stok, biaya, izin, lembur, tukar shift, dan kasbon dengan review serta catatan owner.</p></article>
           <article class="card feature-card" data-category="pos"><span class="tag done">MVP selesai</span><h3>POS Minuman</h3><p>Status jualan, produk, keranjang, checkout, nomor transaksi, omzet, dan transaksi hari ini.</p></article>
@@ -470,6 +471,10 @@
           <article class="card tech-card"><span class="tag done">Lokal</span><h3>Beranda</h3><p>Enam kartu KPI, pengajuan yang menunggu, dan tabel tujuh pesanan terbaru. Kartu langsung membuka menu terkait.</p></article>
           <article class="card tech-card"><span class="tag done">Lokal</span><h3>Menu kerja</h3><p>Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Tim, Laporan, dan Pengaturan ada di sidebar biru. Ponsel memakai menu geser.</p></article>
           <article class="card tech-card"><span class="tag partial">Bertahap</span><h3>Data &amp; sinkronisasi</h3><p>Web memakai Supabase toko yang sama dengan Android. Realtime memiliki refresh fokus dan polling cadangan 15 detik; halaman lokal baru belum diuji lintas perangkat produksi.</p></article>
+        </div>
+        <div class="tech-grid">
+          <article class="card tech-card"><span class="tag partial">Portrait</span><h3>Tampilan tablet tegak</h3><p>Laporan pembayaran disusun satu kolom agar filter, total, rincian metode, dan tombol WhatsApp mudah dipindai tanpa elemen menyebar terlalu lebar.</p></article>
+          <article class="card tech-card"><span class="tag partial">Landscape</span><h3>Tampilan tablet mendatar</h3><p>Pada layar lebar, filter periode, total, dan keterangan cakupan berada di panel kiri. Rincian pembayaran dan tombol draf WhatsApp berada di panel kanan.</p></article>
         </div>
         <p class="flow-note"><strong>Periode analitik:</strong> Minggu mengikuti Senin–Minggu, sedangkan pilihan bulanan memuat tanggal 1 sampai akhir bulan, misalnya 1–31 Agustus. Grafik selesai saat ini membaca status order dan tanggal pembaruan terakhir; histori transisi yang presisi masih menjadi pekerjaan berikutnya.</p>
         <p class="flow-note"><strong>Status rilis web:</strong> lint, build, dan preview desktop/ponsel lulus pada 29 September 2026. Desain baru belum diterbitkan karena VPS pengganti belum tersedia. Dokumentasi teknis lengkap ada di <a href="docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md">Blueprint Dashboard Admin</a>.</p>
@@ -533,7 +538,7 @@
   <footer>
     <div class="wrap footer-inner">
       <div><span class="standalone">Standalone blueprint</span><br>File ini berdiri sendiri dan tidak dimuat oleh Laundry App.</div>
-      <div>Source Android: 2.1.4+20 · Blueprint diperbarui 1 Oktober 2026</div>
+      <div>Android terakhir dirilis: 2.1.11+27 · Blueprint diperbarui 11 Oktober 2026</div>
     </div>
   </footer>
 
