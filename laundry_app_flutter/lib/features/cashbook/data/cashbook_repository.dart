@@ -11,15 +11,22 @@ class CashbookRepository {
   bool get isOnline => _client != null;
 
   Future<List<PreviewCashTransaction>> fetch({required String shopId}) async {
-    final rows = await _requireClient()
-        .from('cash_transactions')
-        .select(
-          'id, type, category, description, amount, method, reference_type, reference_id, created_at',
-        )
-        .eq('shop_id', shopId)
-        .order('created_at', ascending: false)
-        .limit(500);
-    return [for (final row in rows) _fromMap(row)];
+    const pageSize = 500;
+    final transactions = <PreviewCashTransaction>[];
+    for (var offset = 0;; offset += pageSize) {
+      final rows = await _requireClient()
+          .from('cash_transactions')
+          .select(
+            'id, type, category, description, amount, method, reference_type, reference_id, created_at',
+          )
+          .eq('shop_id', shopId)
+          .order('created_at', ascending: false)
+          .order('id', ascending: false)
+          .range(offset, offset + pageSize - 1);
+      transactions.addAll(rows.map(_fromMap));
+      if (rows.length < pageSize) break;
+    }
+    return transactions;
   }
 
   Future<void> addTransaction({

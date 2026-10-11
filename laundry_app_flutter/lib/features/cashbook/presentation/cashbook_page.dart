@@ -8,7 +8,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_state_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../domain/payment_method_totals.dart';
 import 'cashbook_controller.dart';
+import 'payment_method_summary_card.dart';
 
 class CashbookPage extends ConsumerStatefulWidget {
   const CashbookPage({super.key});
@@ -98,6 +100,14 @@ class _CashbookPageState extends ConsumerState<CashbookPage>
     final outcome = filteredCash
         .where((entry) => entry.type == 'OUT')
         .fold<int>(0, (sum, entry) => sum + entry.amount);
+    final incomeMethods = PaymentMethodTotals.fromTransactions(
+      filteredCash,
+      type: 'IN',
+    );
+    final outcomeMethods = PaymentMethodTotals.fromTransactions(
+      filteredCash,
+      type: 'OUT',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -164,6 +174,15 @@ class _CashbookPageState extends ConsumerState<CashbookPage>
                 ],
               ),
               const SizedBox(height: 12),
+              PaymentMethodSummaryCard(
+                title: 'Uang masuk menurut cara bayar',
+                totals: incomeMethods,
+              ),
+              PaymentMethodSummaryCard(
+                title: 'Uang keluar menurut cara bayar',
+                totals: outcomeMethods,
+              ),
+              const SizedBox(height: 12),
               _TotalTile(
                 'Saldo Akhir',
                 openingBalance + income - outcome,
@@ -225,6 +244,10 @@ class _CashbookPageState extends ConsumerState<CashbookPage>
       _CashbookPeriod.today => DateTimeRange(
         start: today,
         end: today.add(const Duration(days: 1)),
+      ),
+      _CashbookPeriod.yesterday => DateTimeRange(
+        start: today.subtract(const Duration(days: 1)),
+        end: today,
       ),
       _CashbookPeriod.thisWeek => DateTimeRange(
         start: today.subtract(Duration(days: today.weekday - 1)),
@@ -306,6 +329,7 @@ enum _CashbookView { transactions, summary }
 
 enum _CashbookPeriod {
   today('Hari ini'),
+  yesterday('Kemarin'),
   thisWeek('Minggu ini'),
   thisMonth('Bulan ini'),
   last3Months('3 bulan'),

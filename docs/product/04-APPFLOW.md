@@ -80,6 +80,16 @@ Status pekerjaan dan pembayaran disimpan terpisah. Saat diambil:
 4. bukti lunas/pengambilan dapat dicetak terpisah;
 5. bila pelanggan bayar nanti, kasir dapat membagikan instruksi transfer/QR melalui WhatsApp dan bukti pengambilan tetap mencerminkan sisa.
 
+Laporan dan Buku Kas Owner menampilkan nominal Tunai/Transfer dari transaksi
+sesuai periode Hari ini, Kemarin, minggu, bulan kalender, periode panjang, atau
+rentang tanggal. Karyawan membuka **Laporan Pembayaran** untuk melihat hanya
+pembayaran pelanggan lalu menyiapkan draf WhatsApp kepada Owner. Bila nomor
+Owner belum tercatat di profil, karyawan memilih chat tujuan sendiri. Hybrid
+menandai nota yang memiliki pembayaran Tunai dan Transfer; nominal pada periode
+tersebut sudah masuk ke masing-masing metode, sehingga tidak ditambahkan lagi
+ke total. Old Data tanpa rincian metode bayar tidak bisa dipisah menjadi
+Tunai/Transfer.
+
 ## 4. Pengajuan karyawan
 
 ```mermaid

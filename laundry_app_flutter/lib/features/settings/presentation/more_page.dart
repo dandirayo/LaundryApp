@@ -105,6 +105,11 @@ class MorePage extends ConsumerWidget {
         title: strings.finance,
         items: [
           _MenuItem(
+            'Laporan Pembayaran',
+            Icons.payments_outlined,
+            AppRoutes.paymentReport,
+          ),
+          _MenuItem(
             strings.reports,
             Icons.assessment_outlined,
             AppRoutes.reports,
@@ -185,6 +190,11 @@ class MorePage extends ConsumerWidget {
             'Stok & Pengeluaran',
             Icons.price_check_outlined,
             AppRoutes.expenses,
+          ),
+          _MenuItem(
+            'Laporan Pembayaran',
+            Icons.payments_outlined,
+            AppRoutes.paymentReport,
           ),
           _MenuItem(
             'Hubungkan Printer',

@@ -33,6 +33,7 @@ import '../../features/pos/presentation/pos_home_page.dart';
 import '../../features/pos/presentation/pos_more_page.dart';
 import '../../features/pos/presentation/pos_products_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
+import '../../features/reports/presentation/payment_report_page.dart';
 import '../../features/services/presentation/services_page.dart';
 import '../../features/settings/presentation/more_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
@@ -194,6 +195,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => _withBackGuard(const ReportsPage()),
           ),
           GoRoute(
+            path: AppRoutes.paymentReport,
+            builder: (context, state) =>
+                _withBackGuard(const PaymentReportPage()),
+          ),
+          GoRoute(
             path: AppRoutes.cashbook,
             builder: (context, state) => _withBackGuard(const CashbookPage()),
           ),
@@ -314,6 +320,7 @@ bool _isLaundryWorkspacePath(String path) {
       path == AppRoutes.payroll ||
       path.startsWith('/requests') ||
       path == AppRoutes.reports ||
+      path == AppRoutes.paymentReport ||
       path == AppRoutes.cashbook ||
       path == AppRoutes.expenses ||
       path == AppRoutes.notifications ||

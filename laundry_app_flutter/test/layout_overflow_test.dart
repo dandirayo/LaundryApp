@@ -92,6 +92,12 @@ void main() {
     await tester.tap(find.text('Ringkasan'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Pendapatan terbesar'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
     expect(find.text('Pendapatan terbesar'), findsOneWidget);
     expect(
       find.text('Pembayaran IDL-20260920-0524B6 (Rp32.000)'),

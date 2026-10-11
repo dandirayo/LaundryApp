@@ -25,6 +25,7 @@ class AppRoutes {
   static const requestReview = '/requests/review';
   static const requestsMine = '/requests/me';
   static const reports = '/reports';
+  static const paymentReport = '/reports/payments';
   static const cashbook = '/cashbook';
   static const expenses = '/expenses';
   static const notifications = '/notifications';

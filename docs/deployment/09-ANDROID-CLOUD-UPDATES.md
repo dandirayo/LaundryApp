@@ -1,10 +1,10 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 10 Oktober 2026
+**Diverifikasi:** 11 Oktober 2026
 
-**Rilis aktif:** 2.1.9+25
+**Rilis aktif:** 2.1.11+27
 
-**Dipublikasikan:** 10 Oktober 2026
+**Dipublikasikan:** 11 Oktober 2026
 
 ## Status rilis
 
@@ -14,11 +14,11 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.9+25 menambahkan sinkron otomatis pelanggan baru dari akun Google yang pernah dipilih saat halaman Pelanggan dibuka atau aplikasi kembali aktif, serta menulis pelanggan baru dari formulir cepat pesanan ke akun Google tersebut. Kontak yang sudah memiliki nomor sama tidak ditimpa otomatis; nama sama dengan nomor berbeda meminta konfirmasi gabung. Perubahan nama/nomor kontak yang sudah ada di kedua sisi belum direkonsiliasi otomatis. Release 2.1.8+24 sebelumnya menambahkan Live Stock, preset stok, dan akses printer karyawan.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.11+27 menampilkan nominal Tunai/Transfer di Laporan dan Buku Kas untuk setiap filter waktu, menambah filter Kemarin pada Buku Kas, dan memberi Owner serta karyawan halaman Laporan Pembayaran khusus dengan draf WhatsApp untuk Owner. Hybrid berarti nota dengan pembayaran Tunai sekaligus Transfer; nominalnya sudah termasuk pada metode tersebut dan hanya menghitung kedua metode walau nota juga memiliki QRIS. Pembayaran dan kas dibaca bertahap agar periode panjang tidak berhenti pada 500 baris. Rilis 2.1.9+25 sebelumnya menambahkan sinkron otomatis pelanggan baru dengan akun Google terpilih.
 
 Delapan item stok yang belum ada ditambahkan ke toko produksi dengan stok awal 0. Item `Plastik 45` yang sudah ada dibiarkan pada jumlah dan satuan sebelumnya; Owner perlu memeriksa satuannya setelah opname.
 
-Titik source release 2.1.9 disimpan pada tag Git lokal `v2.1.9-build25`. Tag source versi sebelumnya tetap `v2.1.8-build24`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
+Titik source release 2.1.11 disimpan pada tag Git lokal `v2.1.11-build27`. Tag source versi sebelumnya tetap `v2.1.9-build25`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 

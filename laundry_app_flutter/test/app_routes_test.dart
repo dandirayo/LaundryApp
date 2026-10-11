@@ -13,6 +13,12 @@ void main() {
     expect(AppRoutes.canOpen(AppRoutes.printer, UserRole.employee), isTrue);
   });
 
+  test('laporan pembayaran bisa dibuka karyawan tanpa membuka laporan owner', () {
+    expect(AppRoutes.canOpen(AppRoutes.paymentReport, UserRole.owner), isTrue);
+    expect(AppRoutes.canOpen(AppRoutes.paymentReport, UserRole.employee), isTrue);
+    expect(AppRoutes.canOpen(AppRoutes.reports, UserRole.employee), isFalse);
+  });
+
   test('kelola usaha hanya bisa dibuka owner', () {
     expect(
       AppRoutes.canOpen(AppRoutes.businessManagement, UserRole.owner),

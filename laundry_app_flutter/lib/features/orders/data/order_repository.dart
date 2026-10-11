@@ -80,12 +80,20 @@ class OrderRepository {
   }
 
   Future<List<PreviewPayment>> fetchPayments(String shopId) async {
-    final rows = await _requireClient()
-        .from('payments')
-        .select('id, order_id, amount, method, created_at')
-        .eq('shop_id', shopId)
-        .order('created_at', ascending: false);
-    return [for (final row in rows) _paymentFromMap(row)];
+    const pageSize = 500;
+    final payments = <PreviewPayment>[];
+    for (var offset = 0; ; offset += pageSize) {
+      final rows = await _requireClient()
+          .from('payments')
+          .select('id, order_id, amount, method, created_at')
+          .eq('shop_id', shopId)
+          .order('created_at', ascending: false)
+          .order('id', ascending: false)
+          .range(offset, offset + pageSize - 1);
+      payments.addAll(rows.map(_paymentFromMap));
+      if (rows.length < pageSize) break;
+    }
+    return payments;
   }
 
   Future<void> updateStatus({

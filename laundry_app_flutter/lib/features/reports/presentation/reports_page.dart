@@ -9,7 +9,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
+import '../../cashbook/domain/payment_method_totals.dart';
 import '../../cashbook/presentation/cashbook_controller.dart';
+import '../../cashbook/presentation/payment_method_summary_card.dart';
 import '../../orders/presentation/order_controller.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
@@ -29,15 +31,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       previewDataProvider.select(
         (state) => (
           orders: state.orders,
+          payments: state.payments,
           cashTransactions: state.cashTransactions,
           legacyMonthlySummaries: state.legacyMonthlySummaries,
         ),
       ),
     );
     final onlineOrders = ref.watch(orderControllerProvider).value;
+    final onlinePayments = ref.watch(orderPaymentControllerProvider).value;
     final cashState = ref.watch(cashbookControllerProvider).value;
     final onlineCash = cashState?.transactions;
     final allOrders = onlineOrders ?? previewData.orders;
+    final allPayments = onlinePayments ?? previewData.payments;
     final allCashTransactions = onlineCash ?? previewData.cashTransactions;
     final strings = ref.strings;
     final activeRange = _rangeFor(_period);
@@ -62,8 +67,21 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final outcome = cashTransactions
         .where((entry) => entry.type == 'OUT')
         .fold<int>(0, (sum, entry) => sum + entry.amount);
-    final incomeByMethod = _totalsByMethod(cashTransactions, 'IN');
-    final outcomeByMethod = _totalsByMethod(cashTransactions, 'OUT');
+    final incomeMethods = PaymentMethodTotals.fromTransactions(
+      cashTransactions,
+      type: 'IN',
+    );
+    final outcomeMethods = PaymentMethodTotals.fromTransactions(
+      cashTransactions,
+      type: 'OUT',
+    );
+    final incomeByMethod = incomeMethods.amounts;
+    final outcomeByMethod = outcomeMethods.amounts;
+    final customerPayments = CustomerPaymentSummary.forRange(
+      allPayments,
+      activeRange.start,
+      activeRange.end,
+    );
     final incomeByCategory = _totalsByCategory(cashTransactions, 'IN');
     final outcomeByCategory = _totalsByCategory(cashTransactions, 'OUT');
     final incomeByMethodAndCategory = _totalsByMethodAndCategory(
@@ -169,6 +187,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                       children: [
                         _Metric('Saldo awal', openingBalance.toRupiah()),
                         _Metric('Total uang masuk', income.toRupiah()),
+                        PaymentMethodSummaryCard(
+                          title: 'Pemasukan menurut cara bayar',
+                          totals: incomeMethods,
+                          hybridOrderCount: customerPayments.hybridOrderCount,
+                          hybridAmount: customerPayments.hybridAmountInRange,
+                        ),
                         _MethodBreakdown(
                           title: 'Uang masuk per metode',
                           totals: incomeByMethod,
@@ -182,6 +206,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           rows: incomeByMethodAndCategory,
                         ),
                         _Metric('Total uang keluar', outcome.toRupiah()),
+                        PaymentMethodSummaryCard(
+                          title: 'Pengeluaran menurut cara bayar',
+                          totals: outcomeMethods,
+                        ),
                         _MethodBreakdown(
                           title: 'Uang keluar per metode',
                           totals: outcomeByMethod,
@@ -402,23 +430,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return entry.type == 'IN' ? entry.amount : -entry.amount;
   }
 
-  Map<String, int> _totalsByMethod(
-    List<PreviewCashTransaction> transactions,
-    String type,
-  ) {
-    final totals = <String, int>{
-      'Tunai': 0,
-      'Transfer': 0,
-      'QRIS': 0,
-      'Lainnya': 0,
-    };
-    for (final entry in transactions.where((entry) => entry.type == type)) {
-      final method = _normalizeMethod(entry.method);
-      totals[method] = (totals[method] ?? 0) + entry.amount;
-    }
-    return totals;
-  }
-
   Map<String, int> _totalsByCategory(
     List<PreviewCashTransaction> transactions,
     String type,
@@ -439,7 +450,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   ) {
     final totals = <String, _MethodCategoryTotal>{};
     for (final entry in transactions.where((entry) => entry.type == type)) {
-      final method = _normalizeMethod(entry.method);
+      final method = normalizePaymentMethod(entry.method);
       final category = entry.category.trim().isEmpty
           ? 'Tanpa kategori'
           : entry.category.trim();
@@ -503,21 +514,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return {for (final entry in entries) entry.key: entry.value};
   }
 
-  String _normalizeMethod(String value) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized.contains('tunai') || normalized == 'cash') {
-      return 'Tunai';
-    }
-    if (normalized.contains('transfer') ||
-        normalized.contains('tf') ||
-        normalized.contains('bank')) {
-      return 'Transfer';
-    }
-    if (normalized.contains('qris') || normalized.contains('qr')) {
-      return 'QRIS';
-    }
-    return 'Lainnya';
-  }
 }
 
 class _MethodCategoryTotal {
