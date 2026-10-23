@@ -330,6 +330,8 @@ class PreviewOrderItem {
     required this.quantity,
     required this.price,
     required this.total,
+    this.incentiveRate = 0,
+    this.incentiveEmployeeId,
   });
 
   final String id;
@@ -339,6 +341,8 @@ class PreviewOrderItem {
   final double quantity;
   final int price;
   final int total;
+  final int incentiveRate;
+  final String? incentiveEmployeeId;
 }
 
 class PreviewPayment {
@@ -1338,18 +1342,11 @@ class PreviewDataController extends Notifier<PreviewDataState> {
   void updateOrderStatus(String orderId, PreviewOrderStatus status) {
     final currentOrder = _orderById(orderId);
     final nextOrder = currentOrder.copyWith(orderStatus: status);
-    final nextCash = [...state.cashTransactions];
-    final nextExpenses = [...state.expenses];
-    if (status == PreviewOrderStatus.ready) {
-      _appendShoeIncentiveIfNeeded(nextOrder, nextCash, nextExpenses);
-    }
     state = state.copyWith(
       orders: [
         for (final order in state.orders)
           if (order.id == orderId) nextOrder else order,
       ],
-      cashTransactions: nextCash,
-      expenses: nextExpenses,
     );
   }
 
@@ -1410,18 +1407,11 @@ class PreviewDataController extends Notifier<PreviewDataState> {
       assignedEmployeeId: employeeId,
       note: note.trim(),
     );
-    final nextCash = [...state.cashTransactions];
-    final nextExpenses = [...state.expenses];
-    if (status == PreviewOrderStatus.ready) {
-      _appendShoeIncentiveIfNeeded(updatedOrder, nextCash, nextExpenses);
-    }
     state = state.copyWith(
       orders: [
         for (final order in state.orders)
           if (order.id == orderId) updatedOrder else order,
       ],
-      cashTransactions: nextCash,
-      expenses: nextExpenses,
     );
   }
 
@@ -1473,66 +1463,6 @@ class PreviewDataController extends Notifier<PreviewDataState> {
         for (final expense in state.expenses)
           if (expense.id != incentiveReferenceId) expense,
       ],
-    );
-  }
-
-  void _appendShoeIncentiveIfNeeded(
-    PreviewOrder order,
-    List<PreviewCashTransaction> cash,
-    List<PreviewExpense> expenses,
-  ) {
-    final shoePairs = order.items
-        .where((item) {
-          final text = '${item.serviceNameSnapshot} ${item.unit}'.toLowerCase();
-          return text.contains('sepatu') || text.contains('pasang');
-        })
-        .fold<double>(0, (sum, item) => sum + item.quantity);
-    if (shoePairs <= 0) {
-      return;
-    }
-    final referenceId = 'SHOE-INCENTIVE-${order.id}';
-    final alreadyRecorded = cash.any(
-      (entry) =>
-          entry.referenceType == 'EMPLOYEE_INCENTIVE' &&
-          entry.referenceId == referenceId,
-    );
-    if (alreadyRecorded) {
-      return;
-    }
-    final employeeName =
-        state.employees
-            .where((employee) => employee.id == order.assignedEmployeeId)
-            .map((employee) => employee.name)
-            .firstOrNull ??
-        'Karyawan';
-    final amount = (shoePairs * 10000).round();
-    final description =
-        'Insentif cuci ${shoePairs.toStringAsFixed(0)} pasang sepatu untuk $employeeName, Nota ${order.orderNumber}';
-    final now = DateTime.now();
-    cash.insert(
-      0,
-      PreviewCashTransaction(
-        id: _uuid.v4(),
-        referenceId: referenceId,
-        referenceType: 'EMPLOYEE_INCENTIVE',
-        type: 'OUT',
-        category: 'Gaji dan Insentif Karyawan',
-        description: description,
-        amount: amount,
-        method: 'Tunai',
-        createdAt: now,
-      ),
-    );
-    expenses.insert(
-      0,
-      PreviewExpense(
-        id: referenceId,
-        description: description,
-        category: 'Insentif Cuci Sepatu',
-        amount: amount,
-        method: 'Tunai',
-        createdAt: now,
-      ),
     );
   }
 
@@ -2126,6 +2056,70 @@ class PreviewDataController extends Notifier<PreviewDataState> {
           amount: amount,
           method: method,
           createdAt: expense.createdAt,
+        ),
+        ...state.cashTransactions,
+      ],
+    );
+  }
+
+  void recordInventoryPurchase({
+    required String itemId,
+    required double quantity,
+    required int amount,
+    required String method,
+    required String note,
+  }) {
+    final item = state.inventory.where((row) => row.id == itemId).firstOrNull;
+    if (item == null || !item.isActive) {
+      throw StateError('Barang stok tidak ditemukan atau tidak aktif.');
+    }
+    if (quantity <= 0 || amount <= 0) {
+      throw StateError('Jumlah dan nominal harus lebih dari nol.');
+    }
+    final now = DateTime.now();
+    final description =
+        'Beli ${item.name} - $quantity ${item.unit}'
+        '${note.trim().isEmpty ? '' : ' - ${note.trim()}'}';
+    final expense = PreviewExpense(
+      id: _uuid.v4(),
+      description: description,
+      category: 'Stok',
+      amount: amount,
+      method: method,
+      createdAt: now,
+    );
+    state = state.copyWith(
+      inventory: [
+        for (final row in state.inventory)
+          if (row.id == itemId)
+            row.copyWith(stock: row.stock + quantity)
+          else
+            row,
+      ],
+      inventoryMovements: [
+        PreviewInventoryMovement(
+          id: _uuid.v4(),
+          itemId: item.id,
+          itemName: item.name,
+          type: 'IN',
+          quantity: quantity,
+          note: 'Pembelian${note.trim().isEmpty ? '' : ' - ${note.trim()}'}',
+          createdAt: now,
+        ),
+        ...state.inventoryMovements,
+      ],
+      expenses: [expense, ...state.expenses],
+      cashTransactions: [
+        PreviewCashTransaction(
+          id: _uuid.v4(),
+          referenceId: expense.id,
+          referenceType: 'EXPENSE',
+          type: 'OUT',
+          category: 'Stok',
+          description: description,
+          amount: amount,
+          method: method,
+          createdAt: now,
         ),
         ...state.cashTransactions,
       ],

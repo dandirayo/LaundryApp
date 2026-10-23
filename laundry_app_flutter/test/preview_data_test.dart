@@ -6,6 +6,58 @@ import 'package:laundry_app_flutter/core/extensions/quantity_extensions.dart';
 import 'package:laundry_app_flutter/shared/preview_data.dart';
 
 void main() {
+  test('pembelian stok mencatat stok dan kas sekali; pemakaian hanya stok', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(previewDataProvider.notifier);
+    notifier.addInventoryItem(
+      name: 'Plastik 40 Jinjing',
+      stock: 2,
+      unit: 'pak',
+      minStock: 1,
+      purchasePrice: 0,
+      note: '',
+    );
+    final before = container.read(previewDataProvider);
+    final item = before.inventory.firstWhere(
+      (row) => row.name == 'Plastik 40 Jinjing',
+    );
+    final cashCount = before.cashTransactions.length;
+
+    notifier.recordInventoryPurchase(
+      itemId: item.id,
+      quantity: 5,
+      amount: 100000,
+      method: 'Transfer',
+      note: 'Faktur 01',
+    );
+    final bought = container.read(previewDataProvider);
+    expect(bought.inventory.firstWhere((row) => row.id == item.id).stock, 7);
+    expect(bought.cashTransactions.length, cashCount + 1);
+    expect(bought.cashTransactions.first.amount, 100000);
+    expect(bought.cashTransactions.first.method, 'Transfer');
+    expect(bought.inventoryMovements.first.quantity, 5);
+
+    notifier.adjustStock(
+      itemId: item.id,
+      quantity: 2,
+      type: 'OUT',
+      note: 'Pemakaian',
+    );
+    final used = container.read(previewDataProvider);
+    expect(used.inventory.firstWhere((row) => row.id == item.id).stock, 5);
+    expect(used.cashTransactions.length, cashCount + 1);
+    expect(
+      () => notifier.adjustStock(
+        itemId: item.id,
+        quantity: 6,
+        type: 'OUT',
+        note: '',
+      ),
+      throwsStateError,
+    );
+  });
+
   test('pesanan kiloan pelanggan setia menerima berat di bawah 3 kg', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -310,7 +362,7 @@ void main() {
     expect(order.totalQuantity, 8);
   });
 
-  test('insentif sepatu dibuat sekali saat pesanan sepatu selesai', () {
+  test('pesanan sepatu selesai tidak otomatis mengurangi kas', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -337,9 +389,7 @@ void main() {
         .where((entry) => entry.referenceType == 'EMPLOYEE_INCENTIVE')
         .toList();
 
-    expect(incentives, hasLength(1));
-    expect(incentives.first.amount, 20000);
-    expect(incentives.first.type, 'OUT');
+    expect(incentives, isEmpty);
   });
 
   test(

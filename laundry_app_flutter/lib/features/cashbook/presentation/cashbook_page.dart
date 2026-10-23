@@ -162,6 +162,12 @@ class _CashbookPageState extends ConsumerState<CashbookPage>
                 onChanged: _changePeriod,
               ),
               const SizedBox(height: 12),
+              _TotalTile(
+                'Saldo Akhir',
+                openingBalance + income - outcome,
+                AppColors.primaryNavy,
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -174,24 +180,30 @@ class _CashbookPageState extends ConsumerState<CashbookPage>
                 ],
               ),
               const SizedBox(height: 12),
-              PaymentMethodSummaryCard(
-                title: 'Uang masuk menurut cara bayar',
-                totals: incomeMethods,
-              ),
-              PaymentMethodSummaryCard(
-                title: 'Uang keluar menurut cara bayar',
-                totals: outcomeMethods,
-              ),
-              const SizedBox(height: 12),
-              _TotalTile(
-                'Saldo Akhir',
-                openingBalance + income - outcome,
-                AppColors.primaryNavy,
-              ),
-              const SizedBox(height: 16),
-              if (_view == _CashbookView.transactions)
-                _TransactionList(cash: filteredCash)
-              else
+              if (_view == _CashbookView.transactions) ...[
+                PaymentMethodSummaryCard(
+                  title: 'Uang masuk: Tunai & Transfer',
+                  totals: incomeMethods,
+                ),
+                Card(
+                  child: ExpansionTile(
+                    title: const Text(
+                      'Rincian uang keluar',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: const Text('Metode pembayaran pengeluaran'),
+                    childrenPadding: const EdgeInsets.all(8),
+                    children: [
+                      PaymentMethodSummaryCard(
+                        title: 'Uang keluar menurut cara bayar',
+                        totals: outcomeMethods,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _TransactionList(cash: filteredCash),
+              ] else
                 _SummaryList(
                   openingBalance: openingBalance,
                   income: income,
@@ -374,7 +386,7 @@ class _PeriodPicker extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final period in _CashbookPeriod.values) ...[
+                  for (final period in _CashbookPeriod.values.take(4)) ...[
                     ChoiceChip(
                       label: Text(period.label),
                       selected: selected == period,
@@ -382,6 +394,22 @@ class _PeriodPicker extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
+                  PopupMenuButton<_CashbookPeriod>(
+                    tooltip: 'Periode lainnya',
+                    onSelected: onChanged,
+                    itemBuilder: (context) => [
+                      for (final period in _CashbookPeriod.values.skip(4))
+                        PopupMenuItem(value: period, child: Text(period.label)),
+                    ],
+                    child: Chip(
+                      avatar: const Icon(Icons.expand_more, size: 18),
+                      label: Text(
+                        _CashbookPeriod.values.take(4).contains(selected)
+                            ? 'Lainnya'
+                            : selected.label,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -392,13 +420,21 @@ class _PeriodPicker extends StatelessWidget {
   }
 }
 
-class _TransactionList extends StatelessWidget {
+class _TransactionList extends StatefulWidget {
   const _TransactionList({required this.cash});
 
   final List<PreviewCashTransaction> cash;
 
   @override
+  State<_TransactionList> createState() => _TransactionListState();
+}
+
+class _TransactionListState extends State<_TransactionList> {
+  bool _showAll = false;
+
+  @override
   Widget build(BuildContext context) {
+    final cash = widget.cash;
     if (cash.isEmpty) {
       return const AppStateView.empty(
         title: 'Transaksi kas belum ada',
@@ -407,7 +443,7 @@ class _TransactionList extends StatelessWidget {
     }
     return Column(
       children: [
-        for (final entry in cash) ...[
+        for (final entry in (_showAll ? cash : cash.take(10))) ...[
           Card(
             child: ListTile(
               leading: Icon(
@@ -416,9 +452,10 @@ class _TransactionList extends StatelessWidget {
               ),
               title: Text(entry.description),
               subtitle: Text(
-                '${entry.category} - ${entry.method}\n${entry.createdAt.toIndonesianDate()} ${entry.createdAt.toIndonesianTime()}',
+                '${entry.createdAt.toIndonesianDate()} • ${entry.category} • ${entry.method}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              isThreeLine: true,
               trailing: Text(
                 entry.amount.toRupiah(),
                 style: TextStyle(
@@ -430,8 +467,17 @@ class _TransactionList extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
         ],
+        if (cash.length > 10)
+          TextButton(
+            onPressed: () => setState(() => _showAll = !_showAll),
+            child: Text(
+              _showAll
+                  ? 'Tampilkan lebih sedikit'
+                  : 'Lihat semua ${cash.length} transaksi',
+            ),
+          ),
       ],
     );
   }
@@ -473,30 +519,56 @@ class _SummaryList extends StatelessWidget {
     );
     return Column(
       children: [
-        _Metric('Saldo awal', openingBalance.toRupiah()),
-        _Metric('Total pemasukan', income.toRupiah()),
-        _Metric('Total pengeluaran', outcome.toRupiah()),
-        _Metric('Laba / rugi', (income - outcome).toRupiah()),
-        _Metric('Saldo akhir', (openingBalance + income - outcome).toRupiah()),
-        _Metric('Jumlah kas masuk', '$cashInCount transaksi'),
-        _Metric('Jumlah kas keluar', '$cashOutCount transaksi'),
-        _Metric('Pengeluaran terbesar', biggestExpense),
-        _Metric('Kategori pengeluaran terbesar', biggestExpenseCategory),
-        _Metric('Pendapatan terbesar', biggestIncome),
-        if (legacySummaries.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _Metric(
-            'Old Data',
-            '${legacySummaries.first.label} - ${legacySummaries.last.label}',
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                _SummaryRow('Saldo awal', openingBalance.toRupiah()),
+                _SummaryRow('Selisih periode', (income - outcome).toRupiah()),
+                _SummaryRow('Kas masuk', '$cashInCount transaksi'),
+                _SummaryRow('Kas keluar', '$cashOutCount transaksi'),
+              ],
+            ),
           ),
-          _Metric('Pemasukan Old Data', legacyIncome.toRupiah()),
-          _Metric('Pengeluaran Old Data', legacyExpense.toRupiah()),
-          _Metric('Laba/Rugi Old Data', legacyProfit.toRupiah()),
-          _Metric(
-            'Saldo akhir Old Data',
-            legacySummaries.last.closingBalance.toRupiah(),
+        ),
+        Card(
+          child: ExpansionTile(
+            title: const Text(
+              'Analisis transaksi',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: const Text('Transaksi dan kategori terbesar'),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: [
+              _Metric('Pengeluaran terbesar', biggestExpense),
+              _Metric('Kategori pengeluaran terbesar', biggestExpenseCategory),
+              _Metric('Pendapatan terbesar', biggestIncome),
+            ],
           ),
-        ],
+        ),
+        if (legacySummaries.isNotEmpty)
+          Card(
+            child: ExpansionTile(
+              title: const Text(
+                'Old Data',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                '${legacySummaries.first.label} - ${legacySummaries.last.label}',
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              children: [
+                _Metric('Pemasukan Old Data', legacyIncome.toRupiah()),
+                _Metric('Pengeluaran Old Data', legacyExpense.toRupiah()),
+                _Metric('Laba/Rugi Old Data', legacyProfit.toRupiah()),
+                _Metric(
+                  'Saldo akhir Old Data',
+                  legacySummaries.last.closingBalance.toRupiah(),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -554,6 +626,36 @@ class _TotalTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(color: AppColors.secondaryText),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Metric extends StatelessWidget {

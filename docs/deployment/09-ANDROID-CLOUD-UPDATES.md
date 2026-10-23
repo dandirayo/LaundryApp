@@ -1,10 +1,12 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 11 Oktober 2026
+**Diverifikasi:** 23 Oktober 2026
 
-**Rilis aktif:** 2.1.11+27
+**Rilis aktif:** 2.1.14+30
 
-**Dipublikasikan:** 11 Oktober 2026
+**Dipublikasikan:** 23 Oktober 2026
+
+**Verifikasi source 2.1.14:** Flutter analyze bersih dan 96 tes lulus. APK arm64-v8a, armeabi-v7a, serta x86_64 diverifikasi ukuran, SHA-256, package/version, dan sertifikat penandatanganannya sebelum manifest ditayangkan.
 
 ## Status rilis
 
@@ -14,11 +16,15 @@ Manifest production berada di:
 https://sqydcdhvsmmkvlpsjzgx.supabase.co/storage/v1/object/public/app-releases/android/latest.json
 ```
 
-Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.11+27 menampilkan nominal Tunai/Transfer di Laporan dan Buku Kas untuk setiap filter waktu, menambah filter Kemarin pada Buku Kas, dan memberi Owner serta karyawan halaman Laporan Pembayaran khusus dengan draf WhatsApp untuk Owner. Hybrid berarti nota dengan pembayaran Tunai sekaligus Transfer; nominalnya sudah termasuk pada metode tersebut dan hanya menghitung kedua metode walau nota juga memiliki QRIS. Pembayaran dan kas dibaca bertahap agar periode panjang tidak berhenti pada 500 baris. Rilis 2.1.9+25 sebelumnya menambahkan sinkron otomatis pelanggan baru dengan akun Google terpilih.
+Manifest aktif berisi APK untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Release 2.1.12+28 menambahkan Proyek Laundry untuk Owner/karyawan dengan target pcs, batch harian dan tarif per kg/per pcs; pilihan insentif Rp10.000/Rp15.000/Rp20.000 untuk sepatu, helm, dan tas; hak insentif saat pesanan siap; serta pembayaran insentif oleh Owner yang baru kemudian masuk pengeluaran kas. Release 2.1.11+27 sebelumnya menampilkan nominal Tunai/Transfer di Laporan dan Buku Kas untuk semua filter waktu serta halaman Laporan Pembayaran untuk Owner/karyawan.
+
+Release 2.1.13+29 menyatukan pembelian barang Live Stock dengan biaya pengadaan/Buku Kas dalam satu transaksi backend. Owner dan karyawan dapat mencatat pemakaian stok tanpa mencatat pengeluaran kas kedua. Riwayat Pengadaan/Pengeluaran menampilkan jumlah dan nominal sesuai periode, termasuk bulan kalender berjalan. Website Owner tetap lokal dan tidak dideploy ke VPS pada rilis ini.
+
+Release 2.1.14+30 merapikan Laporan Owner menjadi ringkasan pesanan/keuangan dengan rincian status, layanan, volume, metode, kategori, dan transaksi yang dapat dibuka saat diperlukan. Buku Kas menonjolkan saldo akhir, uang masuk, uang keluar, serta rincian Tunai/Transfer; analisis dan Old Data dapat dibuka, sedangkan daftar transaksi awal dibatasi 10 dengan tombol **Lihat semua**. Pilihan periode lengkap, ekspor, dan seluruh hitungan tetap tersedia. Website Owner tetap lokal dan tidak dideploy ke VPS pada rilis ini.
 
 Delapan item stok yang belum ada ditambahkan ke toko produksi dengan stok awal 0. Item `Plastik 45` yang sudah ada dibiarkan pada jumlah dan satuan sebelumnya; Owner perlu memeriksa satuannya setelah opname.
 
-Titik source release 2.1.11 disimpan pada tag Git lokal `v2.1.11-build27`. Tag source versi sebelumnya tetap `v2.1.9-build25`. Commit/tag baru belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy.
+Titik source release 2.1.11 disimpan pada tag Git lokal `v2.1.11-build27`. Source 2.1.12+28 masih berada di working tree lokal; jangan membuat tag yang menyiratkan snapshot bersih sebelum source commit. Commit belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy VPS.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 

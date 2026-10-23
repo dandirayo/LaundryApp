@@ -104,6 +104,55 @@ class InventoryController extends AsyncNotifier<InventoryState> {
     await refresh();
   }
 
+  Future<void> recordPurchase({
+    required String itemId,
+    required double quantity,
+    required int amount,
+    required String method,
+    required String note,
+  }) async {
+    if (_onlineShopId() != null) {
+      await _repository.recordPurchase(
+        itemId: itemId,
+        quantity: quantity,
+        amount: amount,
+        method: method,
+        note: note,
+      );
+    } else {
+      ref.read(previewDataProvider.notifier).recordInventoryPurchase(
+        itemId: itemId,
+        quantity: quantity,
+        amount: amount,
+        method: method,
+        note: note,
+      );
+    }
+    await refresh();
+  }
+
+  Future<void> recordUsage({
+    required String itemId,
+    required double quantity,
+    required String note,
+  }) async {
+    if (_onlineShopId() != null) {
+      await _repository.recordUsage(
+        itemId: itemId,
+        quantity: quantity,
+        note: note,
+      );
+    } else {
+      ref.read(previewDataProvider.notifier).adjustStock(
+        itemId: itemId,
+        quantity: quantity,
+        type: 'OUT',
+        note: 'Pemakaian${note.trim().isEmpty ? '' : ' - ${note.trim()}'}',
+      );
+    }
+    await refresh();
+  }
+
   Future<void> updateItem({
     required String itemId,
     required String name,

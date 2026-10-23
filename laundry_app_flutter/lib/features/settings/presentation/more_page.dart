@@ -59,6 +59,7 @@ class MorePage extends ConsumerWidget {
       _MenuSection(
         title: strings.operational,
         items: [
+          _MenuItem('Proyek Laundry', Icons.work_outline, AppRoutes.projects),
           _MenuItem(
             strings.servicesAndPrices,
             Icons.sell_outlined,
@@ -171,6 +172,7 @@ class MorePage extends ConsumerWidget {
       _MenuSection(
         title: strings.work,
         items: [
+          _MenuItem('Proyek Laundry', Icons.work_outline, AppRoutes.projects),
           _MenuItem(
             strings.mySchedule,
             Icons.calendar_today_outlined,

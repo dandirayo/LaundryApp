@@ -8,6 +8,7 @@ import 'package:laundry_app_flutter/features/auth/domain/user_role.dart';
 import 'package:laundry_app_flutter/features/auth/presentation/auth_controller.dart';
 import 'package:laundry_app_flutter/features/cashbook/presentation/cashbook_page.dart';
 import 'package:laundry_app_flutter/features/orders/presentation/orders_page.dart';
+import 'package:laundry_app_flutter/features/reports/presentation/reports_page.dart';
 import 'package:laundry_app_flutter/shared/preview_data.dart';
 
 void main() {
@@ -92,6 +93,10 @@ void main() {
     await tester.tap(find.text('Ringkasan'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Saldo Akhir'), findsOneWidget);
+    await tester.tap(find.text('Analisis transaksi'));
+    await tester.pumpAndSettle();
+
     await tester.scrollUntilVisible(
       find.text('Pendapatan terbesar'),
       300,
@@ -103,6 +108,41 @@ void main() {
       find.text('Pembayaran IDL-20260920-0524B6 (Rp32.000)'),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Laporan ringkas tetap terbaca di ponsel kecil', (tester) async {
+    await _setSmallPhone(tester);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authControllerProvider.overrideWith(_CashbookAuth.new)],
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: InkRipple.splashFactory),
+          home: const ReportsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ringkasan pesanan'), findsOneWidget);
+    expect(find.text('Nilai pesanan'), findsOneWidget);
+    expect(find.text('Pelanggan unik'), findsNothing);
+    final reportScroll = find
+        .ancestor(
+          of: find.text('Ringkasan pesanan'),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Pelanggan & volume'),
+      170,
+      scrollable: reportScroll,
+    );
+    await tester.ensureVisible(find.text('Pelanggan & volume'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pelanggan & volume'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pelanggan unik'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

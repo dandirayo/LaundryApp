@@ -48,7 +48,7 @@ class InventoryPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Stok & Pengadaan'),
+        title: const Text('Kelola Live Stock'),
         actions: [
           IconButton(
             tooltip: 'Tambah barang',
@@ -74,6 +74,15 @@ class InventoryPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 24),
           children: [
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(14),
+                child: Text(
+                  'Pembelian harian dicatat lewat Stok & Pengeluaran → Beli Stok. Tombol di sini khusus stok awal atau koreksi hasil hitung fisik.',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             if (missingQuickItems.isNotEmpty) ...[
               Card(
                 child: Padding(
@@ -174,7 +183,7 @@ class InventoryPage extends ConsumerWidget {
                               isAdd: true,
                             ),
                             icon: const Icon(Icons.add),
-                            label: const Text('Stok Masuk'),
+                            label: const Text('Koreksi +'),
                           ),
                           OutlinedButton.icon(
                             onPressed: () => _showAdjustSheet(
@@ -184,7 +193,7 @@ class InventoryPage extends ConsumerWidget {
                               isAdd: false,
                             ),
                             icon: const Icon(Icons.remove),
-                            label: const Text('Stok Keluar'),
+                            label: const Text('Koreksi -'),
                           ),
                         ],
                       ),
@@ -237,7 +246,7 @@ class InventoryPage extends ConsumerWidget {
           );
       if (context.mounted) {
         showAppSnackBar(
-          '${preset.$1} ditambahkan. Isi stok awal lewat Stok Masuk.',
+          '${preset.$1} ditambahkan. Isi stok awal lewat Koreksi +.',
         );
       }
     } catch (_) {
@@ -260,7 +269,7 @@ class InventoryPage extends ConsumerWidget {
         title: const Text('Siapkan daftar barang?'),
         content: Text(
           '${missing.length} barang akan ditambahkan dengan stok 0. '
-          'Setelahnya isi jumlah fisik lewat Stok Masuk. Barang yang sudah ada tidak ditambah lagi.',
+          'Setelahnya isi jumlah fisik lewat Koreksi +. Barang yang sudah ada tidak ditambah lagi.',
         ),
         actions: [
           TextButton(
@@ -297,7 +306,7 @@ class InventoryPage extends ConsumerWidget {
     if (context.mounted) {
       showAppSnackBar(
         added == missing.length
-            ? '$added barang siap. Isi jumlah stok fisik di tiap barang.'
+            ? '$added barang siap. Isi jumlah stok fisik lewat Koreksi +.'
             : '$added dari ${missing.length} barang tersimpan. Periksa daftar lalu coba lagi.',
       );
     }
@@ -442,7 +451,7 @@ class InventoryPage extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Jumlah stok diubah terpisah lewat Stok Masuk/Keluar agar riwayatnya tercatat.',
+              'Stok awal dan koreksi jumlah fisik dicatat terpisah agar ada riwayat. Untuk pembelian gunakan Beli Stok.',
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -556,7 +565,7 @@ class InventoryPage extends ConsumerWidget {
         child: AppBottomSheetBody(
           children: [
             Text(
-              '${isAdd ? 'Stok Masuk' : 'Stok Keluar'} ${item.name}',
+              '${isAdd ? 'Koreksi Tambah' : 'Koreksi Kurang'} ${item.name}',
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
             ),
             const SizedBox(height: 16),

@@ -12,6 +12,7 @@ class AppRoutes {
   static const ordersMine = '/orders/me';
   static const orderCreate = '/orders/new';
   static const orderDetail = '/orders/:orderId';
+  static const projects = '/projects';
   static const customers = '/customers';
   static const more = '/more';
   static const services = '/services';

@@ -28,6 +28,7 @@ import '../../features/orders/presentation/order_detail_page.dart';
 import '../../features/orders/presentation/orders_page.dart';
 import '../../features/payroll/presentation/payroll_page.dart';
 import '../../features/printer/presentation/printer_page.dart';
+import '../../features/projects/presentation/projects_page.dart';
 import '../../features/pos/presentation/pos_cashier_page.dart';
 import '../../features/pos/presentation/pos_home_page.dart';
 import '../../features/pos/presentation/pos_more_page.dart';
@@ -138,6 +139,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => _withBackGuard(
               OrderDetailPage(orderId: state.pathParameters['orderId'] ?? ''),
             ),
+          ),
+          GoRoute(
+            path: AppRoutes.projects,
+            builder: (context, state) => _withBackGuard(const ProjectsPage()),
           ),
           GoRoute(
             path: AppRoutes.customers,
@@ -310,6 +315,7 @@ Widget _withBackGuard(Widget child) => AppBackGuard(child: child);
 bool _isLaundryWorkspacePath(String path) {
   return path == AppRoutes.dashboard ||
       path.startsWith('/orders') ||
+      path == AppRoutes.projects ||
       path.startsWith('/customers') ||
       path == AppRoutes.more ||
       path == AppRoutes.services ||

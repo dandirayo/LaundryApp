@@ -64,14 +64,15 @@ class OrderRepository {
     final rows = response as List;
     final orderId = (rows.first as Map)['order_id'] as String;
     final orders = await fetch(shopId);
-    return orders.firstWhere((order) => order.id == orderId);
+    final order = orders.firstWhere((order) => order.id == orderId);
+    return order;
   }
 
   Future<List<PreviewOrder>> fetch(String shopId) async {
     final rows = await _requireClient()
         .from('orders')
         .select(
-          'id, order_number, customer_id, customer_name_snapshot, customer_phone_snapshot, total_price, paid_amount, order_status, payment_status, created_at, due_at, assigned_employee_id, received_by_name_snapshot, note, order_items(id, service_id, service_name_snapshot, unit, quantity, unit_price, subtotal)',
+          'id, order_number, customer_id, customer_name_snapshot, customer_phone_snapshot, total_price, paid_amount, order_status, payment_status, created_at, due_at, assigned_employee_id, received_by_name_snapshot, note, order_items(id, service_id, service_name_snapshot, unit, quantity, unit_price, subtotal, incentive_rate, incentive_employee_id)',
         )
         .eq('shop_id', shopId)
         .isFilter('deleted_at', null)
@@ -281,6 +282,8 @@ class OrderCreateItem {
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
+    this.incentiveRate = 0,
+    this.incentiveEmployeeId,
   });
 
   final String serviceId;
@@ -290,6 +293,8 @@ class OrderCreateItem {
   final double quantity;
   final int unitPrice;
   final int subtotal;
+  final int incentiveRate;
+  final String? incentiveEmployeeId;
 
   Map<String, dynamic> toMap() => {
     'service_id': serviceId,
@@ -299,6 +304,8 @@ class OrderCreateItem {
     'quantity': quantity,
     'unit_price': unitPrice,
     'subtotal': subtotal,
+    'incentive_rate': incentiveRate,
+    'incentive_employee_id': incentiveEmployeeId,
   };
 }
 
@@ -332,6 +339,8 @@ PreviewOrder _fromMap(Map<String, dynamic> map) {
           quantity: (raw['quantity'] as num? ?? 0).toDouble(),
           price: (raw['unit_price'] as num? ?? 0).toInt(),
           total: (raw['subtotal'] as num? ?? 0).toInt(),
+          incentiveRate: (raw['incentive_rate'] as num? ?? 0).toInt(),
+          incentiveEmployeeId: raw['incentive_employee_id'] as String?,
         ),
     ],
     totalPrice: (map['total_price'] as num? ?? 0).toInt(),

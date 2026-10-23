@@ -104,6 +104,40 @@ class InventoryRepository {
     );
   }
 
+  Future<void> recordPurchase({
+    required String itemId,
+    required double quantity,
+    required int amount,
+    required String method,
+    required String note,
+  }) async {
+    await _requireClient().rpc(
+      'record_inventory_purchase',
+      params: {
+        'p_item_id': itemId,
+        'p_quantity': quantity,
+        'p_amount': amount,
+        'p_method': method,
+        'p_note': note.trim(),
+      },
+    );
+  }
+
+  Future<void> recordUsage({
+    required String itemId,
+    required double quantity,
+    required String note,
+  }) async {
+    await _requireClient().rpc(
+      'record_inventory_usage',
+      params: {
+        'p_item_id': itemId,
+        'p_quantity': quantity,
+        'p_note': note.trim(),
+      },
+    );
+  }
+
   RealtimeChannel subscribe({
     required String shopId,
     required void Function() onChanged,

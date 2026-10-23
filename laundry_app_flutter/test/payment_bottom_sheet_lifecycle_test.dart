@@ -45,22 +45,24 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Pesanan'), findsWidgets);
 
       await _openFirstOrderCardIfNeeded(tester);
       await tester.ensureVisible(find.text('Terima Pembayaran'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Terima Pembayaran'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
 
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Nominal'),
         '5000',
       );
       await tester.ensureVisible(find.text('Simpan Pembayaran'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Simpan Pembayaran'));
       await tester.pump(const Duration(seconds: 1));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       await _pumpUntil(
         tester,
         () => container.read(previewDataProvider).payments.length == 1,
@@ -72,26 +74,28 @@ void main() {
       );
 
       await tester.tap(find.text('Pelanggan'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.byType(CustomersPage), findsOneWidget);
 
       await tester.tap(find.text('Pesanan').last);
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.byType(OrdersPage), findsOneWidget);
 
       await _openFirstOrderCardIfNeeded(tester);
       await tester.ensureVisible(find.text('Terima Pembayaran'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Terima Pembayaran'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
 
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Nominal'),
         '5000',
       );
       await tester.ensureVisible(find.text('Simpan Pembayaran'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Simpan Pembayaran'));
       await tester.pump(const Duration(seconds: 1));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       await _pumpUntil(
         tester,
         () => container.read(previewDataProvider).payments.length == 2,
@@ -109,7 +113,7 @@ void main() {
 Future<void> _openFirstOrderCardIfNeeded(WidgetTester tester) async {
   if (find.text('Terima Pembayaran').evaluate().isNotEmpty) return;
   await tester.tap(find.byType(ExpansionTile).first);
-  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {

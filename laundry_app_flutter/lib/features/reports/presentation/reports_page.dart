@@ -146,88 +146,135 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   children: [
                     ListView(
                       children: [
-                        _Metric('Jumlah pesanan', '${orders.length}'),
-                        _Metric('Pelanggan unik', '${uniqueCustomers.length}'),
-                        _Metric(
-                          'Total kilogram',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
+                        _CompactReportCard(
+                          title: 'Ringkasan pesanan',
+                          rows: [
+                            ('Jumlah pesanan', '${orders.length}'),
+                            ('Nilai pesanan', orderValue.toRupiah()),
+                            ('Sudah dibayar', paid.toRupiah()),
+                            ('Belum dibayar', remaining.toRupiah()),
+                          ],
                         ),
-                        _Metric(
-                          'Sepatu',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PAIR')).toStringAsFixed(1)} pasang',
+                        _ReportDetails(
+                          title: 'Status & layanan',
+                          subtitle: 'Lihat progres dan jenis pesanan',
+                          children: [
+                            _PaymentStatusBreakdown(
+                              rows: paymentStatusBreakdown,
+                            ),
+                            _ServiceBreakdown(rows: servicesBreakdown),
+                          ],
                         ),
-                        _Metric(
-                          'Item',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('ITEM')).toStringAsFixed(1)} item',
+                        _ReportDetails(
+                          title: 'Pelanggan & volume',
+                          subtitle: 'Jumlah pelanggan, berat, dan item',
+                          children: [
+                            _Metric(
+                              'Pelanggan unik',
+                              '${uniqueCustomers.length}',
+                            ),
+                            _Metric(
+                              'Pesanan selesai',
+                              '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready || order.orderStatus == PreviewOrderStatus.pickedUp).length}',
+                            ),
+                            _Metric(
+                              'Total kilogram',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.laundryWeightKg).toStringAsFixed(1)} kg',
+                            ),
+                            _Metric(
+                              'Sepatu',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PAIR')).toStringAsFixed(1)} pasang',
+                            ),
+                            _Metric(
+                              'Item',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('ITEM')).toStringAsFixed(1)} item',
+                            ),
+                            _Metric(
+                              'Buah',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PIECE')).toStringAsFixed(1)} buah',
+                            ),
+                            _Metric(
+                              'Meter persegi',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M2')).toStringAsFixed(1)} m2',
+                            ),
+                            _Metric(
+                              'Meter panjang',
+                              '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M')).toStringAsFixed(1)} m',
+                            ),
+                          ],
                         ),
-                        _Metric(
-                          'Buah',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('PIECE')).toStringAsFixed(1)} buah',
-                        ),
-                        _Metric(
-                          'Meter persegi',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M2')).toStringAsFixed(1)} m2',
-                        ),
-                        _Metric(
-                          'Meter panjang',
-                          '${orders.fold<double>(0, (sum, order) => sum + order.quantityForUnit('M')).toStringAsFixed(1)} m',
-                        ),
-                        _Metric('Nilai pesanan', orderValue.toRupiah()),
-                        _Metric('Pembayaran diterima', paid.toRupiah()),
-                        _Metric('Sisa tagihan', remaining.toRupiah()),
-                        _Metric(
-                          'Pesanan selesai',
-                          '${orders.where((order) => order.orderStatus == PreviewOrderStatus.ready || order.orderStatus == PreviewOrderStatus.pickedUp).length}',
-                        ),
-                        _PaymentStatusBreakdown(rows: paymentStatusBreakdown),
-                        _ServiceBreakdown(rows: servicesBreakdown),
                       ],
                     ),
                     ListView(
                       children: [
-                        _Metric('Saldo awal', openingBalance.toRupiah()),
-                        _Metric('Total uang masuk', income.toRupiah()),
+                        _CompactReportCard(
+                          title: 'Ringkasan keuangan',
+                          rows: [
+                            ('Uang masuk', income.toRupiah()),
+                            ('Uang keluar', outcome.toRupiah()),
+                            ('Selisih periode', (income - outcome).toRupiah()),
+                            (
+                              'Saldo akhir',
+                              (openingBalance + income - outcome).toRupiah(),
+                            ),
+                          ],
+                        ),
                         PaymentMethodSummaryCard(
                           title: 'Pemasukan menurut cara bayar',
                           totals: incomeMethods,
                           hybridOrderCount: customerPayments.hybridOrderCount,
                           hybridAmount: customerPayments.hybridAmountInRange,
                         ),
-                        _MethodBreakdown(
-                          title: 'Uang masuk per metode',
-                          totals: incomeByMethod,
+                        _ReportDetails(
+                          title: 'Rincian pemasukan',
+                          subtitle: 'Kategori dan metode pembayaran',
+                          children: [
+                            _Metric('Saldo awal', openingBalance.toRupiah()),
+                            _MethodBreakdown(
+                              title: 'Uang masuk per metode',
+                              totals: incomeByMethod,
+                            ),
+                            _MethodBreakdown(
+                              title: 'Uang masuk per kategori',
+                              totals: incomeByCategory,
+                            ),
+                            _MethodCategoryBreakdown(
+                              title: 'Detail masuk: metode x kategori',
+                              rows: incomeByMethodAndCategory,
+                            ),
+                          ],
                         ),
-                        _MethodBreakdown(
-                          title: 'Uang masuk per kategori',
-                          totals: incomeByCategory,
+                        _ReportDetails(
+                          title: 'Rincian pengeluaran',
+                          subtitle: 'Tunai, transfer, dan kategori biaya',
+                          children: [
+                            PaymentMethodSummaryCard(
+                              title: 'Pengeluaran menurut cara bayar',
+                              totals: outcomeMethods,
+                            ),
+                            _MethodBreakdown(
+                              title: 'Uang keluar per metode',
+                              totals: outcomeByMethod,
+                            ),
+                            _MethodBreakdown(
+                              title: 'Uang keluar per kategori',
+                              totals: outcomeByCategory,
+                            ),
+                            _MethodCategoryBreakdown(
+                              title: 'Detail keluar: metode x kategori',
+                              rows: outcomeByMethodAndCategory,
+                            ),
+                          ],
                         ),
-                        _MethodCategoryBreakdown(
-                          title: 'Detail masuk: metode x kategori',
-                          rows: incomeByMethodAndCategory,
-                        ),
-                        _Metric('Total uang keluar', outcome.toRupiah()),
-                        PaymentMethodSummaryCard(
-                          title: 'Pengeluaran menurut cara bayar',
-                          totals: outcomeMethods,
-                        ),
-                        _MethodBreakdown(
-                          title: 'Uang keluar per metode',
-                          totals: outcomeByMethod,
-                        ),
-                        _MethodBreakdown(
-                          title: 'Uang keluar per kategori',
-                          totals: outcomeByCategory,
-                        ),
-                        _MethodCategoryBreakdown(
-                          title: 'Detail keluar: metode x kategori',
-                          rows: outcomeByMethodAndCategory,
-                        ),
-                        _Metric(
-                          'Saldo akhir',
-                          (openingBalance + income - outcome).toRupiah(),
-                        ),
-                        _CashTransactionBreakdown(
-                          transactions: recentCashTransactions,
+                        _ReportDetails(
+                          title: 'Transaksi terbaru',
+                          subtitle:
+                              '${recentCashTransactions.length} transaksi dalam periode ini',
+                          children: [
+                            _CashTransactionBreakdown(
+                              transactions: recentCashTransactions,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
@@ -246,20 +293,26 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                     ),
                     ListView(
                       children: [
-                        _Metric(
-                          'Periode terbaca',
-                          legacySummaries.isEmpty
-                              ? '-'
-                              : '${legacySummaries.first.label} - ${legacySummaries.last.label}',
-                        ),
-                        _Metric('Pemasukan legacy', legacyIncome.toRupiah()),
-                        _Metric('Pengeluaran legacy', legacyExpense.toRupiah()),
-                        _Metric('Laba/Rugi legacy', legacyProfit.toRupiah()),
-                        _Metric(
-                          'Saldo akhir legacy',
-                          legacySummaries.isEmpty
-                              ? 'Rp0'
-                              : legacySummaries.last.closingBalance.toRupiah(),
+                        _CompactReportCard(
+                          title: 'Arsip Old Data',
+                          rows: [
+                            (
+                              'Periode',
+                              legacySummaries.isEmpty
+                                  ? '-'
+                                  : '${legacySummaries.first.label} - ${legacySummaries.last.label}',
+                            ),
+                            ('Pemasukan', legacyIncome.toRupiah()),
+                            ('Pengeluaran', legacyExpense.toRupiah()),
+                            ('Laba/Rugi', legacyProfit.toRupiah()),
+                            (
+                              'Saldo akhir',
+                              legacySummaries.isEmpty
+                                  ? 'Rp0'
+                                  : legacySummaries.last.closingBalance
+                                        .toRupiah(),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         if (legacySummaries.isEmpty)
@@ -272,24 +325,30 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                             ),
                           )
                         else
-                          for (final summary in legacySummaries)
-                            Card(
-                              child: ListTile(
-                                title: Text(summary.label),
-                                subtitle: Text(
-                                  'Masuk ${summary.income.toRupiah()} - Keluar ${summary.expense.toRupiah()}',
-                                ),
-                                trailing: Text(
-                                  summary.profit.toRupiah(),
-                                  style: TextStyle(
-                                    color: summary.profit >= 0
-                                        ? AppColors.success
-                                        : AppColors.error,
-                                    fontWeight: FontWeight.w800,
+                          _ReportDetails(
+                            title: 'Rincian per bulan',
+                            subtitle: '${legacySummaries.length} bulan arsip',
+                            children: [
+                              for (final summary in legacySummaries)
+                                Card(
+                                  child: ListTile(
+                                    title: Text(summary.label),
+                                    subtitle: Text(
+                                      'Masuk ${summary.income.toRupiah()} - Keluar ${summary.expense.toRupiah()}',
+                                    ),
+                                    trailing: Text(
+                                      summary.profit.toRupiah(),
+                                      style: TextStyle(
+                                        color: summary.profit >= 0
+                                            ? AppColors.success
+                                            : AppColors.error,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                            ],
+                          ),
                       ],
                     ),
                   ],
@@ -513,7 +572,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ..sort((a, b) => b.value.compareTo(a.value));
     return {for (final entry in entries) entry.key: entry.value};
   }
-
 }
 
 class _MethodCategoryTotal {
@@ -630,7 +688,7 @@ class _ReportDateFilterBar extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final period in _ReportPeriod.values) ...[
+                  for (final period in _ReportPeriod.values.take(4)) ...[
                     ChoiceChip(
                       label: Text(period.label),
                       selected: selected == period,
@@ -638,6 +696,22 @@ class _ReportDateFilterBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
+                  PopupMenuButton<_ReportPeriod>(
+                    tooltip: 'Periode lainnya',
+                    onSelected: onChanged,
+                    itemBuilder: (context) => [
+                      for (final period in _ReportPeriod.values.skip(4))
+                        PopupMenuItem(value: period, child: Text(period.label)),
+                    ],
+                    child: Chip(
+                      avatar: const Icon(Icons.expand_more, size: 18),
+                      label: Text(
+                        _ReportPeriod.values.take(4).contains(selected)
+                            ? 'Lainnya'
+                            : selected.label,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -666,6 +740,77 @@ class _Metric extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompactReportCard extends StatelessWidget {
+  const _CompactReportCard({required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: AppColors.primaryNavy,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      row.$1,
+                      style: const TextStyle(color: AppColors.secondaryText),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      row.$2,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReportDetails extends StatelessWidget {
+  const _ReportDetails({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ExpansionTile(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(subtitle),
+      childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      children: children,
+    ),
+  );
 }
 
 class _MethodBreakdown extends StatelessWidget {

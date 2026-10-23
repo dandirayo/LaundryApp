@@ -11,13 +11,20 @@ class ExpenseRepository {
   bool get isOnline => _client != null;
 
   Future<List<PreviewExpense>> fetch({required String shopId}) async {
-    final rows = await _requireClient()
-        .from('expenses')
-        .select('id, description, category, amount, method, created_at')
-        .eq('shop_id', shopId)
-        .order('created_at', ascending: false)
-        .limit(200);
-    return [for (final row in rows) _fromMap(row)];
+    const pageSize = 500;
+    final expenses = <PreviewExpense>[];
+    for (var offset = 0;; offset += pageSize) {
+      final rows = await _requireClient()
+          .from('expenses')
+          .select('id, description, category, amount, method, created_at')
+          .eq('shop_id', shopId)
+          .order('created_at', ascending: false)
+          .order('id', ascending: false)
+          .range(offset, offset + pageSize - 1);
+      expenses.addAll(rows.map(_fromMap));
+      if (rows.length < pageSize) break;
+    }
+    return expenses;
   }
 
   Future<void> add({

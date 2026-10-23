@@ -1,10 +1,32 @@
 # Blueprint Dashboard Admin Idola One
 
-**Blueprint diperbarui:** 11 Oktober 2026<br>
-**Versi Android terakhir dirilis:** 2.1.11+27<br>
-**Perubahan laporan pembayaran:** implementasi lokal, belum tercakup dalam APK berikutnya<br>
+**Blueprint diperbarui:** 23 Oktober 2026<br>
+**Versi Android terakhir dirilis:** 2.1.14+30<br>
+**Perubahan laporan pembayaran:** telah tersedia sejak 2.1.11+27<br>
 **Backend bersama:** Supabase production `sqydcdhvsmmkvlpsjzgx`<br>
 **Status website:** desain dan navigasi baru tersedia di source lokal; belum diterbitkan ke VPS.
+
+**Tambahan 11 Oktober 2026:** skema proyek laundry besar dan insentif per item sudah terpasang di Supabase production, dan Android 2.1.12+28 sudah dipublikasikan lewat cloud updater. Website tetap lokal dan belum dideploy ulang.
+
+## Pembaruan alur stok dan tampilan laporan (23 Oktober 2026)
+
+Android 2.1.13+29 dan 2.1.14+30 telah diterbitkan melalui cloud updater; website Owner tetap lokal.
+
+- Android: **Beli Stok** memilih item Live Stock aktif, jumlah, nominal, metode bayar, dan catatan dalam satu formulir. RPC `record_inventory_purchase` menyimpan mutasi `IN`, pengeluaran kategori `Stok`, dan transaksi Buku Kas melalui trigger dalam satu transaksi database. Jika salah satu langkah gagal, seluruh transaksi dibatalkan.
+- Owner dan karyawan dapat menekan item Live Stock untuk **Pakai Stok**. RPC `record_inventory_usage` mencatat mutasi `OUT` dengan pemeriksaan sisa stok; pemakaian tidak membuat pengeluaran kas kedua. Menu Owner untuk stok awal/opname diberi label **Koreksi +/−** agar berbeda dari pembelian harian.
+- Riwayat Pengadaan/Pengeluaran menampilkan jumlah transaksi dan total nominal sesuai filter Hari ini, Kemarin, Seminggu, atau Bulan ini (bulan kalender penuh). Item plastik yang berbeda jenis tetap harus menjadi item Live Stock tersendiri agar jumlah tidak tercampur.
+- **Sudah di Android 2.1.14+30:** Laporan Owner menampilkan empat angka utama pada tab Pesanan dan Keuangan; status, layanan, volume, metode/kategori, serta transaksi menjadi panel rincian. Buku Kas menonjolkan saldo akhir, masuk, keluar, dan metode uang masuk; analisis dan Old Data dapat dibuka, daftar transaksi awal 10 baris dengan **Lihat semua**. Periode cepat menampilkan Hari ini, Kemarin, Minggu ini, Bulan ini; periode lain dan rentang tanggal tetap tersedia. Ekspor tetap ada.
+- **Arah pengembangan berikutnya, belum diimplementasikan:** submenu Stok dan Proyek dalam Laporan, grafik kecil, tabel yang bisa dicari/filter di tiap submenu, serta pemisahan data kas per metode yang lebih dalam. Keuangan perlu tetap membedakan Tunai, Transfer, QRIS, dan hybrid; stok perlu menampilkan masuk, terpakai, sisa, menipis, dan selisih opname. Ringkasan karyawan cukup menampilkan data operasional yang perlu mereka konfirmasi, sedangkan laba/rugi dan koreksi finansial tetap Owner.
+
+## Tambahan operasional: proyek besar dan insentif
+
+- **Proyek laundry besar:** Owner membuat proyek dengan pelanggan, target pcs, tarif per kg atau per pcs, dan catatan. Owner/karyawan mencatat batch harian berisi jumlah pcs serta berat aktual. Progress memakai akumulasi pcs. Nilai tagihan berjalan dihitung dari total batch dengan pembulatan ke ribuan yang sama seperti pesanan biasa. Pembayaran proyek dicatat terpisah dan otomatis masuk `cash_transactions` sebagai uang masuk; aplikasi web dan Flutter membaca data per `shop_id` yang sama.
+- **Insentif sepatu, helm, tas:** pemilih pada item satuan berisi Rp0/Rp10.000/Rp15.000/Rp20.000 per pasang atau item. Penerima adalah karyawan yang ditugaskan. Nilai tersimpan atomik saat pembuatan pesanan. Ketika status menjadi `ready`, `order_item_incentives` mencatat hak karyawan walaupun pelanggan belum membayar atau mengambil barang. Saat Owner membayar insentif, RPC membuat `expenses` dan trigger kas mencatat uang keluar sekali. Insentif yang belum dibayar tidak mengurangi saldo kas.
+- **Web Owner:** menu kiri bertambah Proyek, Insentif, Layanan & Harga, dan Audit. Owner dapat mengoreksi proyek, batch, pembayaran proyek, nilai/penerima insentif sebelum pesanan selesai, layanan, pesanan, pelanggan, stok, pengajuan, kas manual, tim, shift, dan pengaturan toko. Grafik dan saldo adalah hasil perhitungan dari transaksi; audit sengaja tidak dapat diedit agar jejak perubahan tetap utuh.
+- **Koreksi pembayaran pesanan:** Owner dapat mengubah nominal, metode, dan tanggal pada halaman Pesanan. RPC memeriksa batas tagihan lalu memperbarui pembayaran, status lunas, dan baris Buku Kas dalam satu transaksi; jejak perubahan masuk Audit.
+- **Navigasi Pesanan:** submenu lokal memisahkan Daftar & status, Edit detail, Layanan kiloan, dan Koreksi pembayaran. Perubahan layanan kiloan memakai RPC `update_order_kilo_services` agar harga dan sisa tagihan dihitung ulang di server.
+- **Audit:** tampilan garis waktu dengan pencarian, filter tabel, dan perbandingan data sebelum/sesudah. Tabel proyek, batch, pembayaran proyek, insentif, layanan, dan item pesanan kini ikut diaudit. Halaman saat ini memuat 100 log terbaru; pencarian histori panjang masih perlu pagination server.
+- **Batas saat ini:** laporan kas sudah memasukkan pembayaran proyek serta insentif yang dibayar. Rekap khusus laba/rugi per proyek, koreksi pembayaran insentif yang telah cair, dan uji lintas dua perangkat dengan data nyata masih perlu diselesaikan. Tampilan web masih lokal, belum ada deployment VPS.
 
 ## 1. Posisi dashboard dalam produk
 
@@ -34,7 +56,7 @@ flowchart LR
 
 Source dashboard masih terpusat pada `admin_dashboard_web/src/App.tsx` dengan React, TypeScript, Vite, Supabase JS, dan Lucide. Desain terbaru memakai sidebar biru pada desktop, menu geser pada ponsel, kartu KPI, dan tabel pesanan. Beranda dibuat ringkas; modul lain dibuka dari menu kiri. Preview data contoh hanya aktif saat Vite berjalan dalam mode development dengan `?preview=1`.
 
-Menu kiri saat ini: **Beranda, Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Tim, Laporan, Pengaturan**. Kartu KPI di Beranda membuka modul terkait. Pencarian dari Beranda atau modul non-data membawa pengguna ke Pesanan; di Pelanggan dan Tim pencarian bekerja pada data modul tersebut.
+Menu kiri saat ini: **Beranda, Pesanan, Proyek, Insentif, Analitik, Pengajuan, Stok, Layanan & Harga, Pelanggan, Tim, Laporan, Audit, Pengaturan**. Kartu KPI di Beranda membuka modul terkait. Pencarian dari Beranda atau modul non-data membawa pengguna ke Pesanan; di Pelanggan dan Tim pencarian bekerja pada data modul tersebut.
 
 | Area | Kemampuan aktual | Status |
 | --- | --- | --- |
@@ -61,7 +83,7 @@ Menu kiri saat ini: **Beranda, Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Ti
 | Auth/profil | Owner dan karyawan | Owner | Auth, `profiles`, `employees` |
 | Pemilih usaha | Ya | Belum | `businesses`, `business_members` |
 | Pesanan Laundry | Buat, detail, status, pembayaran, cetak | List, status, pembayaran | `orders`, `order_items`, `payments` dan RPC |
-| Layanan/harga | CRUD owner, pemilih varian | Belum | `service_categories`, `services` |
+| Layanan/harga | CRUD owner, pemilih varian | CRUD owner | `service_categories`, `services` |
 | Pelanggan/kontak | CRUD, sinkron/reset/filter kontak | CRUD dasar | `customers` |
 | Poin pelanggan | Saldo realtime | Belum | `customer_point_events`, `customer_point_balances` |
 | Printer | Nota, label, bukti pengambilan terpisah | Belum | Device Bluetooth, data order |
@@ -74,7 +96,7 @@ Menu kiri saat ini: **Beranda, Pesanan, Analitik, Pengajuan, Stok, Pelanggan, Ti
 | Payroll | Bayar dan histori | Belum | `payroll_payments`, cash trigger |
 | Notifikasi | Inbox/badge/deep link | Belum | `notifications` |
 | POS minuman | Produk, kasir, sale, status buka | Belum | `pos_*`, `business_daily_operations` |
-| Audit | Tidak menjadi layar utama | 15 aktivitas terbaru | `audit_logs` |
+| Audit | Tidak menjadi layar utama | Garis waktu dan 100 aktivitas terbaru | `audit_logs` |
 | Update Android | Cek dan instal APK | Tidak relevan | Storage `app-releases` |
 
 ### Definisi angka dan periode pada tampilan lokal

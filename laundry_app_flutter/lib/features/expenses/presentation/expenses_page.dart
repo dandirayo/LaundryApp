@@ -15,6 +15,7 @@ import '../../../core/widgets/responsive_page.dart';
 import '../../../shared/preview_data.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../cashbook/presentation/cashbook_controller.dart';
 import '../../inventory/presentation/inventory_controller.dart';
 import 'expense_controller.dart';
 
@@ -92,7 +93,7 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
             ? _showProcurementSheet(context)
             : _showExpenseSheet(context),
         icon: const Icon(Icons.add),
-        label: Text(_tabs.index == 0 ? 'Tambah Pengadaan Stok' : 'Pengeluaran'),
+        label: Text(_tabs.index == 0 ? 'Beli Stok' : 'Pengeluaran'),
       ),
       body: ResponsivePage(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -100,11 +101,12 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
           controller: _tabs,
           children: [
             _ProcurementView(
-              stock: inventory,
+              stock: inventory.where((item) => item.isActive).toList(),
               procurement: procurement,
               isOwner: isOwner,
               onManageStock: () =>
                   AppNavigation.open(context, AppRoutes.inventory),
+              onUseStock: (item) => _showUsageSheet(context, item),
             ),
             _ExpenseList(
               items: operational,
@@ -118,17 +120,20 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
   }
 
   Future<void> _showProcurementSheet(BuildContext context) async {
-    const products = ['Gas', 'Plastik', 'Sabun', 'Pewangi'];
-    const sizes = ['30', '35', '40', '45', '50', '55'];
-    const plasticTypes = ['Biasa', 'Jinjing', 'Plastik Satuan'];
-    var product = products.first;
-    var size = sizes.first;
-    var plasticType = plasticTypes.first;
+    final stock = ref.read(inventoryControllerProvider).value?.items ??
+        ref.read(previewDataProvider).inventory;
+    final items = stock.where((item) => item.isActive).toList();
+    if (items.isEmpty) {
+      showAppSnackBar('Belum ada barang Live Stock. Minta Owner menambahkan barang dulu.');
+      return;
+    }
+    var item = items.first;
     var method = 'Tunai';
+    final quantity = TextEditingController();
     final amount = TextEditingController();
     final note = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final result = await showAppModalBottomSheet<_ExpenseInput>(
+    final result = await showAppModalBottomSheet<_InventoryPurchaseInput>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -138,58 +143,31 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
           child: AppBottomSheetBody(
             children: [
               const Text(
-                'Tambah Pengadaan Stok',
+                'Beli Stok',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
               const SizedBox(height: 6),
-              const Text('Pilih barang lalu masukkan total nominal belanja.'),
-              const SizedBox(height: 6),
-              const Text(
-                'Nominal ini masuk Buku Kas. Jumlah fisik Live Stock dicatat terpisah lewat Kelola → Stok Masuk agar tidak menebak jumlah barang.',
-                style: TextStyle(color: AppColors.secondaryText, fontSize: 12),
-              ),
+              const Text('Satu kali simpan akan menambah Live Stock dan mencatat uang keluar di Buku Kas.'),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final value in products)
-                    ChoiceChip(
-                      label: Text(value),
-                      selected: product == value,
-                      onSelected: (_) => setModalState(() => product = value),
-                    ),
+              DropdownButtonFormField<String>(
+                initialValue: item.id,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Barang / varian'),
+                items: [
+                  for (final row in items)
+                    DropdownMenuItem(value: row.id, child: Text('${row.name} (${row.unit})')),
                 ],
+                onChanged: (id) => setModalState(() =>
+                    item = items.firstWhere((row) => row.id == id)),
               ),
-              if (product == 'Plastik') ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: size,
-                  decoration: const InputDecoration(
-                    labelText: 'Ukuran plastik',
-                  ),
-                  items: [
-                    for (final value in sizes)
-                      DropdownMenuItem(
-                        value: value,
-                        child: Text('Ukuran $value'),
-                      ),
-                  ],
-                  onChanged: (value) =>
-                      setModalState(() => size = value ?? size),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: plasticType,
-                  decoration: const InputDecoration(labelText: 'Jenis plastik'),
-                  items: [
-                    for (final value in plasticTypes)
-                      DropdownMenuItem(value: value, child: Text(value)),
-                  ],
-                  onChanged: (value) =>
-                      setModalState(() => plasticType = value ?? plasticType),
-                ),
-              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: quantity,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: 'Jumlah dibeli (${item.unit})'),
+                validator: (value) => (double.tryParse((value ?? '').replaceAll(',', '.')) ?? 0) <= 0
+                    ? 'Jumlah harus lebih dari nol.' : null,
+              ),
               const SizedBox(height: 12),
               _AmountField(controller: amount),
               const SizedBox(height: 12),
@@ -208,36 +186,100 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage>
               FilledButton.icon(
                 onPressed: () {
                   if (!formKey.currentState!.validate()) return;
-                  final label = product == 'Plastik'
-                      ? 'Plastik ukuran $size - $plasticType'
-                      : product;
-                  final description = note.text.trim().isEmpty
-                      ? label
-                      : '$label - ${note.text.trim()}';
                   Navigator.of(context).pop(
-                    _ExpenseInput(
-                      description: description,
-                      category: 'Stok',
+                    _InventoryPurchaseInput(
+                      itemId: item.id,
+                      quantity: double.parse(quantity.text.replaceAll(',', '.')),
                       amount: int.parse(amount.text),
                       method: method,
+                      note: note.text.trim(),
                     ),
                   );
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Simpan Pengadaan'),
+                label: const Text('Simpan Pembelian & Stok'),
               ),
             ],
           ),
         ),
       ),
     );
+    quantity.dispose();
     amount.dispose();
     note.dispose();
-    await _save(
-      result,
-      successMessage:
-          'Biaya pengadaan tersimpan. Perbarui jumlah barang di Kelola Live Stock.',
+    if (result == null || !mounted) return;
+    await waitForTransientUiDismissal();
+    if (!mounted) return;
+    try {
+      await ref.read(inventoryControllerProvider.notifier).recordPurchase(
+        itemId: result.itemId,
+        quantity: result.quantity,
+        amount: result.amount,
+        method: result.method,
+        note: result.note,
+      );
+      await Future.wait([
+        ref.read(expenseControllerProvider.notifier).refresh(),
+        ref.read(cashbookControllerProvider.notifier).refresh(),
+      ]);
+      if (mounted) showAppSnackBar('Stok bertambah dan biaya masuk Buku Kas.');
+    } catch (error) {
+      if (mounted) showAppSnackBar(userErrorMessage(error, fallback: 'Pembelian belum tersimpan. Coba lagi.'));
+    }
+  }
+
+  Future<void> _showUsageSheet(BuildContext context, PreviewInventoryItem item) async {
+    final quantity = TextEditingController();
+    final note = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final result = await showAppModalBottomSheet<_StockUsageInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => Form(
+        key: formKey,
+        child: AppBottomSheetBody(children: [
+          Text('Pakai ${item.name}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text('Tersedia ${item.stock} ${item.unit}. Pemakaian hanya mengurangi stok; biaya sudah tercatat saat dibeli.'),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: quantity,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: 'Jumlah dipakai (${item.unit})'),
+            validator: (value) {
+              final parsed = double.tryParse((value ?? '').replaceAll(',', '.')) ?? 0;
+              if (parsed <= 0) return 'Jumlah harus lebih dari nol.';
+              if (parsed > item.stock) return 'Jumlah melebihi stok tersedia.';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(controller: note, decoration: const InputDecoration(labelText: 'Untuk apa? (opsional)')),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(context, _StockUsageInput(double.parse(quantity.text.replaceAll(',', '.')), note.text.trim()));
+            },
+            icon: const Icon(Icons.remove_circle_outline),
+            label: const Text('Catat Pemakaian'),
+          ),
+        ]),
+      ),
     );
+    quantity.dispose();
+    note.dispose();
+    if (result == null || !mounted) return;
+    await waitForTransientUiDismissal();
+    if (!mounted) return;
+    try {
+      await ref.read(inventoryControllerProvider.notifier).recordUsage(
+        itemId: item.id, quantity: result.quantity, note: result.note,
+      );
+      if (mounted) showAppSnackBar('Pemakaian stok tercatat.');
+    } catch (error) {
+      if (mounted) showAppSnackBar(userErrorMessage(error, fallback: 'Pemakaian stok belum tersimpan.'));
+    }
   }
 
   Future<void> _showExpenseSheet(BuildContext context) async {
@@ -351,12 +393,14 @@ class _ProcurementView extends StatelessWidget {
     required this.procurement,
     required this.isOwner,
     required this.onManageStock,
+    required this.onUseStock,
   });
 
   final List<PreviewInventoryItem> stock;
   final List<PreviewExpense> procurement;
   final bool isOwner;
   final VoidCallback onManageStock;
+  final ValueChanged<PreviewInventoryItem> onUseStock;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +437,7 @@ class _ProcurementView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: stock.isEmpty ? 100 : 202,
+          height: stock.isEmpty ? 100 : 262,
           child: stock.isEmpty
               ? Card(
                   margin: EdgeInsets.zero,
@@ -412,13 +456,13 @@ class _ProcurementView extends StatelessWidget {
                       crossAxisCount: constraints.maxWidth >= 720 ? 4 : 2,
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
-                      mainAxisExtent: 94,
+                    mainAxisExtent: 124,
                     ),
                     itemCount: stock.length,
                     itemBuilder: (context, index) {
                       final item = stock[index];
                       return InkWell(
-                        onTap: isOwner ? onManageStock : null,
+                        onTap: () => onUseStock(item),
                         key: ValueKey('live-stock-${item.name}'),
                         borderRadius: BorderRadius.circular(14),
                         child: Container(
@@ -477,6 +521,11 @@ class _ProcurementView extends StatelessWidget {
                                   fontSize: 15,
                                 ),
                               ),
+                              const Spacer(),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Text('Pakai →', style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.w800, fontSize: 12)),
+                              ),
                             ],
                           ),
                         ),
@@ -503,13 +552,14 @@ class _ProcurementView extends StatelessWidget {
   }
 }
 
-enum _ExpensePeriod { today, yesterday, week }
+enum _ExpensePeriod { today, yesterday, week, month }
 
 extension on _ExpensePeriod {
   String get label => switch (this) {
     _ExpensePeriod.today => 'Hari ini',
     _ExpensePeriod.yesterday => 'Kemarin',
     _ExpensePeriod.week => 'Seminggu',
+    _ExpensePeriod.month => 'Bulan ini',
   };
 }
 
@@ -538,11 +588,13 @@ class _ExpenseListState extends State<_ExpenseList> {
       _ExpensePeriod.today => today,
       _ExpensePeriod.yesterday => today.subtract(const Duration(days: 1)),
       _ExpensePeriod.week => today.subtract(const Duration(days: 6)),
+      _ExpensePeriod.month => DateTime(now.year, now.month),
     };
     final end = switch (_period) {
       _ExpensePeriod.today => today.add(const Duration(days: 1)),
       _ExpensePeriod.yesterday => today,
       _ExpensePeriod.week => today.add(const Duration(days: 1)),
+      _ExpensePeriod.month => DateTime(now.year, now.month + 1),
     };
 
     return widget.items.where((item) {
@@ -558,7 +610,9 @@ class _ExpenseListState extends State<_ExpenseList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<_ExpensePeriod>(
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<_ExpensePeriod>(
           segments: [
             for (final period in _ExpensePeriod.values)
               ButtonSegment(value: period, label: Text(period.label)),
@@ -571,11 +625,20 @@ class _ExpenseListState extends State<_ExpenseList> {
               const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
-          onSelectionChanged: (selection) {
-            setState(() => _period = selection.first);
-          },
+            onSelectionChanged: (selection) {
+              setState(() => _period = selection.first);
+            },
+          ),
         ),
         const SizedBox(height: 10),
+        ListTile(
+          dense: true,
+          title: Text('${filteredItems.length} transaksi ${_period.label.toLowerCase()}'),
+          trailing: Text(
+            filteredItems.fold<int>(0, (sum, item) => sum + item.amount).toRupiah(),
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
         Expanded(
           child: filteredItems.isEmpty
               ? AppStateView.empty(
@@ -705,4 +768,27 @@ class _ExpenseInput {
   final String category;
   final int amount;
   final String method;
+}
+
+class _InventoryPurchaseInput {
+  const _InventoryPurchaseInput({
+    required this.itemId,
+    required this.quantity,
+    required this.amount,
+    required this.method,
+    required this.note,
+  });
+
+  final String itemId;
+  final double quantity;
+  final int amount;
+  final String method;
+  final String note;
+}
+
+class _StockUsageInput {
+  const _StockUsageInput(this.quantity, this.note);
+
+  final double quantity;
+  final String note;
 }

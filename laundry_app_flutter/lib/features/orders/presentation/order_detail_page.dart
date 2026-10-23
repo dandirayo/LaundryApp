@@ -8,6 +8,7 @@ import '../../../core/extensions/currency_extensions.dart';
 import '../../../core/extensions/date_time_extensions.dart';
 import '../../../core/extensions/quantity_extensions.dart';
 import '../../../core/errors/user_error_message.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_action_queue.dart';
 import '../../../core/widgets/app_bottom_sheet_body.dart';
@@ -189,6 +190,10 @@ class OrderDetailPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (order.items.any((item) => item.incentiveRate > 0)) ...[
+              _OrderIncentiveCard(order: order, isOwner: isOwner),
+              const SizedBox(height: 12),
+            ],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -618,6 +623,160 @@ class OrderDetailPage extends ConsumerWidget {
     timer?.cancel();
     await waitForTransientUiDismissal();
     return result ?? false;
+  }
+}
+
+class _OrderIncentiveCard extends StatefulWidget {
+  const _OrderIncentiveCard({required this.order, required this.isOwner});
+
+  final PreviewOrder order;
+  final bool isOwner;
+
+  @override
+  State<_OrderIncentiveCard> createState() => _OrderIncentiveCardState();
+}
+
+class _OrderIncentiveCardState extends State<_OrderIncentiveCard> {
+  List<Map<String, dynamic>> _earned = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OrderIncentiveCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.order.orderStatus != widget.order.orderStatus) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final client = SupabaseService.maybeClient;
+    if (client == null) return;
+    try {
+      final rows = await client
+          .from('order_item_incentives')
+          .select()
+          .eq('order_id', widget.order.id)
+          .order('earned_at');
+      if (mounted) setState(() => _earned = rows);
+    } catch (_) {
+      // Planned amounts remain visible even if the earned list cannot load.
+    }
+  }
+
+  Future<void> _pay(Map<String, dynamic> incentive) async {
+    String method = 'Tunai';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialog, refresh) => AlertDialog(
+          title: const Text('Bayar insentif karyawan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Nominal ${(incentive['amount'] as num).toInt().toRupiah()} akan masuk pengeluaran Buku Kas.',
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: method,
+                decoration: const InputDecoration(
+                  labelText: 'Metode pembayaran',
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Tunai', child: Text('Tunai')),
+                  DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
+                ],
+                onChanged: (value) => refresh(() => method = value ?? 'Tunai'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Sudah dibayar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseService.maybeClient!.rpc(
+        'pay_order_item_incentive',
+        params: {'p_incentive_id': incentive['id'], 'p_method': method},
+      );
+      await _refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Insentif belum tercatat dibayar: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Insentif Karyawan',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Hak insentif muncul saat pesanan selesai. Buku Kas berkurang setelah dibayarkan.',
+            ),
+            for (final item in widget.order.items.where(
+              (entry) => entry.incentiveRate > 0,
+            ))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.serviceNameSnapshot),
+                subtitle: Text(
+                  '${item.quantity.toStringAsFixed(0)} item × ${item.incentiveRate.toRupiah()}',
+                ),
+                trailing: Text(
+                  (item.quantity.toInt() * item.incentiveRate).toRupiah(),
+                ),
+              ),
+            if (_earned.isEmpty &&
+                widget.order.orderStatus == PreviewOrderStatus.ready)
+              const Text(
+                'Menunggu sinkron insentif. Tarik untuk memperbarui pesanan.',
+              ),
+            for (final incentive in _earned)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  '${incentive['item_kind']} • ${(incentive['amount'] as num).toInt().toRupiah()}',
+                ),
+                subtitle: Text(
+                  incentive['paid_at'] == null
+                      ? 'Sudah menjadi hak • Belum dibayar'
+                      : 'Sudah dibayar • ${incentive['paid_method']}',
+                ),
+                trailing: widget.isOwner && incentive['paid_at'] == null
+                    ? TextButton(
+                        onPressed: () => _pay(incentive),
+                        child: const Text('Bayar'),
+                      )
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

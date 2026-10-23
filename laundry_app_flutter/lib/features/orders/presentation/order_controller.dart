@@ -48,7 +48,10 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
 
   Future<PreviewOrder> create({
     required String customerId,
-    required List<({PreviewService service, double quantity})> items,
+    required List<
+      ({PreviewService service, double quantity, int incentiveRate})
+    >
+    items,
     required int paidAmount,
     required String paymentMethod,
     required String employeeId,
@@ -87,6 +90,8 @@ class OrderController extends AsyncNotifier<List<PreviewOrder>> {
               quantity: item.quantity,
               unitPrice: item.service.price,
               subtotal: (item.service.price * item.quantity).round(),
+              incentiveRate: item.incentiveRate,
+              incentiveEmployeeId: assignedEmployeeId,
             ),
         ],
       );

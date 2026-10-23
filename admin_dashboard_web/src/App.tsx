@@ -26,6 +26,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import { supabase, supabaseEnabled } from './supabaseClient'
+import { AuditPanel, IncentivesPanel, OrderKiloServiceEditor, OrderPaymentCorrections, ProjectsPanel, ServicesPanel } from './OwnerExtras'
+import type { AuditEntry } from './OwnerExtras'
 import './App.css'
 
 type Profile = {
@@ -69,6 +71,9 @@ type Order = {
   paid_amount: number
   created_at: string
   updated_at: string
+  note: string
+  due_at: string
+  assigned_employee_id: string | null
 }
 
 type CashTransaction = {
@@ -78,6 +83,8 @@ type CashTransaction = {
   description: string
   amount: number
   created_at: string
+  method: string
+  reference_type: string
 }
 
 type Customer = { id: string; name: string; phone: string; address: string; created_at: string }
@@ -113,14 +120,7 @@ type InventoryMovement = {
   created_at: string
 }
 
-type AuditLog = {
-  id: number
-  actor_role: string
-  action: string
-  entity_table: string
-  summary: string
-  created_at: string
-}
+type AuditLog = AuditEntry
 
 type Shop = { id: string; name: string; phone: string; address: string }
 
@@ -143,12 +143,16 @@ type RealtimeState = 'connecting' | 'live' | 'offline'
 const tabs = [
   { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
   { id: 'orders', label: 'Pesanan', icon: ReceiptText },
+  { id: 'projects', label: 'Proyek', icon: PackageCheck },
+  { id: 'incentives', label: 'Insentif', icon: Banknote },
   { id: 'analytics', label: 'Analitik', icon: BarChart3 },
   { id: 'requests', label: 'Pengajuan', icon: ClipboardCheck },
   { id: 'inventory', label: 'Stok', icon: PackageCheck },
+  { id: 'services', label: 'Layanan & Harga', icon: ReceiptText },
   { id: 'customers', label: 'Pelanggan', icon: Contact },
   { id: 'team', label: 'Tim', icon: Users },
   { id: 'reports', label: 'Laporan', icon: Banknote },
+  { id: 'audit', label: 'Audit', icon: ShieldCheck },
   { id: 'settings', label: 'Pengaturan', icon: Settings },
 ] as const
 
@@ -165,12 +169,12 @@ const demoData: DashboardData = {
     { id: 'req-2', employee_name: 'Dimas', type: 'Request Lembur', reason: 'Order express masih menumpuk', amount: 0, status: 'approved', created_at: new Date(Date.now() - 86400000).toISOString(), review_note: 'Disetujui untuk 2 jam.' },
   ],
   orders: [
-    { id: 'ord-1', order_number: 'IDL-20260817-0001', customer_name_snapshot: 'Budi Santoso', order_status: 'received', payment_status: 'unpaid', total_price: 45000, paid_amount: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-    { id: 'ord-2', order_number: 'IDL-20260817-0002', customer_name_snapshot: 'Siti Aminah', order_status: 'ready', payment_status: 'paid', total_price: 72000, paid_amount: 72000, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 'ord-1', order_number: 'IDL-20260817-0001', customer_name_snapshot: 'Budi Santoso', order_status: 'received', payment_status: 'unpaid', total_price: 45000, paid_amount: 0, note: '', due_at: new Date().toISOString(), assigned_employee_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 'ord-2', order_number: 'IDL-20260817-0002', customer_name_snapshot: 'Siti Aminah', order_status: 'ready', payment_status: 'paid', total_price: 72000, paid_amount: 72000, note: '', due_at: new Date().toISOString(), assigned_employee_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
   ],
   cash: [
-    { id: 'cash-1', type: 'IN', category: 'Pembayaran', description: 'Pembayaran order IDL-20260817-0002', amount: 72000, created_at: new Date().toISOString() },
-    { id: 'cash-2', type: 'OUT', category: 'Operasional', description: 'Pembelian plastik laundry', amount: 25000, created_at: new Date().toISOString() },
+    { id: 'cash-1', type: 'IN', category: 'Pembayaran', description: 'Pembayaran order IDL-20260817-0002', amount: 72000, method: 'Tunai', reference_type: 'ORDER', created_at: new Date().toISOString() },
+    { id: 'cash-2', type: 'OUT', category: 'Operasional', description: 'Pembelian plastik laundry', amount: 25000, method: 'Tunai', reference_type: 'MANUAL', created_at: new Date().toISOString() },
   ],
   customers: [{ id: 'cus-1', name: 'Budi Santoso', phone: '081234567800', address: 'Jl. Merdeka No. 1', created_at: new Date().toISOString() }],
   inventory: [
@@ -179,15 +183,23 @@ const demoData: DashboardData = {
   ],
   shifts: [],
   inventoryMovements: [],
-  auditLogs: [],
+  auditLogs: [
+    { id: 3, actor_role: 'OWNER', action: 'UPDATE', entity_table: 'laundry_projects', summary: 'Tarif proyek thrifting diperbarui', old_data: { unit_price: 6000 }, new_data: { unit_price: 6500 }, created_at: new Date().toISOString() },
+    { id: 2, actor_role: 'EMPLOYEE', action: 'INSERT', entity_table: 'laundry_project_batches', summary: 'Ratna mencatat batch 112 kg / 230 pcs', old_data: null, new_data: { pieces: 230, weight_kg: 112 }, created_at: new Date(Date.now() - 3600000).toISOString() },
+    { id: 1, actor_role: 'OWNER', action: 'UPDATE', entity_table: 'order_item_incentives', summary: 'Insentif sepatu dibayar', old_data: { paid_at: null }, new_data: { paid_method: 'Transfer' }, created_at: new Date(Date.now() - 7200000).toISOString() },
+  ],
   shop: { id: 'demo-shop', name: 'Idola Laundry', phone: '081234567890', address: 'Alamat toko' },
   totalCustomers: 1,
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('overview')
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>(() => {
+    const requested = localPreview ? new URLSearchParams(window.location.search).get('tab') : null
+    return tabs.find((tab) => tab.id === requested)?.id ?? 'overview'
+  })
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [teamView, setTeamView] = useState<'employees' | 'shifts'>('employees')
+  const [ordersView, setOrdersView] = useState<'list' | 'details' | 'services' | 'payments'>('list')
   const [profile, setProfile] = useState<Profile | null>(localPreview ? previewProfile : null)
   const [data, setData] = useState<DashboardData>(demoData)
   const [email, setEmail] = useState('')
@@ -197,10 +209,12 @@ function App() {
   const [query, setQuery] = useState('')
   const [employeeEditor, setEmployeeEditor] = useState<Employee | 'new' | null>(null)
   const [customerEditor, setCustomerEditor] = useState<Customer | 'new' | null>(null)
-  const [inventoryEditor, setInventoryEditor] = useState(false)
+  const [orderEditor, setOrderEditor] = useState<Order | null>(null)
+  const [requestEditor, setRequestEditor] = useState<EmployeeRequest | null>(null)
+  const [inventoryEditor, setInventoryEditor] = useState<InventoryItem | 'new' | null>(null)
   const [stockAdjuster, setStockAdjuster] = useState<InventoryItem | null>(null)
   const [shiftEditor, setShiftEditor] = useState<WeeklyShift | 'new' | null>(null)
-  const [cashEditor, setCashEditor] = useState(false)
+  const [cashEditor, setCashEditor] = useState<CashTransaction | 'new' | null>(null)
   const [realtimeState, setRealtimeState] = useState<RealtimeState>('connecting')
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
 
@@ -290,14 +304,14 @@ function App() {
       const [employees, requests, orders, cash, customers, customerCount, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
         supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
         supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
-        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, created_at, updated_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
-        supabase.from('cash_transactions').select('id, type, category, description, amount, created_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
+        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, note, due_at, assigned_employee_id, created_at, updated_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
+        supabase.from('cash_transactions').select('id, type, category, description, amount, method, reference_type, created_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
         supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false }).limit(5000),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
         supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
         supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
         supabase.from('inventory_movements').select('id, item_id, item_name, type, quantity, note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
-        supabase.from('audit_logs').select('id, actor_role, action, entity_table, summary, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('audit_logs').select('id, actor_role, action, entity_table, summary, old_data, new_data, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(100),
         supabase.from('shops').select('id, name, phone, address').eq('id', shopId).single(),
       ])
       setData({ employees: (employees.data ?? []) as Employee[], requests: (requests.data ?? []) as EmployeeRequest[], orders: (orders.data ?? []) as Order[], cash: (cash.data ?? []) as CashTransaction[], customers: (customers.data ?? []) as Customer[], inventory: (inventory.data ?? []) as InventoryItem[], shifts: (shifts.data ?? []) as WeeklyShift[], inventoryMovements: (inventoryMovements.data ?? []) as InventoryMovement[], auditLogs: (auditLogs.data ?? []) as AuditLog[], shop: (shop.data ?? null) as Shop | null, totalCustomers: customerCount.count ?? 0 })
@@ -417,8 +431,10 @@ function App() {
     if (!profile) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('inventory_items').insert({ ...values, shop_id: profile.shop_id })
-      if (error) setMessage(error.message); else { setInventoryEditor(false); await loadDashboard(profile.shop_id) }
+      const { error } = inventoryEditor === 'new'
+        ? await supabase.from('inventory_items').insert({ ...values, shop_id: profile.shop_id }).select('id').single()
+        : await supabase.from('inventory_items').update({ name: values.name, unit: values.unit, min_stock: values.min_stock, purchase_price: values.purchase_price, note: values.note, is_active: values.is_active }).eq('id', (inventoryEditor as InventoryItem).id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) setMessage(error.message); else { setInventoryEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menambahkan barang.')
     } finally {
@@ -456,6 +472,28 @@ function App() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function saveOrderDetails(values: { note: string; due_at: string; assigned_employee_id: string | null }) {
+    if (!profile || !orderEditor) return
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('orders').update({ ...values, updated_at: new Date().toISOString() }).eq('id', orderEditor.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) setMessage(error.message)
+      else { setOrderEditor(null); await loadDashboard(profile.shop_id) }
+    } catch (e: any) { setMessage(e.message || 'Gagal mengubah pesanan.') }
+    finally { setLoading(false) }
+  }
+
+  async function saveRequestDetails(values: { reason: string; amount: number; review_note: string }) {
+    if (!profile || !requestEditor) return
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('employee_requests').update(values).eq('id', requestEditor.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) setMessage(error.message)
+      else { setRequestEditor(null); await loadDashboard(profile.shop_id) }
+    } catch (e: any) { setMessage(e.message || 'Gagal mengubah pengajuan.') }
+    finally { setLoading(false) }
   }
 
   async function recordPayment(order: Order) {
@@ -513,8 +551,10 @@ function App() {
     if (!profile) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('cash_transactions').insert({ ...values, shop_id: profile.shop_id, reference_type: 'MANUAL' })
-      if (error) setMessage(error.message); else { setCashEditor(false); await loadDashboard(profile.shop_id) }
+      const { error } = cashEditor === 'new'
+        ? await supabase.from('cash_transactions').insert({ ...values, shop_id: profile.shop_id, reference_type: 'MANUAL' }).select('id').single()
+        : await supabase.from('cash_transactions').update(values).eq('id', (cashEditor as CashTransaction).id).eq('shop_id', profile.shop_id).eq('reference_type', 'MANUAL').select('id').single()
+      if (error) setMessage(error.message); else { setCashEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menyimpan kas.')
     } finally {
@@ -601,22 +641,28 @@ function App() {
         {message ? <div className="notice">{message}</div> : null}
 
         {activeTab === 'overview' ? <Overview metrics={metrics} data={data} onNavigate={navigate} /> : null}
-        {activeTab === 'orders' ? <OrdersPanel orders={filteredOrders} onUpdateOrder={updateOrderStatus} onRecordPayment={recordPayment} /> : null}
+        {activeTab === 'orders' ? <><nav className="module-subnav" aria-label="Kelola pesanan"><button type="button" className={ordersView === 'list' ? 'active' : ''} onClick={() => setOrdersView('list')}>Daftar & status</button><button type="button" className={ordersView === 'details' ? 'active' : ''} onClick={() => setOrdersView('details')}>Edit detail</button><button type="button" className={ordersView === 'services' ? 'active' : ''} onClick={() => setOrdersView('services')}>Layanan kiloan</button><button type="button" className={ordersView === 'payments' ? 'active' : ''} onClick={() => setOrdersView('payments')}>Koreksi pembayaran</button></nav>{ordersView === 'list' ? <OrdersPanel orders={filteredOrders} onUpdateOrder={updateOrderStatus} onRecordPayment={recordPayment} /> : null}{ordersView === 'details' ? <OwnerEditAccess title="Edit detail pesanan" entries={filteredOrders} label={(order) => `${order.order_number} · ${order.customer_name_snapshot}`} onEdit={setOrderEditor} /> : null}{ordersView === 'services' ? <OrderKiloServiceEditor shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}{ordersView === 'payments' ? <OrderPaymentCorrections shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}</> : null}
+        {activeTab === 'projects' ? <ProjectsPanel shopId={profile.shop_id} onCashChanged={() => void loadDashboard(profile.shop_id)} /> : null}
+        {activeTab === 'incentives' ? <IncentivesPanel shopId={profile.shop_id} employees={data.employees} orders={data.orders} onCashChanged={() => void loadDashboard(profile.shop_id)} /> : null}
         {activeTab === 'analytics' ? <DashboardAnalytics orders={data.orders} /> : null}
-        {activeTab === 'requests' ? <ApprovalPanel requests={data.requests} loading={loading} onReview={reviewRequest} /> : null}
-        {activeTab === 'inventory' ? <InventoryPanel items={data.inventory} movements={data.inventoryMovements} onAdd={() => setInventoryEditor(true)} onAdjust={setStockAdjuster} /> : null}
+        {activeTab === 'requests' ? <><ApprovalPanel requests={data.requests} loading={loading} onReview={reviewRequest} /><OwnerEditAccess title="Edit isi pengajuan" entries={data.requests} label={(request) => `${request.employee_name} · ${request.type}`} onEdit={setRequestEditor} /></> : null}
+        {activeTab === 'inventory' ? <><InventoryPanel items={data.inventory} movements={data.inventoryMovements} onAdd={() => setInventoryEditor('new')} onAdjust={setStockAdjuster} /><OwnerEditAccess title="Edit item stok" entries={data.inventory} label={(item) => item.name} onEdit={setInventoryEditor} /></> : null}
+        {activeTab === 'services' ? <ServicesPanel shopId={profile.shop_id} /> : null}
         {activeTab === 'customers' ? <CustomersPanel customers={filteredCustomers} onAdd={() => setCustomerEditor('new')} onEdit={setCustomerEditor} onDelete={deleteCustomer} /> : null}
         {activeTab === 'team' ? <TeamPanel view={teamView} setView={setTeamView} employees={filteredEmployees} shifts={data.shifts} onAdd={() => setEmployeeEditor('new')} onEdit={setEmployeeEditor} onAddShift={() => setShiftEditor('new')} onEditShift={setShiftEditor} /> : null}
-        {activeTab === 'reports' ? <ReportsPanel cash={data.cash} metrics={metrics} auditLogs={data.auditLogs} onAddCash={() => setCashEditor(true)} onExport={exportCashCsv} /> : null}
+        {activeTab === 'reports' ? <><ReportsPanel cash={data.cash} metrics={metrics} onAddCash={() => setCashEditor('new')} onExport={exportCashCsv} /><OwnerEditAccess title="Koreksi kas manual" entries={data.cash.filter((entry) => entry.reference_type === 'MANUAL')} label={(entry) => `${entry.category} · ${rupiah(entry.amount)} · ${dateLabel(entry.created_at)}`} onEdit={setCashEditor} /></> : null}
+        {activeTab === 'audit' ? <AuditPanel logs={data.auditLogs} /> : null}
         {activeTab === 'settings' ? <SettingsPanel shop={data.shop} loading={loading} onSave={saveShop} /> : null}
       </section>
 
       {employeeEditor ? <Modal title={employeeEditor === 'new' ? 'Tambah karyawan & akun' : 'Edit karyawan dan shift'} onClose={() => setEmployeeEditor(null)}><EmployeeForm employee={employeeEditor === 'new' ? null : employeeEditor} loading={loading} onSubmit={saveEmployee} /></Modal> : null}
       {customerEditor ? <Modal title={customerEditor === 'new' ? 'Tambah pelanggan' : 'Edit pelanggan'} onClose={() => setCustomerEditor(null)}><CustomerForm customer={customerEditor === 'new' ? null : customerEditor} loading={loading} onSubmit={saveCustomer} /></Modal> : null}
-      {inventoryEditor ? <Modal title="Tambah item stok" onClose={() => setInventoryEditor(false)}><InventoryForm loading={loading} onSubmit={addInventoryItem} /></Modal> : null}
+      {orderEditor ? <Modal title={`Edit ${orderEditor.order_number}`} onClose={() => setOrderEditor(null)}><OrderDetailsForm order={orderEditor} employees={data.employees} loading={loading} onSubmit={saveOrderDetails} /></Modal> : null}
+      {requestEditor ? <Modal title="Edit pengajuan" onClose={() => setRequestEditor(null)}><RequestDetailsForm request={requestEditor} loading={loading} onSubmit={saveRequestDetails} /></Modal> : null}
+      {inventoryEditor ? <Modal title={inventoryEditor === 'new' ? 'Tambah item stok' : 'Edit item stok'} onClose={() => setInventoryEditor(null)}>{inventoryEditor === 'new' ? <InventoryForm loading={loading} onSubmit={addInventoryItem} /> : <EditInventoryForm item={inventoryEditor} loading={loading} onSubmit={addInventoryItem} />}</Modal> : null}
       {stockAdjuster ? <Modal title={`Mutasi ${stockAdjuster.name}`} onClose={() => setStockAdjuster(null)}><StockAdjustmentForm item={stockAdjuster} loading={loading} onSubmit={adjustStock} /></Modal> : null}
       {shiftEditor ? <Modal title={shiftEditor === 'new' ? 'Tambah jadwal mingguan' : 'Edit jadwal mingguan'} onClose={() => setShiftEditor(null)}><ShiftForm shift={shiftEditor === 'new' ? null : shiftEditor} employees={data.employees} loading={loading} onSubmit={saveShift} onDelete={shiftEditor === 'new' ? undefined : () => void deleteShift(shiftEditor)} /></Modal> : null}
-      {cashEditor ? <Modal title="Catat kas manual" onClose={() => setCashEditor(false)}><CashForm loading={loading} onSubmit={addCashTransaction} /></Modal> : null}
+      {cashEditor ? <Modal title={cashEditor === 'new' ? 'Catat kas manual' : 'Edit kas manual'} onClose={() => setCashEditor(null)}>{cashEditor === 'new' ? <CashForm loading={loading} onSubmit={addCashTransaction} /> : <EditCashForm entry={cashEditor} loading={loading} onSubmit={addCashTransaction} />}</Modal> : null}
     </main>
   )
 }
@@ -711,12 +757,12 @@ function InventoryPanel({ items, movements, onAdd, onAdjust }: { items: Inventor
   return <section className="section-grid"><article className="wide-panel"><PanelHeader title="Stok & Persediaan" description="Pantau stok minimum dan catat stok masuk atau keluar." action="Tambah Item" onAction={onAdd} /><div className="table-list">{items.map((item) => { const low = item.stock <= item.min_stock; return <div className="table-row" key={item.id}><div><strong>{item.name}</strong><span>Minimum {item.min_stock} {item.unit} - {rupiah(item.purchase_price)}</span></div><div className="row-meta">{low ? <StatusBadge label="Menipis" /> : null}<strong>{item.stock} {item.unit}</strong><button className="ghost-button" type="button" onClick={() => onAdjust(item)}>Mutasi</button></div></div> })}{!items.length ? <div className="empty-state">Belum ada item stok.</div> : null}</div></article><article className="wide-panel"><PanelHeader title="Riwayat Mutasi" description="Pergerakan stok terbaru dan catatannya." /><div className="table-list">{movements.slice(0, 12).map((movement) => <div className="table-row" key={movement.id}><div><strong>{movement.item_name}</strong><span>{movement.note || dateLabel(movement.created_at)}</span></div><strong className={movement.type === 'IN' ? 'money-in' : 'money-out'}>{movement.type === 'IN' ? '+' : '-'}{movement.quantity}</strong></div>)}{!movements.length ? <div className="empty-state">Belum ada mutasi stok.</div> : null}</div></article></section>
 }
 
-function ReportsPanel({ cash, metrics, auditLogs, onAddCash, onExport }: { cash: CashTransaction[]; metrics: ReturnType<typeof useDashboardMetrics>; auditLogs: AuditLog[]; onAddCash: () => void; onExport: () => void }) {
+function ReportsPanel({ cash, metrics, onAddCash, onExport }: { cash: CashTransaction[]; metrics: ReturnType<typeof useDashboardMetrics>; onAddCash: () => void; onExport: () => void }) {
   const [page, setPage] = useState(1)
   const pageSize = 12
   const totalPages = Math.max(1, Math.ceil(cash.length / pageSize))
   const currentPage = Math.min(page, totalPages)
-  return <section className="section-grid"><div className="metrics-grid"><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.income)}</strong><span>Pemasukan</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.out)}</strong><span>Pengeluaran</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.balance)}</strong><span>Saldo</span></article></div><article className="wide-panel"><div className="panel-header"><div><h2>Buku Kas</h2><p>Transaksi terbaru toko dan pencatatan manual.</p></div><div className="row-meta"><button className="ghost-button" type="button" onClick={onExport}>Export CSV</button><button className="primary-button" type="button" onClick={onAddCash}><Plus size={16} />Catat Kas</button></div></div><div className="table-list">{cash.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item) => <div className="table-row" key={item.id}><div><strong>{item.category}</strong><span>{item.description || dateLabel(item.created_at)}</span></div><strong className={item.type === 'IN' ? 'money-in' : 'money-out'}>{item.type === 'IN' ? '+' : '-'}{rupiah(item.amount)}</strong></div>)}</div><Pagination page={currentPage} pages={totalPages} total={cash.length} onChange={setPage} /></article><article className="wide-panel"><PanelHeader title="Audit Aktivitas" description="Riwayat perubahan penting oleh Owner dan karyawan." /><div className="table-list">{auditLogs.slice(0, 15).map((log) => <div className="table-row" key={log.id}><div><strong>{log.action} {log.entity_table}</strong><span>{log.actor_role || 'SYSTEM'} - {dateLabel(log.created_at)}</span></div><StatusBadge label={log.action} /></div>)}{!auditLogs.length ? <div className="empty-state">Audit aktivitas akan muncul setelah migrasi dijalankan.</div> : null}</div></article></section>
+  return <section className="section-grid"><div className="metrics-grid"><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.income)}</strong><span>Pemasukan</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.out)}</strong><span>Pengeluaran</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.balance)}</strong><span>Saldo</span></article></div><article className="wide-panel"><div className="panel-header"><div><h2>Buku Kas</h2><p>Transaksi terbaru toko dan pencatatan manual.</p></div><div className="row-meta"><button className="ghost-button" type="button" onClick={onExport}>Export CSV</button><button className="primary-button" type="button" onClick={onAddCash}><Plus size={16} />Catat Kas</button></div></div><div className="table-list">{cash.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item) => <div className="table-row" key={item.id}><div><strong>{item.category}</strong><span>{item.description || dateLabel(item.created_at)}</span></div><strong className={item.type === 'IN' ? 'money-in' : 'money-out'}>{item.type === 'IN' ? '+' : '-'}{rupiah(item.amount)}</strong></div>)}</div><Pagination page={currentPage} pages={totalPages} total={cash.length} onChange={setPage} /></article></section>
 }
 
 function SettingsPanel({ shop, loading, onSave }: { shop: Shop | null; loading: boolean; onSave: (values: ShopFormValues) => Promise<void> }) { return <section className="two-column"><article className="wide-panel"><PanelHeader title="Pengaturan Toko" description="Profil ini dipakai bersama oleh dashboard dan aplikasi Android." />{shop ? <ShopForm shop={shop} loading={loading} onSubmit={onSave} /> : <div className="empty-state">Data toko belum dimuat.</div>}</article><article className="side-panel"><PanelHeader title="Keamanan & Sinkronisasi" description="Kontrol akses Supabase." /><Checklist items={['Login Owner dan karyawan', 'Pembatasan data per shop_id', 'Notifikasi request tertarget', 'Audit perubahan operasional', 'Realtime lintas perangkat']} /></article></section> }
@@ -757,6 +803,36 @@ type ShopFormValues = { name: string; phone: string; address: string }
 function ShopForm({ shop, loading, onSubmit }: { shop: Shop; loading: boolean; onSubmit: (values: ShopFormValues) => Promise<void> }) {
   const [values, setValues] = useState<ShopFormValues>({ name: shop.name, phone: shop.phone, address: shop.address })
   return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><label>Nama toko<input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} required /></label><label>Nomor telepon<input value={values.phone} onChange={(event) => setValues({ ...values, phone: event.target.value })} /></label><label>Alamat<textarea rows={4} value={values.address} onChange={(event) => setValues({ ...values, address: event.target.value })} /></label><button className="primary-button" disabled={loading} type="submit"><CheckCircle2 size={18} />Simpan Pengaturan</button></form>
+}
+
+function OrderDetailsForm({ order, employees, loading, onSubmit }: { order: Order; employees: Employee[]; loading: boolean; onSubmit: (values: { note: string; due_at: string; assigned_employee_id: string | null }) => Promise<void> }) {
+  const [note, setNote] = useState(order.note ?? '')
+  const [dueAt, setDueAt] = useState(order.due_at ? new Date(order.due_at).toISOString().slice(0, 16) : '')
+  const [employee, setEmployee] = useState(order.assigned_employee_id ?? '')
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit({ note, due_at: new Date(dueAt).toISOString(), assigned_employee_id: employee || null }) }}><label>Catatan pesanan<textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} /></label><label>Estimasi selesai<input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} required /></label><label>Penanggung jawab<select value={employee} onChange={(event) => setEmployee(event.target.value)}><option value="">Belum ditugaskan</option>{employees.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label><button className="primary-button" disabled={loading} type="submit">Simpan detail</button></form>
+}
+
+function RequestDetailsForm({ request, loading, onSubmit }: { request: EmployeeRequest; loading: boolean; onSubmit: (values: { reason: string; amount: number; review_note: string }) => Promise<void> }) {
+  const [reason, setReason] = useState(request.reason)
+  const [amount, setAmount] = useState(request.amount)
+  const [note, setNote] = useState(request.review_note ?? '')
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit({ reason, amount, review_note: note }) }}><p>{request.employee_name} · {request.type}</p><label>Alasan/keterangan<textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} required /></label><label>Nominal/jumlah<input type="number" min="0" value={amount} onChange={(event) => setAmount(Number(event.target.value))} required /></label><label>Catatan Owner<textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="primary-button" disabled={loading} type="submit">Simpan pengajuan</button></form>
+}
+
+function EditInventoryForm({ item, loading, onSubmit }: { item: InventoryItem; loading: boolean; onSubmit: (values: InventoryFormValues) => Promise<void> }) {
+  const [values, setValues] = useState<InventoryFormValues>({ name: item.name, stock: item.stock, unit: item.unit, min_stock: item.min_stock, purchase_price: item.purchase_price, note: item.note, is_active: item.is_active })
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><label>Nama item<input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} required /></label><div className="form-grid"><label>Satuan<input value={values.unit} onChange={(event) => setValues({ ...values, unit: event.target.value })} required /></label><label>Stok minimum<input type="number" min="0" value={values.min_stock} onChange={(event) => setValues({ ...values, min_stock: Number(event.target.value) })} /></label></div><label>Harga beli<input type="number" min="0" value={values.purchase_price} onChange={(event) => setValues({ ...values, purchase_price: Number(event.target.value) })} /></label><label>Catatan<textarea value={values.note} onChange={(event) => setValues({ ...values, note: event.target.value })} /></label><label className="toggle-row"><input type="checkbox" checked={values.is_active} onChange={(event) => setValues({ ...values, is_active: event.target.checked })} />Aktif</label><p>Stok aktual diubah melalui tombol Mutasi agar riwayatnya tercatat.</p><button className="primary-button" disabled={loading} type="submit">Simpan item</button></form>
+}
+
+function EditCashForm({ entry, loading, onSubmit }: { entry: CashTransaction; loading: boolean; onSubmit: (values: CashFormValues) => Promise<void> }) {
+  const [values, setValues] = useState<CashFormValues>({ type: entry.type, category: entry.category, description: entry.description, amount: entry.amount, method: entry.method || 'Tunai' })
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><div className="form-grid"><label>Tipe<select value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as 'IN' | 'OUT' })}><option value="IN">Pemasukan</option><option value="OUT">Pengeluaran</option></select></label><label>Kategori<input value={values.category} onChange={(event) => setValues({ ...values, category: event.target.value })} required /></label></div><label>Keterangan<textarea value={values.description} onChange={(event) => setValues({ ...values, description: event.target.value })} required /></label><div className="form-grid"><label>Nominal<input type="number" min="1" value={values.amount} onChange={(event) => setValues({ ...values, amount: Number(event.target.value) })} required /></label><label>Metode<select value={values.method} onChange={(event) => setValues({ ...values, method: event.target.value })}><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></label></div><button className="primary-button" disabled={loading} type="submit">Simpan koreksi</button></form>
+}
+
+function OwnerEditAccess<T extends { id: string }>({ title, entries, label, onEdit }: { title: string; entries: T[]; label: (entry: T) => string; onEdit: (entry: T) => void }) {
+  const [selected, setSelected] = useState('')
+  const current = entries.find((entry) => entry.id === selected)
+  return <article className="wide-panel edit-access"><div><h2>{title}</h2><p>Pilih data yang akan diperbaiki oleh Owner.</p></div><div className="row-meta"><select aria-label={title} value={selected} onChange={(event) => setSelected(event.target.value)}><option value="">Pilih data...</option>{entries.map((entry) => <option key={entry.id} value={entry.id}>{label(entry)}</option>)}</select><button className="ghost-button" type="button" disabled={!current} onClick={() => current && onEdit(current)}><Pencil size={15} />Edit</button></div></article>
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="modal" role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-button" type="button" onClick={onClose} aria-label="Tutup"><X size={18} /></button></header>{children}</section></div> }

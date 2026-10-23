@@ -274,6 +274,20 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: _DraftItemTile(
                                 item: item,
+                                onIncentiveChanged: (rate) {
+                                  setState(() {
+                                    final index = _items.indexOf(item);
+                                    if (index != -1) {
+                                      _items[index] = _OrderDraftItem(
+                                        service: item.service,
+                                        quantity: item.quantity,
+                                        allowBelowMinimum:
+                                            item.allowBelowMinimum,
+                                        incentiveRate: rate,
+                                      );
+                                    }
+                                  });
+                                },
                                 onDelete: () =>
                                     setState(() => _items.remove(item)),
                                 onQuantityChanged: (newQty) {
@@ -285,6 +299,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                         quantity: newQty,
                                         allowBelowMinimum:
                                             item.allowBelowMinimum,
+                                        incentiveRate: item.incentiveRate,
                                       );
                                     }
                                   });
@@ -302,6 +317,7 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
                                                 double.infinity,
                                               ),
                                         allowBelowMinimum: allowed,
+                                        incentiveRate: item.incentiveRate,
                                       );
                                     }
                                   });
@@ -1283,7 +1299,11 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
             customerId: _customerId!,
             items: [
               for (final item in _items)
-                (service: item.service, quantity: item.quantity),
+                (
+                  service: item.service,
+                  quantity: item.quantity,
+                  incentiveRate: item.incentiveRate,
+                ),
             ],
             paidAmount: int.tryParse(_paidController.text) ?? 0,
             paymentMethod: _paymentMethod,
@@ -1364,6 +1384,20 @@ class _OrderCreatePageState extends ConsumerState<OrderCreatePage> {
       missing.add(
         'Pilih layanan paket atau layanan lainnya untuk masuk ke pesanan.',
       );
+    }
+    if (_items.any((item) => item.incentiveRate > 0)) {
+      final currentEmployeeId = ref
+          .read(authControllerProvider)
+          .value
+          ?.user
+          ?.employeeId;
+      final incentiveEmployeeId = _employeeId ?? currentEmployeeId;
+      if (incentiveEmployeeId == null ||
+          !RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}$',
+          ).hasMatch(incentiveEmployeeId)) {
+        missing.add('Pilih karyawan penerima insentif sepatu, helm, atau tas.');
+      }
     }
     final paidAmount = int.tryParse(_paidController.text) ?? 0;
     final total = roundOrderTotal(
@@ -2429,11 +2463,20 @@ class _OrderDraftItem {
     required this.service,
     required this.quantity,
     this.allowBelowMinimum = false,
+    this.incentiveRate = 0,
   });
 
   final PreviewService service;
   final double quantity;
   final bool allowBelowMinimum;
+  final int incentiveRate;
+
+  bool get supportsIncentive =>
+      service.effectiveGroup == 'Satuan' &&
+      RegExp(
+        r'(^|[^a-z0-9])(sepatu|helm|tas)([^a-z0-9]|$)',
+        caseSensitive: false,
+      ).hasMatch(service.name);
 
   int get total => (service.price * quantity).round();
 }
@@ -2444,12 +2487,14 @@ class _DraftItemTile extends StatelessWidget {
     required this.onDelete,
     required this.onQuantityChanged,
     required this.onMinimumOverrideChanged,
+    required this.onIncentiveChanged,
   });
 
   final _OrderDraftItem item;
   final VoidCallback onDelete;
   final ValueChanged<double> onQuantityChanged;
   final ValueChanged<bool> onMinimumOverrideChanged;
+  final ValueChanged<int> onIncentiveChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2500,6 +2545,28 @@ class _DraftItemTile extends StatelessWidget {
               '$quantityLabel x ${item.service.price.toRupiah()}',
               style: const TextStyle(color: AppColors.secondaryText),
             ),
+            if (item.supportsIncentive) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Insentif karyawan per item',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final rate in [0, 10000, 15000, 20000])
+                    ChoiceChip(
+                      label: Text(
+                        rate == 0 ? 'Tanpa insentif' : rate.toRupiah(),
+                      ),
+                      selected: item.incentiveRate == rate,
+                      onSelected: (_) => onIncentiveChanged(rate),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
