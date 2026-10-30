@@ -73,7 +73,7 @@ export function ProjectsPanel({ shopId, onCashChanged }: { shopId: string; onCas
     if (!title.trim() || !customerId || target <= 0 || rate < 0) { setMessage('Lengkapi nama, pelanggan, target, dan harga.'); return }
     const values = { title: title.trim(), target_pieces: target, pricing_unit: unit, unit_price: rate, note: note.trim(), status, updated_at: new Date().toISOString() }
     const result = editing === 'new'
-      ? await supabase.from('laundry_projects').insert({ ...values, shop_id: shopId, customer_id: customerId })
+      ? await supabase.from('laundry_projects').insert({ ...values, shop_id: shopId, customer_id: customerId }).select('id').single()
       : await supabase.from('laundry_projects').update(values).eq('id', (editing as Project).id).eq('shop_id', shopId).select('id').single()
     if (result.error) { setMessage(result.error.message); return }
     setEditing(null); await reload()

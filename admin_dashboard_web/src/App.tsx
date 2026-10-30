@@ -140,6 +140,23 @@ type DashboardData = {
 
 type RealtimeState = 'connecting' | 'live' | 'offline'
 
+type QueryError = { message: string }
+
+const dataPageSize = 500
+
+async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: QueryError | null }>,
+) {
+  const data: T[] = []
+  for (let from = 0; ; from += dataPageSize) {
+    const page = await fetchPage(from, from + dataPageSize - 1)
+    if (page.error) return { data, error: page.error }
+    const rows = page.data ?? []
+    data.push(...rows)
+    if (rows.length < dataPageSize) return { data, error: null }
+  }
+}
+
 const tabs = [
   { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
   { id: 'orders', label: 'Pesanan', icon: ReceiptText },
@@ -155,6 +172,17 @@ const tabs = [
   { id: 'audit', label: 'Audit', icon: ShieldCheck },
   { id: 'settings', label: 'Pengaturan', icon: Settings },
 ] as const
+
+const navGroups = [
+  { label: 'RINGKASAN', tabs: ['overview', 'analytics'] },
+  { label: 'OPERASIONAL', tabs: ['orders', 'projects', 'customers', 'services', 'inventory'] },
+  { label: 'TIM', tabs: ['team', 'requests'] },
+  { label: 'KEUANGAN', tabs: ['incentives', 'reports'] },
+  { label: 'KONTROL', tabs: ['audit', 'settings'] },
+] as const satisfies ReadonlyArray<{
+  label: string
+  tabs: ReadonlyArray<(typeof tabs)[number]['id']>
+}>
 
 const localPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')
 const previewProfile: Profile = { id: 'preview-owner', shop_id: 'demo-shop', employee_id: null, full_name: 'Owner Idola', role: 'OWNER', is_active: true }
@@ -304,9 +332,9 @@ function App() {
       const [employees, requests, orders, cash, customers, customerCount, inventory, shifts, inventoryMovements, auditLogs, shop] = await Promise.all([
         supabase.from('employees').select('id, name, phone, position, is_active, shift_start, shift_end, late_tolerance_minutes').eq('shop_id', shopId).eq('role', 'EMPLOYEE').order('name'),
         supabase.from('employee_requests').select('id, employee_name, type, reason, amount, status, review_note, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }),
-        supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, note, due_at, assigned_employee_id, created_at, updated_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
-        supabase.from('cash_transactions').select('id, type, category, description, amount, method, reference_type, created_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).limit(5000),
-        supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false }).limit(5000),
+        fetchAllPages<Order>((from, to) => supabase.from('orders').select('id, order_number, customer_name_snapshot, order_status, payment_status, total_price, paid_amount, note, due_at, assigned_employee_id, created_at, updated_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).range(from, to)),
+        fetchAllPages<CashTransaction>((from, to) => supabase.from('cash_transactions').select('id, type, category, description, amount, method, reference_type, created_at').eq('shop_id', shopId).gte('created_at', historyStart).order('created_at', { ascending: false }).range(from, to)),
+        fetchAllPages<Customer>((from, to) => supabase.from('customers').select('id, name, phone, address, created_at').eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false }).range(from, to)),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
         supabase.from('inventory_items').select('id, name, stock, unit, min_stock, purchase_price, note, is_active').eq('shop_id', shopId).order('name'),
         supabase.from('weekly_shifts').select('id, employee_id, employee_name, day_of_week, start_time, end_time, is_day_off').eq('shop_id', shopId).order('day_of_week'),
@@ -360,7 +388,7 @@ function App() {
         review_note: note.trim() || statusLabel(status),
         reviewed_at: new Date().toISOString(),
         ...(status === 'paid' ? { payment_method: 'Tunai' } : {}),
-      }).eq('id', request.id).eq('shop_id', profile.shop_id)
+      }).eq('id', request.id).eq('shop_id', profile.shop_id).select('id').single()
       if (error) {
         setMessage(error.message)
         return
@@ -382,9 +410,12 @@ function App() {
         if (error || result?.error) setMessage(result?.error ?? error?.message ?? 'Karyawan gagal dibuat.')
         else { setEmployeeEditor(null); setMessage(`Karyawan ${values.name} berhasil dibuat.`); await loadDashboard(profile.shop_id) }
       } else if (employeeEditor) {
-        const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active }).eq('id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
-        if (!error) await supabase.from('profiles').update({ full_name: values.name, phone: values.phone, is_active: values.is_active }).eq('employee_id', (employeeEditor as Employee).id).eq('shop_id', profile.shop_id)
-        if (error) setMessage(error.message); else { setEmployeeEditor(null); setMessage(`Data ${values.name} berhasil disimpan.`); await loadDashboard(profile.shop_id) }
+        const employeeId = (employeeEditor as Employee).id
+        const { error } = await supabase.from('employees').update({ name: values.name, phone: values.phone, position: values.position, shift_start: values.shift_start, shift_end: values.shift_end, late_tolerance_minutes: values.late_tolerance_minutes, is_active: values.is_active }).eq('id', employeeId).eq('shop_id', profile.shop_id).select('id').single()
+        if (error) { setMessage(error.message); return }
+        const { error: profileError } = await supabase.from('profiles').update({ full_name: values.name, phone: values.phone, is_active: values.is_active }).eq('employee_id', employeeId).eq('shop_id', profile.shop_id).select('id').single()
+        if (profileError) setMessage(`Data karyawan tersimpan, tetapi profil login gagal diperbarui: ${profileError.message}`)
+        else { setEmployeeEditor(null); setMessage(`Data ${values.name} berhasil disimpan.`); await loadDashboard(profile.shop_id) }
       }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menyimpan data karyawan.')
@@ -398,10 +429,10 @@ function App() {
     setLoading(true); setMessage('')
     try {
       if (customerEditor === 'new') {
-        const { error } = await supabase.from('customers').insert({ ...values, shop_id: profile.shop_id })
+        const { error } = await supabase.from('customers').insert({ ...values, shop_id: profile.shop_id }).select('id').single()
         if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
       } else if (customerEditor) {
-        const { error } = await supabase.from('customers').update(values).eq('id', (customerEditor as Customer).id).eq('shop_id', profile.shop_id)
+        const { error } = await supabase.from('customers').update(values).eq('id', (customerEditor as Customer).id).eq('shop_id', profile.shop_id).select('id').single()
         if (error) setMessage(error.message); else { setCustomerEditor(null); await loadDashboard(profile.shop_id) }
       }
     } catch (e: any) {
@@ -418,7 +449,7 @@ function App() {
       const { error } = await supabase.from('customers').update({
         deleted_at: new Date().toISOString(),
         deleted_by: profile.id,
-      }).eq('id', customer.id).eq('shop_id', profile.shop_id)
+      }).eq('id', customer.id).eq('shop_id', profile.shop_id).select('id').single()
       if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
     } catch (e: any) {
       setMessage(e.message || 'Gagal menghapus pelanggan.')
@@ -465,7 +496,7 @@ function App() {
     if (!profile || order.order_status === status) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('orders').update({ order_status: status, updated_at: new Date().toISOString() }).eq('id', order.id).eq('shop_id', profile.shop_id)
+      const { error } = await supabase.from('orders').update({ order_status: status, updated_at: new Date().toISOString() }).eq('id', order.id).eq('shop_id', profile.shop_id).select('id').single()
       if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
     } catch (e: any) {
       setMessage(e.message || 'Gagal memperbarui status pesanan.')
@@ -523,8 +554,8 @@ function App() {
     try {
       const payload = { shop_id: profile.shop_id, employee_id: employee.id, employee_name: employee.name, day_of_week: values.day_of_week, start_time: values.start_time, end_time: values.end_time, is_day_off: values.is_day_off }
       const query = shiftEditor === 'new'
-        ? supabase.from('weekly_shifts').upsert(payload, { onConflict: 'shop_id,employee_id,day_of_week' })
-        : supabase.from('weekly_shifts').update(payload).eq('id', (shiftEditor as WeeklyShift).id).eq('shop_id', profile.shop_id)
+        ? supabase.from('weekly_shifts').upsert(payload, { onConflict: 'shop_id,employee_id,day_of_week' }).select('id').single()
+        : supabase.from('weekly_shifts').update(payload).eq('id', (shiftEditor as WeeklyShift).id).eq('shop_id', profile.shop_id).select('id').single()
       const { error } = await query
       if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
@@ -538,7 +569,7 @@ function App() {
     if (!profile || !window.confirm(`Hapus shift ${shift.employee_name} pada ${dayLabel(shift.day_of_week)}?`)) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('weekly_shifts').delete().eq('id', shift.id).eq('shop_id', profile.shop_id)
+      const { error } = await supabase.from('weekly_shifts').delete().eq('id', shift.id).eq('shop_id', profile.shop_id).select('id').single()
       if (error) setMessage(error.message); else { setShiftEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menghapus jadwal.')
@@ -566,7 +597,7 @@ function App() {
     if (!profile) return
     setLoading(true); setMessage('')
     try {
-      const { error } = await supabase.from('shops').update(values).eq('id', profile.shop_id)
+      const { error } = await supabase.from('shops').update(values).eq('id', profile.shop_id).select('id').single()
       if (error) setMessage(error.message); else await loadDashboard(profile.shop_id)
     } catch (e: any) {
       setMessage(e.message || 'Gagal menyimpan pengaturan toko.')
@@ -620,9 +651,9 @@ function App() {
       {mobileNavOpen ? <button className="nav-scrim" aria-label="Tutup menu" type="button" onClick={() => setMobileNavOpen(false)} /> : null}
       <aside className={`sidebar ${mobileNavOpen ? 'open' : ''}`}>
         <div className="brand"><div className="brand-mark">ID</div><div><strong>Idola Laundry</strong><span>Owner workspace</span></div></div>
-        <p className="nav-caption">MENU UTAMA</p>
+        <p className="nav-caption">NAVIGASI</p>
         <nav className="nav-list" aria-label="Menu admin">
-          {tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}><Icon size={18} /><span>{tab.label}</span>{tab.id === 'requests' && metrics.pendingRequests > 0 ? <b className="nav-count">{metrics.pendingRequests}</b> : null}</button> })}
+          {navGroups.map((group) => <section className="nav-group" key={group.label} aria-label={group.label}><p className="nav-group-label">{group.label}</p>{group.tabs.map((tabId) => { const tab = tabs.find((item) => item.id === tabId)!; const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}><Icon size={18} /><span>{tab.label}</span>{tab.id === 'requests' && metrics.pendingRequests > 0 ? <b className="nav-count">{metrics.pendingRequests}</b> : null}</button> })}</section>)}
         </nav>
         <div className={`sidebar-card sync-card ${realtimeState}`}><ShieldCheck size={18} /><div><strong>{localPreview ? 'Preview lokal' : realtimeState === 'live' ? 'Realtime aktif' : realtimeState === 'connecting' ? 'Menghubungkan realtime' : 'Realtime terputus'}</strong><span>{localPreview ? 'Data contoh untuk melihat tampilan.' : realtimeState === 'live' ? 'Perubahan aplikasi langsung masuk.' : 'Polling cadangan berjalan tiap 15 detik.'}</span></div></div>
       </aside>
@@ -726,7 +757,7 @@ function OrdersPanel({ orders, onUpdateOrder, onRecordPayment }: { orders: Order
 function ApprovalPanel({ requests, loading, onReview }: { requests: EmployeeRequest[]; loading: boolean; onReview: (request: EmployeeRequest, status: 'approved' | 'rejected' | 'completed' | 'paid') => Promise<void> }) {
   const [filter, setFilter] = useState('pending')
   const shown = requests.filter((item) => filter === 'all' || item.status === filter || (filter === 'completed' && item.status === 'paid'))
-  return <section className="wide-panel"><PanelHeader title="Approval Center" description="Semua request stok, lembur, izin, tukar shift, insentif, kasbon, dan pengeluaran ada di sini." /><div className="filter-row">{[['pending', 'Menunggu'], ['approved', 'Disetujui'], ['completed', 'Selesai'], ['rejected', 'Ditolak'], ['all', 'Semua']].map(([id, label]) => <button key={id} type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div><div className="request-stack">{shown.map((request) => <article className="approval-card" key={request.id}><div className="approval-copy"><div className="approval-title"><strong>{request.type}</strong><span>{request.employee_name} - {dateLabel(request.created_at)}</span></div><p>{request.reason}</p>{request.amount > 0 ? <b>{request.type.includes('Stok') ? `${request.amount} unit` : rupiah(request.amount)}</b> : null}{request.review_note ? <small>Catatan: {request.review_note}</small> : null}</div><div className="approval-actions"><StatusBadge label={request.status} />{request.status === 'pending' ? <><button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, 'approved')}><CheckCircle2 size={16} />Setujui</button><button className="reject" disabled={loading} type="button" onClick={() => void onReview(request, 'rejected')}><XCircle size={16} />Tolak</button></> : null}{request.status === 'approved' ? <button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, isMoneyRequest(request.type) ? 'paid' : 'completed')}><CheckCircle2 size={16} />{isMoneyRequest(request.type) ? 'Bayar' : 'Selesaikan'}</button> : null}</div></article>)}{!shown.length ? <div className="empty-state">Tidak ada request pada status ini.</div> : null}</div></section>
+  return <section className="wide-panel"><PanelHeader title="Pusat Pengajuan" description="Semua pengajuan stok, lembur, izin, tukar shift, insentif, kasbon, dan pengeluaran ada di sini." /><div className="filter-row">{[['pending', 'Menunggu'], ['approved', 'Disetujui'], ['completed', 'Dilaksanakan'], ['rejected', 'Ditolak'], ['all', 'Semua']].map(([id, label]) => <button key={id} type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div><div className="request-stack">{shown.map((request) => <article className="approval-card" key={request.id}><div className="approval-copy"><div className="approval-title"><strong>{request.type}</strong><span>{request.employee_name} - {dateLabel(request.created_at)}</span></div><p>{request.reason}</p>{request.amount > 0 ? <b>{request.type.includes('Stok') ? `${request.amount} unit` : rupiah(request.amount)}</b> : null}{request.review_note ? <small>Catatan: {request.review_note}</small> : null}</div><div className="approval-actions"><StatusBadge label={request.status} />{request.status === 'pending' ? <><button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, 'approved')}><CheckCircle2 size={16} />Setujui</button><button className="reject" disabled={loading} type="button" onClick={() => void onReview(request, 'rejected')}><XCircle size={16} />Tolak</button></> : null}{request.status === 'approved' ? <button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, isMoneyRequest(request.type) ? 'paid' : 'completed')}><CheckCircle2 size={16} />{isMoneyRequest(request.type) ? 'Bayar' : 'Tandai Dilaksanakan'}</button> : null}</div></article>)}{!shown.length ? <div className="empty-state">Tidak ada pengajuan pada status ini.</div> : null}</div></section>
 }
 
 function CustomersPanel({ customers, onAdd, onEdit, onDelete }: { customers: Customer[]; onAdd: () => void; onEdit: (c: Customer) => void; onDelete: (c: Customer) => void }) {

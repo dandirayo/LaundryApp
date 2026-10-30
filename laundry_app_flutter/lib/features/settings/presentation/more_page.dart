@@ -66,14 +66,14 @@ class MorePage extends ConsumerWidget {
             AppRoutes.services,
           ),
           _MenuItem(
-            'Stok & Pengeluaran',
+            'Kelola Stok',
             Icons.inventory_2_outlined,
-            AppRoutes.expenses,
+            AppRoutes.inventory,
           ),
           _MenuItem(
-            strings.shifts,
-            Icons.calendar_month_outlined,
-            AppRoutes.shifts,
+            'Pembelian Stok & Pengeluaran',
+            Icons.inventory_2_outlined,
+            AppRoutes.expenses,
           ),
         ],
       ),
@@ -91,14 +91,19 @@ class MorePage extends ConsumerWidget {
             AppRoutes.attendance,
           ),
           _MenuItem(
-            strings.payroll,
-            Icons.account_balance_wallet_outlined,
-            AppRoutes.payroll,
+            strings.shifts,
+            Icons.calendar_month_outlined,
+            AppRoutes.shifts,
           ),
           _MenuItem(
             strings.requests,
             Icons.rule_folder_outlined,
             AppRoutes.requestReview,
+          ),
+          _MenuItem(
+            strings.payroll,
+            Icons.account_balance_wallet_outlined,
+            AppRoutes.payroll,
           ),
         ],
       ),
@@ -123,7 +128,7 @@ class MorePage extends ConsumerWidget {
         ],
       ),
       _MenuSection(
-        title: strings.system,
+        title: 'PERANGKAT',
         items: [
           _MenuItem(
             strings.notifications,
@@ -136,11 +141,17 @@ class MorePage extends ConsumerWidget {
             Icons.cloud_upload_outlined,
             AppRoutes.backup,
           ),
+        ],
+      ),
+      _MenuSection(
+        title: 'AKUN & USAHA',
+        items: [
           _MenuItem(
             strings.shopSettings,
             Icons.settings_outlined,
             AppRoutes.shopSettings,
           ),
+          _MenuItem(strings.profile, Icons.person_outline, AppRoutes.profile),
           _MenuItem(
             strings.logout,
             Icons.logout,
@@ -160,17 +171,7 @@ class MorePage extends ConsumerWidget {
   ) {
     return [
       _MenuSection(
-        title: 'USAHA',
-        items: [
-          _MenuItem(
-            'Ganti Usaha',
-            Icons.swap_horiz,
-            AppRoutes.businessSelector,
-          ),
-        ],
-      ),
-      _MenuSection(
-        title: strings.work,
+        title: 'PEKERJAAN',
         items: [
           _MenuItem('Proyek Laundry', Icons.work_outline, AppRoutes.projects),
           _MenuItem(
@@ -183,13 +184,18 @@ class MorePage extends ConsumerWidget {
             Icons.receipt_long_outlined,
             AppRoutes.ordersMine,
           ),
+        ],
+      ),
+      _MenuSection(
+        title: 'PELAYANAN',
+        items: [
           _MenuItem(
             strings.addCustomer,
             Icons.person_add_alt_1,
             AppRoutes.customers,
           ),
           _MenuItem(
-            'Stok & Pengeluaran',
+            'Pembelian Stok & Pengeluaran',
             Icons.price_check_outlined,
             AppRoutes.expenses,
           ),
@@ -223,6 +229,11 @@ class MorePage extends ConsumerWidget {
       _MenuSection(
         title: strings.account,
         items: [
+          _MenuItem(
+            'Ganti Usaha',
+            Icons.swap_horiz,
+            AppRoutes.businessSelector,
+          ),
           _MenuItem(strings.profile, Icons.person_outline, AppRoutes.profile),
           _MenuItem(strings.changePin, Icons.lock_reset, AppRoutes.changePin),
           _MenuItem(

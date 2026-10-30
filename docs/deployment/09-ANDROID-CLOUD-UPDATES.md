@@ -1,12 +1,12 @@
 # Android Cloud Updates
 
-**Diverifikasi:** 23 Oktober 2026
+**Diverifikasi:** 30 Oktober 2026
 
-**Rilis aktif:** 2.1.14+30
+**Rilis aktif:** 2.1.15+31
 
-**Dipublikasikan:** 23 Oktober 2026
+**Dipublikasikan:** 30 Oktober 2026
 
-**Verifikasi source 2.1.14:** Flutter analyze bersih dan 96 tes lulus. APK arm64-v8a, armeabi-v7a, serta x86_64 diverifikasi ukuran, SHA-256, package/version, dan sertifikat penandatanganannya sebelum manifest ditayangkan.
+**Verifikasi source 2.1.15:** Flutter analyze bersih dan 96 tes lulus. APK arm64-v8a, armeabi-v7a, serta x86_64 diverifikasi ukuran, SHA-256, package/version, dan sertifikat penandatanganannya sebelum manifest ditayangkan.
 
 ## Status rilis
 
@@ -22,9 +22,11 @@ Release 2.1.13+29 menyatukan pembelian barang Live Stock dengan biaya pengadaan/
 
 Release 2.1.14+30 merapikan Laporan Owner menjadi ringkasan pesanan/keuangan dengan rincian status, layanan, volume, metode, kategori, dan transaksi yang dapat dibuka saat diperlukan. Buku Kas menonjolkan saldo akhir, uang masuk, uang keluar, serta rincian Tunai/Transfer; analisis dan Old Data dapat dibuka, sedangkan daftar transaksi awal dibatasi 10 dengan tombol **Lihat semua**. Pilihan periode lengkap, ekspor, dan seluruh hitungan tetap tersedia. Website Owner tetap lokal dan tidak dideploy ke VPS pada rilis ini.
 
+Release 2.1.15+31 mengelompokkan menu Owner dan karyawan berdasarkan pekerjaan agar fitur lebih mudah ditemukan. `Kelola Stok` dipisahkan dari `Pembelian Stok & Pengeluaran`, sedangkan area Perangkat, Keuangan, Tim, Pelayanan, Pengajuan, serta Akun dibuat lebih jelas. Perubahan ini tidak memigrasikan atau menghitung ulang data lama. Dashboard web juga mengelompokkan sidebar, memperjelas istilah pengajuan, mendeteksi mutation nol-baris akibat RLS, dan mengambil pesanan/kas/pelanggan bertahap agar tidak terpotong batas respons API.
+
 Delapan item stok yang belum ada ditambahkan ke toko produksi dengan stok awal 0. Item `Plastik 45` yang sudah ada dibiarkan pada jumlah dan satuan sebelumnya; Owner perlu memeriksa satuannya setelah opname.
 
-Titik source release 2.1.11 disimpan pada tag Git lokal `v2.1.11-build27`. Source 2.1.12+28 masih berada di working tree lokal; jangan membuat tag yang menyiratkan snapshot bersih sebelum source commit. Commit belum didorong ke GitHub agar perubahan website lokal tidak ikut memicu deploy VPS.
+Titik source release 2.1.15 disimpan pada tag Git `v2.1.15-build31` setelah commit rilis didorong ke GitHub. Push perubahan dashboard web memicu workflow deployment VPS dan statusnya harus diperiksa terpisah dari keberhasilan rilis APK.
 
 Versi bootstrap pertama yang mendukung update cloud adalah 1.0.3+4. Perangkat pada 1.0.2 atau lebih lama harus memasang bootstrap APK sekali di atas aplikasi lama.
 
