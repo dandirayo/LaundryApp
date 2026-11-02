@@ -1,54 +1,37 @@
 # Idola One — Laundry App
 
-Idola One adalah aplikasi operasional Idola Laundry untuk mengelola pesanan, pelanggan, layanan, pembayaran, kas, karyawan, dan laporan harian dalam satu tempat. Aplikasi Android dibangun dengan Flutter dan memakai backend bersama agar data Owner dan karyawan tetap sinkron.
+Idola One adalah sistem operasional dan POS multi-usaha untuk **Idola Laundry** dan unit usaha pendukung (seperti booth minuman/Es Teh Manis). Sistem ini menghubungkan aplikasi mobile kasir/karyawan (Flutter Android), dashboard web manajemen pemilik/Owner (React Vite), serta backend database cloud (Supabase PostgreSQL & Realtime).
+
+> **Master Blueprint & Alur Lengkap**:  
+> Seluruh alur operasional, peran, skema keuangan, printer thermal, dan checklist SOP dirangkum secara ringkas dan tegas di **[`BLUEPRINT.md`](BLUEPRINT.md)**.
 
 ## Fitur Utama
 
-- Pesanan **kiloan**, **satuan**, dan **gabungan** dengan katalog serta harga yang terkelompok.
-- Input berat desimal per 0,1 kg dan opsi khusus pelanggan setia untuk pesanan di bawah 3 kg.
-- Kartu pesanan ringkas dengan detail yang dapat dibuka dan status proses sampai siap diambil.
-- Data pesanan dan angka dashboard tersinkron untuk Owner dan seluruh pengguna toko.
-- Nama penerima pesanan tersimpan dan ditampilkan di bawah nomor nota.
-- Pembayaran belum bayar, DP, lunas, nominal manual, serta metode pembayaran.
-- Buku Kas otomatis mengikuti pembayaran pesanan dan mencatat pemasukan maupun pengeluaran.
-- Pesan WhatsApp siap ambil dengan nomor dan template pelanggan; WhatsApp terbuka setelah status **Siap Diambil** dipilih.
-- Data pelanggan, riwayat pesanan, reset kontak oleh Owner, dan impor seluruh kontak bernomor hanya dari satu akun Google yang dipilih.
-- Absensi masuk/keluar dengan foto, shift, keterlambatan, dan fitur **Lupa Absen** dengan alasan.
-- Pengajuan karyawan untuk stok, izin dan jadwal, serta dana dan biaya dengan persetujuan Owner.
-- Sinkronisasi realtime dengan penarikan data berkala sebagai cadangan ketika event realtime terlewat.
-- Pembaruan aplikasi Android melalui pemberitahuan di dalam aplikasi tanpa perlu uninstall.
-- Laporan operasional, payroll, inventaris, pengeluaran, dan notifikasi.
+- **Pesanan Fleksibel**: Kiloan (desimal 0,1 kg), satuan terkelompok, dan pesanan campuran (*mix*).
+- **Pembulatan Otomatis**: Total pesanan selalu dibulatkan ke atas ke kelipatan Rp1.000 terdekat.
+- **Kartu Pesanan Ringkas**: Detail *collapsible*, riwayat status proses (Cuci, Kering, Setrika, Siap Diambil, Selesai).
+- **Otomasi WhatsApp**: Langsung membuka pesan WhatsApp siap ambil ke nomor pelanggan saat status pesanan menjadi **Siap Diambil**.
+- **Printer Bluetooth Thermal**: Cetak modular nota pelanggan, label cucian plastik, dan bukti pengambilan (ESC/POS 58 mm & 80 mm).
+- **Buku Kas Otomatis (Zero Leakage)**: Pembayaran pesanan (DP/Lunas) langsung terjurnal ke buku kas; koreksi transaksi hanya dapat dilakukan oleh Owner dengan audit trail.
+- **Multi-Usaha**: Satu akun login dapat beralih antara operasional Laundry dan kasir POS Minuman harian.
+- **SDM & Absensi**: Presensi selfie kamera datang/pulang, deteksi keterlambatan, pengajuan lembur/izin, dan tiket "Lupa Absen".
+- **Pusat Pengajuan (Approval Center)**: Alur permohonan stok dan kasbon karyawan yang disetujui Owner sebelum mutasi dicatat.
+- **Proyek Besar (B2B)**: Pengelolaan cucian borongan instansi dengan target *pieces*, sistem batch harian, dan termin pembayaran.
+- **Pembaruan Mandiri (Cloud OTA Update)**: Pembaruan APK Android langsung dari aplikasi tanpa perlu uninstall manual.
 
 ## Struktur Repositori
 
+- **[`BLUEPRINT.md`](BLUEPRINT.md)** — **Master blueprint tunggal**, mencakup seluruh flow, arsitektur peran, dan SOP operasional.
 - `laundry_app_flutter/` — aplikasi Android utama berbasis Flutter.
-- `admin_dashboard_web/` — dashboard administrasi web.
-- `supabase/` — migration, function, seed, dan skrip verifikasi backend.
-- `scripts/` — alat build serta publikasi rilis Android.
-- `docs/` — dokumentasi operasional internal.
+- `admin_dashboard_web/` — dashboard web Owner berbasis React + Vite.
+- `supabase/` — migrasi database, RPC, trigger, RLS, dan Edge Functions.
+- `scripts/` — skrip build dan publikasi APK Android (`publish-android.ps1`).
+- `docs/` — dokumentasi historis dan teknis mendalam (product, deployment, QA).
 
-Paket PRD, TRD, UI/UX, app flow, schema, dan implementation plan tersedia di [`docs/product/README.md`](docs/product/README.md).
+## Dokumentasi Pendukung
 
-Arsitektur deployment, CI/CD, daftar VPS, secrets, runbook, backup, rollback, dan monitoring tersedia di [`docs/deployment/README.md`](docs/deployment/README.md).
-
-Rincian kesiapan fitur website, sumber data, kontrak realtime, gap, dan urutan pengembangan tersedia di [`docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md`](docs/product/07-ADMIN-DASHBOARD-BLUEPRINT.md).
-
-Website admin pada branch `main` menggunakan alur deployment otomatis ke VPS. Konfigurasi dan panduan pemulihannya tersedia di [`docs/deployment/08-ADMIN-DASHBOARD-DEPLOYMENT.md`](docs/deployment/08-ADMIN-DASHBOARD-DEPLOYMENT.md).
-
-## Rilis Android
-
-Pembaruan cloud tersedia mulai versi `1.0.3+4`. Proses rilis membuat APK untuk beberapa arsitektur perangkat, memverifikasi package, versi, signature, ukuran, dan hash, lalu menerbitkan manifest pembaruan setelah seluruh APK lolos pemeriksaan.
-
-Panduan internal tersedia di [`docs/deployment/09-ANDROID-CLOUD-UPDATES.md`](docs/deployment/09-ANDROID-CLOUD-UPDATES.md). Kredensial dan konfigurasi produksi tidak disimpan di README.
-
-## Kualitas
-
-Project menggunakan analisis statis Flutter dan pengujian otomatis untuk alur penting seperti sinkronisasi pesanan dan kas, kontak, pengajuan karyawan, pembaruan aplikasi, pembayaran, katalog layanan, serta layout perangkat kecil.
-
-## Status
-
-Aplikasi aktif dikembangkan dan diuji untuk penggunaan operasional Idola Laundry. Fitur dapat berubah mengikuti kebutuhan toko dan hasil pengujian lapangan.
-
-## Catatan Publik
-
-README ini hanya menampilkan gambaran umum project. Dokumentasi setup, akses sistem, konfigurasi layanan, dan catatan produksi disimpan terpisah untuk penggunaan internal.
+Bagi pengembang yang membutuhkan referensi teknis mendalam:
+- **Katalog Produk & Arsitektur**: [`docs/product/README.md`](docs/product/README.md)
+- **Deployment, VPS, & Rilis APK**: [`docs/deployment/README.md`](docs/deployment/README.md)
+- **Quality Assurance & Sync Matrix**: [`docs/quality/README.md`](docs/quality/README.md)
+- **Panduan Karyawan**: [`tutorial-karyawan/README.md`](tutorial-karyawan/README.md)
