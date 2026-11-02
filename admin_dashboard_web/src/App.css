@@ -1809,3 +1809,125 @@ button:disabled {
   .order-table .compact-select { max-width: 150px; }
   .pagination { flex-wrap: wrap; }
 }
+
+
+/* Enhanced Analytics & Print Receipt Styles */
+.analytics-top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.method-stat-card {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.method-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.receipt-modal-box {
+  max-width: 440px;
+  width: 100%;
+}
+
+.printable-receipt {
+  padding: 18px;
+  background: #fdfdfd;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.receipt-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.receipt-header h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #0b2d71;
+}
+
+.receipt-header p {
+  margin: 2px 0;
+  font-size: 12px;
+  color: #475467;
+}
+
+.receipt-divider {
+  border-top: 1px dashed #94a3b8;
+  margin: 10px 0;
+}
+
+.receipt-meta,
+.receipt-totals {
+  display: grid;
+  gap: 6px;
+}
+
+.receipt-meta div,
+.receipt-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.receipt-unpaid {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.receipt-footer {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.receipt-footer p {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.receipt-footer small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+    border: none;
+    box-shadow: none;
+  }
+  .modal-backdrop,
+  .modal,
+  .admin-shell {
+    background: transparent !important;
+  }
+}

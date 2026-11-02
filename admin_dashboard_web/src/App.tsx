@@ -20,7 +20,14 @@ import {
   Settings,
   ShieldCheck,
   Signal,
+  CreditCard,
+  Printer,
+  QrCode,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
   Users,
+  Wallet,
   WifiOff,
   X,
   XCircle,
@@ -243,6 +250,7 @@ function App() {
   const [stockAdjuster, setStockAdjuster] = useState<InventoryItem | null>(null)
   const [shiftEditor, setShiftEditor] = useState<WeeklyShift | 'new' | null>(null)
   const [cashEditor, setCashEditor] = useState<CashTransaction | 'new' | null>(null)
+  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null)
   const [realtimeState, setRealtimeState] = useState<RealtimeState>('connecting')
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
 
@@ -458,6 +466,28 @@ function App() {
     }
   }
 
+  async function deleteEmployee(employee: Employee) {
+    if (!profile || !window.confirm(`Hapus atau nonaktifkan karyawan ${employee.name}?`)) return
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('employees').delete().eq('id', employee.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) {
+        const { error: updErr } = await supabase.from('employees').update({ is_active: false }).eq('id', employee.id).eq('shop_id', profile.shop_id).select('id').single()
+        await supabase.from('profiles').update({ is_active: false }).eq('employee_id', employee.id).eq('shop_id', profile.shop_id)
+        if (updErr) setMessage(updErr.message)
+        else { setMessage(`Karyawan ${employee.name} dinonaktifkan karena memiliki riwayat operasional.`); await loadDashboard(profile.shop_id) }
+      } else {
+        await supabase.from('profiles').delete().eq('employee_id', employee.id).eq('shop_id', profile.shop_id)
+        setMessage(`Karyawan ${employee.name} berhasil dihapus.`)
+        await loadDashboard(profile.shop_id)
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus karyawan.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function addInventoryItem(values: InventoryFormValues) {
     if (!profile) return
     setLoading(true); setMessage('')
@@ -468,6 +498,26 @@ function App() {
       if (error) setMessage(error.message); else { setInventoryEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menambahkan barang.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteInventoryItem(item: InventoryItem) {
+    if (!profile || !window.confirm(`Hapus item persediaan ${item.name}?`)) return
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('inventory_items').delete().eq('id', item.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) {
+        const { error: updErr } = await supabase.from('inventory_items').update({ is_active: false }).eq('id', item.id).eq('shop_id', profile.shop_id).select('id').single()
+        if (updErr) setMessage(updErr.message)
+        else { setMessage(`Item ${item.name} dinonaktifkan karena memiliki riwayat mutasi stok.`); await loadDashboard(profile.shop_id) }
+      } else {
+        setMessage(`Item ${item.name} berhasil dihapus.`)
+        await loadDashboard(profile.shop_id)
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus item persediaan.')
     } finally {
       setLoading(false)
     }
@@ -505,6 +555,32 @@ function App() {
     }
   }
 
+  async function deleteOrder(order: Order) {
+    if (!profile) return
+    if (order.paid_amount > 0) {
+      if (!window.confirm(`Pesanan ${order.order_number} memiliki catatan pembayaran (${rupiah(order.paid_amount)}). Batalkan pesanan ini (ubah status ke Dibatalkan)?`)) return
+      await updateOrderStatus(order, 'cancelled')
+      return
+    }
+    if (!window.confirm(`Hapus permanen pesanan ${order.order_number} (${order.customer_name_snapshot})?`)) return
+    setLoading(true); setMessage('')
+    try {
+      await supabase.from('order_items').delete().eq('order_id', order.id).eq('shop_id', profile.shop_id)
+      const { error } = await supabase.from('orders').delete().eq('id', order.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) {
+        await updateOrderStatus(order, 'cancelled')
+        setMessage('Pesanan dibatalkan karena memiliki riwayat transaksi/log.')
+      } else {
+        setMessage(`Pesanan ${order.order_number} berhasil dihapus.`)
+        await loadDashboard(profile.shop_id)
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus pesanan.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function saveOrderDetails(values: { note: string; due_at: string; assigned_employee_id: string | null }) {
     if (!profile || !orderEditor) return
     setLoading(true); setMessage('')
@@ -525,6 +601,26 @@ function App() {
       else { setRequestEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) { setMessage(e.message || 'Gagal mengubah pengajuan.') }
     finally { setLoading(false) }
+  }
+
+  async function deleteRequest(request: EmployeeRequest) {
+    if (!profile || !window.confirm(`Hapus pengajuan "${request.type}" (${request.employee_name})?`)) return
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('employee_requests').delete().eq('id', request.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) {
+        const { error: updErr } = await supabase.from('employee_requests').update({ status: 'rejected', review_note: 'Dibatalkan oleh Owner' }).eq('id', request.id).eq('shop_id', profile.shop_id).select('id').single()
+        if (updErr) setMessage(updErr.message)
+        else { setMessage('Pengajuan ditandai ditolak.'); await loadDashboard(profile.shop_id) }
+      } else {
+        setMessage('Pengajuan berhasil dihapus.')
+        await loadDashboard(profile.shop_id)
+      }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus pengajuan.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function recordPayment(order: Order) {
@@ -588,6 +684,24 @@ function App() {
       if (error) setMessage(error.message); else { setCashEditor(null); await loadDashboard(profile.shop_id) }
     } catch (e: any) {
       setMessage(e.message || 'Gagal menyimpan kas.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteCashTransaction(entry: CashTransaction) {
+    if (!profile || !window.confirm(`Hapus catatan kas "${entry.category} - ${rupiah(entry.amount)}"?`)) return
+    if (entry.reference_type && entry.reference_type !== 'MANUAL') {
+      setMessage('Hanya mutasi kas manual yang dapat dihapus agar saldo transaksi pesanan/proyek tetap sinkron.')
+      return
+    }
+    setLoading(true); setMessage('')
+    try {
+      const { error } = await supabase.from('cash_transactions').delete().eq('id', entry.id).eq('shop_id', profile.shop_id).select('id').single()
+      if (error) setMessage(error.message)
+      else { setMessage('Catatan kas berhasil dihapus.'); await loadDashboard(profile.shop_id) }
+    } catch (e: any) {
+      setMessage(e.message || 'Gagal menghapus catatan kas.')
     } finally {
       setLoading(false)
     }
@@ -672,16 +786,16 @@ function App() {
         {message ? <div className="notice">{message}</div> : null}
 
         {activeTab === 'overview' ? <Overview metrics={metrics} data={data} onNavigate={navigate} /> : null}
-        {activeTab === 'orders' ? <><nav className="module-subnav" aria-label="Kelola pesanan"><button type="button" className={ordersView === 'list' ? 'active' : ''} onClick={() => setOrdersView('list')}>Daftar & status</button><button type="button" className={ordersView === 'details' ? 'active' : ''} onClick={() => setOrdersView('details')}>Edit detail</button><button type="button" className={ordersView === 'services' ? 'active' : ''} onClick={() => setOrdersView('services')}>Layanan kiloan</button><button type="button" className={ordersView === 'payments' ? 'active' : ''} onClick={() => setOrdersView('payments')}>Koreksi pembayaran</button></nav>{ordersView === 'list' ? <OrdersPanel orders={filteredOrders} onUpdateOrder={updateOrderStatus} onRecordPayment={recordPayment} /> : null}{ordersView === 'details' ? <OwnerEditAccess title="Edit detail pesanan" entries={filteredOrders} label={(order) => `${order.order_number} · ${order.customer_name_snapshot}`} onEdit={setOrderEditor} /> : null}{ordersView === 'services' ? <OrderKiloServiceEditor shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}{ordersView === 'payments' ? <OrderPaymentCorrections shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}</> : null}
+        {activeTab === 'orders' ? <><nav className="module-subnav" aria-label="Kelola pesanan"><button type="button" className={ordersView === 'list' ? 'active' : ''} onClick={() => setOrdersView('list')}>Daftar & status</button><button type="button" className={ordersView === 'details' ? 'active' : ''} onClick={() => setOrdersView('details')}>Edit detail</button><button type="button" className={ordersView === 'services' ? 'active' : ''} onClick={() => setOrdersView('services')}>Layanan kiloan</button><button type="button" className={ordersView === 'payments' ? 'active' : ''} onClick={() => setOrdersView('payments')}>Koreksi pembayaran</button></nav>{ordersView === 'list' ? <OrdersPanel orders={filteredOrders} onUpdateOrder={updateOrderStatus} onRecordPayment={recordPayment} onPrintOrder={setReceiptOrder} onDeleteOrder={deleteOrder} /> : null}{ordersView === 'details' ? <OwnerEditAccess title="Edit detail pesanan" entries={filteredOrders} label={(order) => `${order.order_number} · ${order.customer_name_snapshot}`} onEdit={setOrderEditor} /> : null}{ordersView === 'services' ? <OrderKiloServiceEditor shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}{ordersView === 'payments' ? <OrderPaymentCorrections shopId={profile.shop_id} orders={filteredOrders} onChanged={() => void loadDashboard(profile.shop_id)} /> : null}</> : null}
         {activeTab === 'projects' ? <ProjectsPanel shopId={profile.shop_id} onCashChanged={() => void loadDashboard(profile.shop_id)} /> : null}
         {activeTab === 'incentives' ? <IncentivesPanel shopId={profile.shop_id} employees={data.employees} orders={data.orders} onCashChanged={() => void loadDashboard(profile.shop_id)} /> : null}
-        {activeTab === 'analytics' ? <DashboardAnalytics orders={data.orders} /> : null}
-        {activeTab === 'requests' ? <><ApprovalPanel requests={data.requests} loading={loading} onReview={reviewRequest} /><OwnerEditAccess title="Edit isi pengajuan" entries={data.requests} label={(request) => `${request.employee_name} · ${request.type}`} onEdit={setRequestEditor} /></> : null}
-        {activeTab === 'inventory' ? <><InventoryPanel items={data.inventory} movements={data.inventoryMovements} onAdd={() => setInventoryEditor('new')} onAdjust={setStockAdjuster} /><OwnerEditAccess title="Edit item stok" entries={data.inventory} label={(item) => item.name} onEdit={setInventoryEditor} /></> : null}
+        {activeTab === 'analytics' ? <DashboardAnalytics orders={data.orders} cash={data.cash} employees={data.employees} inventory={data.inventory} /> : null}
+        {activeTab === 'requests' ? <><ApprovalPanel requests={data.requests} loading={loading} onReview={reviewRequest} onDelete={deleteRequest} /><OwnerEditAccess title="Edit isi pengajuan" entries={data.requests} label={(request) => `${request.employee_name} · ${request.type}`} onEdit={setRequestEditor} /></> : null}
+        {activeTab === 'inventory' ? <><InventoryPanel items={data.inventory} movements={data.inventoryMovements} onAdd={() => setInventoryEditor('new')} onEdit={setInventoryEditor} onDelete={deleteInventoryItem} onAdjust={setStockAdjuster} /><OwnerEditAccess title="Edit item stok" entries={data.inventory} label={(item) => item.name} onEdit={setInventoryEditor} /></> : null}
         {activeTab === 'services' ? <ServicesPanel shopId={profile.shop_id} /> : null}
         {activeTab === 'customers' ? <CustomersPanel customers={filteredCustomers} onAdd={() => setCustomerEditor('new')} onEdit={setCustomerEditor} onDelete={deleteCustomer} /> : null}
-        {activeTab === 'team' ? <TeamPanel view={teamView} setView={setTeamView} employees={filteredEmployees} shifts={data.shifts} onAdd={() => setEmployeeEditor('new')} onEdit={setEmployeeEditor} onAddShift={() => setShiftEditor('new')} onEditShift={setShiftEditor} /> : null}
-        {activeTab === 'reports' ? <><ReportsPanel cash={data.cash} metrics={metrics} onAddCash={() => setCashEditor('new')} onExport={exportCashCsv} /><OwnerEditAccess title="Koreksi kas manual" entries={data.cash.filter((entry) => entry.reference_type === 'MANUAL')} label={(entry) => `${entry.category} · ${rupiah(entry.amount)} · ${dateLabel(entry.created_at)}`} onEdit={setCashEditor} /></> : null}
+        {activeTab === 'team' ? <TeamPanel view={teamView} setView={setTeamView} employees={filteredEmployees} shifts={data.shifts} onAdd={() => setEmployeeEditor('new')} onEdit={setEmployeeEditor} onDelete={deleteEmployee} onAddShift={() => setShiftEditor('new')} onEditShift={setShiftEditor} /> : null}
+        {activeTab === 'reports' ? <><ReportsPanel cash={data.cash} metrics={metrics} onAddCash={() => setCashEditor('new')} onExport={exportCashCsv} onEditCash={setCashEditor} onDeleteCash={deleteCashTransaction} /><OwnerEditAccess title="Koreksi kas manual" entries={data.cash.filter((entry) => entry.reference_type === 'MANUAL')} label={(entry) => `${entry.category} · ${rupiah(entry.amount)} · ${dateLabel(entry.created_at)}`} onEdit={setCashEditor} /></> : null}
         {activeTab === 'audit' ? <AuditPanel logs={data.auditLogs} /> : null}
         {activeTab === 'settings' ? <SettingsPanel shop={data.shop} loading={loading} onSave={saveShop} /> : null}
       </section>
@@ -693,7 +807,8 @@ function App() {
       {inventoryEditor ? <Modal title={inventoryEditor === 'new' ? 'Tambah item stok' : 'Edit item stok'} onClose={() => setInventoryEditor(null)}>{inventoryEditor === 'new' ? <InventoryForm loading={loading} onSubmit={addInventoryItem} /> : <EditInventoryForm item={inventoryEditor} loading={loading} onSubmit={addInventoryItem} />}</Modal> : null}
       {stockAdjuster ? <Modal title={`Mutasi ${stockAdjuster.name}`} onClose={() => setStockAdjuster(null)}><StockAdjustmentForm item={stockAdjuster} loading={loading} onSubmit={adjustStock} /></Modal> : null}
       {shiftEditor ? <Modal title={shiftEditor === 'new' ? 'Tambah jadwal mingguan' : 'Edit jadwal mingguan'} onClose={() => setShiftEditor(null)}><ShiftForm shift={shiftEditor === 'new' ? null : shiftEditor} employees={data.employees} loading={loading} onSubmit={saveShift} onDelete={shiftEditor === 'new' ? undefined : () => void deleteShift(shiftEditor)} /></Modal> : null}
-      {cashEditor ? <Modal title={cashEditor === 'new' ? 'Catat kas manual' : 'Edit kas manual'} onClose={() => setCashEditor(null)}>{cashEditor === 'new' ? <CashForm loading={loading} onSubmit={addCashTransaction} /> : <EditCashForm entry={cashEditor} loading={loading} onSubmit={addCashTransaction} />}</Modal> : null}
+      {cashEditor ? <Modal title={cashEditor === 'new' ? 'Catat kas manual' : 'Edit kas manual'} onClose={() => setCashEditor(null)}>{cashEditor === 'new' ? <CashForm loading={loading} onSubmit={addCashTransaction} /> : <EditCashForm entry={cashEditor} loading={loading} onSubmit={addCashTransaction} onDelete={deleteCashTransaction} />}</Modal> : null}
+      {receiptOrder ? <ReceiptModal order={receiptOrder} shop={data.shop} onClose={() => setReceiptOrder(null)} /> : null}
     </main>
   )
 }
@@ -721,43 +836,394 @@ function Overview({ metrics, data, onNavigate }: { metrics: ReturnType<typeof us
 
 function useDashboardMetrics() { return { todayOrders: 0, newOrders: 0, income: 0, out: 0, balance: 0, pendingRequests: 0, activeEmployees: 0, customers: 0, lowStock: 0 } }
 
-function DashboardAnalytics({ orders }: { orders: Order[] }) {
+function ReceiptModal({ order, shop, onClose }: { order: Order; shop: Shop | null; onClose: () => void }) {
+  const remaining = Math.max(0, order.total_price - order.paid_amount)
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <section className="modal receipt-modal-box" role="dialog" aria-modal="true" aria-label="Cetak Nota">
+        <header>
+          <h2>Cetak Nota / Struk</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Tutup"><X size={18} /></button>
+        </header>
+        <div className="printable-receipt" id="printable-receipt">
+          <div className="receipt-header">
+            <h3>{shop?.name || 'Idola Laundry'}</h3>
+            <p>{shop?.address || 'Jl. Operasional Toko'}</p>
+            <p>Telp: {shop?.phone || '-'}</p>
+          </div>
+          <div className="receipt-divider" />
+          <div className="receipt-meta">
+            <div><span>No. Nota:</span><strong>{order.order_number}</strong></div>
+            <div><span>Tanggal:</span><span>{new Date(order.created_at).toLocaleString('id-ID')}</span></div>
+            <div><span>Pelanggan:</span><strong>{order.customer_name_snapshot}</strong></div>
+            {order.due_at ? <div><span>Estimasi:</span><span>{new Date(order.due_at).toLocaleDateString('id-ID')}</span></div> : null}
+          </div>
+          <div className="receipt-divider" />
+          <div className="receipt-totals">
+            <div><span>Total Tagihan:</span><strong>{rupiah(order.total_price)}</strong></div>
+            <div><span>Sudah Dibayar:</span><span>{rupiah(order.paid_amount)}</span></div>
+            <div><span>Status Bayar:</span><strong>{statusLabels[order.payment_status] || order.payment_status}</strong></div>
+            {remaining > 0 ? (
+              <div className="receipt-unpaid">
+                <span>Sisa Tagihan:</span>
+                <strong>{rupiah(remaining)}</strong>
+              </div>
+            ) : (
+              <div style={{ color: '#059669', fontWeight: 700 }}>
+                <span>Status:</span>
+                <strong>LUNAS</strong>
+              </div>
+            )}
+          </div>
+          {order.note ? (
+            <div className="receipt-note" style={{ marginTop: '8px', fontSize: '11px', color: '#475467' }}>
+              Catatan: {order.note}
+            </div>
+          ) : null}
+          <div className="receipt-divider" />
+          <div className="receipt-footer">
+            <p>Terima kasih atas kepercayaan Anda!</p>
+            <small>Cucian yang tidak diambil lebih dari 30 hari di luar tanggung jawab toko.</small>
+          </div>
+        </div>
+        <div className="form-actions" style={{ marginTop: '18px' }}>
+          <button className="primary-button" type="button" onClick={() => window.print()}>
+            <Printer size={18} /> Cetak Struk
+          </button>
+          <button className="ghost-button" type="button" onClick={onClose}>
+            Tutup
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function DashboardAnalytics({ orders, cash = [], employees = [], inventory = [] }: { orders: Order[]; cash?: CashTransaction[]; employees?: Employee[]; inventory?: InventoryItem[] }) {
+  const [chartMode, setChartMode] = useState<'cashflow' | 'orders' | 'payments' | 'peakdays'>('cashflow')
   const [period, setPeriod] = useState<'week' | 'month'>('week')
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()))
   const monthOptions = calendarMonthOptions(orders)
-  const days = period === 'week' ? calendarWeekSeries(orders) : calendarMonthSeries(orders, selectedMonth)
-  const maxOrders = Math.max(1, ...days.map((day) => Math.max(day.received, day.completed)))
-  const visibleKeys = new Set(days.map((day) => day.key))
+  const orderDays = period === 'week' ? calendarWeekSeries(orders) : calendarMonthSeries(orders, selectedMonth)
+  const cashDays = period === 'week' ? calendarWeekCashflow(cash) : calendarMonthCashflow(cash, selectedMonth)
+  const periodLabel = period === 'week' ? 'minggu ini' : new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(new Date(`${selectedMonth}-01T12:00:00`))
+
+  const maxOrders = Math.max(1, ...orderDays.map((day) => Math.max(day.received, day.completed)))
+  const visibleKeys = new Set(orderDays.map((day) => day.key))
   const selectedOrders = orders.filter((order) => visibleKeys.has(localDayKey(order.created_at)))
   const statusRows = [
     ['received', 'Diterima'],
     ['processing', 'Diproses'],
     ['ready', 'Siap diambil'],
     ['picked_up', 'Sudah diambil'],
+    ['cancelled', 'Dibatalkan'],
   ].map(([id, label]) => ({ id, label, count: selectedOrders.filter((order) => order.order_status === id).length }))
   const statusTotal = Math.max(1, statusRows.reduce((sum, row) => sum + row.count, 0))
   const unpaid = orders.filter((order) => order.payment_status !== 'paid').reduce((sum, order) => sum + Math.max(0, order.total_price - order.paid_amount), 0)
-  const periodOrders = days.reduce((sum, day) => sum + day.received, 0)
-  const periodCompleted = days.reduce((sum, day) => sum + day.completed, 0)
-  const periodLabel = period === 'week' ? 'minggu ini' : new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(new Date(`${selectedMonth}-01T12:00:00`))
-  return <div className="analytics-grid"><article className="wide-panel chart-panel"><div className="panel-header chart-header"><div><h2>Progres pesanan</h2><p>Pesanan masuk dan selesai pada periode kalender.</p></div><div className="chart-controls"><SegmentedControl value={period} items={[["week", 'Minggu ini'], ["month", 'Per bulan']]} onChange={setPeriod} />{period === 'month' ? <select className="month-select" aria-label="Pilih bulan" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : null}</div></div><div className="period-caption">Periode: <strong>{period === 'week' ? weekRangeLabel(days) : periodLabel}</strong></div><div className="progress-totals"><div><span>Masuk</span><strong>{periodOrders}</strong></div><div><span>Selesai</span><strong>{periodCompleted}</strong></div><div><span>Tingkat selesai</span><strong>{periodOrders ? `${Math.round(periodCompleted / periodOrders * 100)}%` : '0%'}</strong></div></div><div className="chart-legend"><span><i className="legend-dot received" />Pesanan masuk</span><span><i className="legend-dot completed" />Selesai</span></div><div className={`cash-chart order-chart period-${period}`} role="img" aria-label={`Grafik pesanan masuk dan selesai ${periodLabel}`}><div className="chart-scroll-inner" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${period === 'month' ? 24 : 54}px, 1fr))` }}>{days.map((day) => <div className="chart-day" key={day.key}><div className="bar-area"><div className="chart-bar received" style={{ height: `${Math.max(day.received ? 8 : 0, day.received / maxOrders * 100)}%` }} title={`Masuk ${day.fullLabel}: ${day.received}`} /><div className="chart-bar completed" style={{ height: `${Math.max(day.completed ? 8 : 0, day.completed / maxOrders * 100)}%` }} title={`Selesai ${day.fullLabel}: ${day.completed}`} /></div><strong>{day.received}/{day.completed}</strong><span>{day.label}</span></div>)}</div></div><p className="chart-footnote">Format angka: masuk/selesai. Bulanan memakai tanggal 1 sampai akhir bulan yang dipilih.</p></article><article className="wide-panel chart-panel"><PanelHeader title="Posisi pesanan" description={`Status pesanan yang dibuat pada ${periodLabel}.`} /><div className="status-summary">{statusRows.map((row) => <div className="status-line" key={row.id}><div><span>{row.label}</span><strong>{row.count}</strong></div><div className="status-track"><i className={row.id} style={{ width: `${row.count / statusTotal * 100}%` }} /></div></div>)}</div><div className="receivable-card"><span>Sisa tagihan belum lunas</span><strong>{rupiah(unpaid)}</strong><small>Dari {orders.filter((order) => order.payment_status !== 'paid').length} pesanan yang masih memiliki tagihan</small></div></article></div>
+  const periodOrders = orderDays.reduce((sum, day) => sum + day.received, 0)
+  const periodCompleted = orderDays.reduce((sum, day) => sum + day.completed, 0)
+
+  const maxCash = Math.max(1, ...cashDays.map((day) => Math.max(day.income, day.expense)))
+  const totalIncome = cashDays.reduce((sum, day) => sum + day.income, 0)
+  const totalExpense = cashDays.reduce((sum, day) => sum + day.expense, 0)
+  const netProfit = totalIncome - totalExpense
+
+  const selectedCash = cash.filter((c) => visibleKeys.has(localDayKey(c.created_at)))
+  const methodMap: Record<string, { count: number; total: number }> = {
+    Tunai: { count: 0, total: 0 },
+    Transfer: { count: 0, total: 0 },
+    QRIS: { count: 0, total: 0 },
+  }
+  selectedCash.filter((c) => c.type === 'IN').forEach((c) => {
+    const m = (c.method || 'Tunai').trim()
+    const key = m.toLowerCase().includes('qris') ? 'QRIS' : m.toLowerCase().includes('transfer') ? 'Transfer' : 'Tunai'
+    methodMap[key].count += 1
+    methodMap[key].total += c.amount
+  })
+  const paymentTotalAmount = Math.max(1, methodMap.Tunai.total + methodMap.Transfer.total + methodMap.QRIS.total)
+
+  const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+  const peakDayCounts = [1, 2, 3, 4, 5, 6, 7].map((d, index) => {
+    const count = orders.filter((o) => {
+      const day = new Date(o.created_at).getDay()
+      const dIndex = day === 0 ? 7 : day
+      return dIndex === d
+    }).length
+    return { dayNumber: d, name: dayNames[index], count }
+  })
+  const maxPeak = Math.max(1, ...peakDayCounts.map((d) => d.count))
+  const busiestDay = peakDayCounts.reduce((prev, curr) => curr.count > prev.count ? curr : prev, peakDayCounts[0])
+
+  return (
+    <section className="analytics-section">
+      <div className="analytics-top-nav">
+        <SegmentedControl
+          value={chartMode}
+          items={[
+            ['cashflow', 'Arus Kas & Finansial'],
+            ['orders', 'Progres Pesanan'],
+            ['payments', 'Metode Bayar'],
+            ['peakdays', 'Hari Tersibuk'],
+          ]}
+          onChange={setChartMode}
+        />
+        <div className="chart-controls">
+          <SegmentedControl value={period} items={[["week", 'Minggu ini'], ["month", 'Per bulan']]} onChange={setPeriod} />
+          {period === 'month' ? (
+            <select className="month-select" aria-label="Pilih bulan" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+              {monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="period-caption" style={{ marginBottom: '16px' }}>
+        Periode Analisis: <strong>{period === 'week' ? weekRangeLabel(orderDays) : periodLabel}</strong>
+      </div>
+
+      <div className="metrics-grid" style={{ marginBottom: '20px' }}>
+        <article className="metric-card">
+          <TrendingUp size={20} style={{ color: '#059669' }} />
+          <strong>{rupiah(totalIncome)}</strong>
+          <span>Total Pemasukan</span>
+        </article>
+        <article className="metric-card">
+          <TrendingDown size={20} style={{ color: '#d97706' }} />
+          <strong>{rupiah(totalExpense)}</strong>
+          <span>Total Pengeluaran</span>
+        </article>
+        <article className="metric-card">
+          <Banknote size={20} style={{ color: netProfit >= 0 ? '#0b2d71' : '#b42318' }} />
+          <strong style={{ color: netProfit >= 0 ? '#0b2d71' : '#b42318' }}>{rupiah(netProfit)}</strong>
+          <span>Laba Bersih Operasional</span>
+        </article>
+        <article className="metric-card">
+          <ReceiptText size={20} />
+          <strong>{periodOrders} pesanan</strong>
+          <span>Volume Masuk ({periodCompleted} selesai)</span>
+        </article>
+      </div>
+
+      {chartMode === 'cashflow' ? (
+        <div className="analytics-grid">
+          <article className="wide-panel chart-panel">
+            <div className="panel-header chart-header">
+              <div>
+                <h2>Grafik Arus Kas</h2>
+                <p>Perbandingan uang masuk dan uang keluar toko per {period === 'week' ? 'hari' : 'tanggal'}.</p>
+              </div>
+            </div>
+            <div className="chart-legend">
+              <span><i className="legend-dot income" />Pemasukan</span>
+              <span><i className="legend-dot expense" />Pengeluaran</span>
+            </div>
+            <div className={`cash-chart period-${period}`} role="img" aria-label={`Grafik arus kas ${periodLabel}`}>
+              <div className="chart-scroll-inner" style={{ gridTemplateColumns: `repeat(${cashDays.length}, minmax(${period === 'month' ? 24 : 54}px, 1fr))` }}>
+                {cashDays.map((day) => (
+                  <div className="chart-day" key={day.key}>
+                    <div className="bar-area">
+                      <div className="chart-bar income" style={{ height: `${Math.max(day.income ? 8 : 0, day.income / maxCash * 100)}%` }} title={`Masuk ${day.fullLabel}: ${rupiah(day.income)}`} />
+                      <div className="chart-bar expense" style={{ height: `${Math.max(day.expense ? 8 : 0, day.expense / maxCash * 100)}%` }} title={`Keluar ${day.fullLabel}: ${rupiah(day.expense)}`} />
+                    </div>
+                    <strong>{day.income > 0 ? (day.income >= 1000000 ? `${(day.income / 1000000).toFixed(1)}jt` : `${Math.round(day.income / 1000)}k`) : '0'}</strong>
+                    <span>{day.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="chart-footnote">Format label atas: ringkasan pemasukan. Hover bar untuk melihat rincian.</p>
+          </article>
+
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Ringkasan Margin" description={`Efisiensi keuangan ${periodLabel}.`} />
+            <div className="status-summary">
+              <div className="status-line">
+                <div><span>Total Pemasukan</span><strong>{rupiah(totalIncome)}</strong></div>
+                <div className="status-track"><i style={{ width: '100%', background: '#0f766e' }} /></div>
+              </div>
+              <div className="status-line">
+                <div><span>Total Pengeluaran</span><strong>{rupiah(totalExpense)}</strong></div>
+                <div className="status-track"><i style={{ width: `${totalIncome > 0 ? Math.min(100, totalExpense / totalIncome * 100) : 0}%`, background: '#f59e0b' }} /></div>
+              </div>
+              <div className="status-line">
+                <div><span>Margin Laba</span><strong>{totalIncome > 0 ? `${Math.round(netProfit / totalIncome * 100)}%` : '0%'}</strong></div>
+                <div className="status-track"><i style={{ width: `${totalIncome > 0 && netProfit > 0 ? Math.min(100, netProfit / totalIncome * 100) : 0}%`, background: '#2563eb' }} /></div>
+              </div>
+            </div>
+            <div className="receivable-card" style={{ marginTop: '20px' }}>
+              <span>Piutang Pesanan Berjalan</span>
+              <strong>{rupiah(unpaid)}</strong>
+              <small>Tagihan dari pelanggan yang belum lunas</small>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {chartMode === 'orders' ? (
+        <div className="analytics-grid">
+          <article className="wide-panel chart-panel">
+            <div className="panel-header chart-header">
+              <div>
+                <h2>Progres Pesanan Masuk & Selesai</h2>
+                <p>Volume pesanan yang masuk dan diselesaikan tim operasional.</p>
+              </div>
+            </div>
+            <div className="progress-totals">
+              <div><span>Masuk</span><strong>{periodOrders}</strong></div>
+              <div><span>Selesai</span><strong>{periodCompleted}</strong></div>
+              <div><span>Tingkat Selesai</span><strong>{periodOrders ? `${Math.round(periodCompleted / periodOrders * 100)}%` : '0%'}</strong></div>
+            </div>
+            <div className="chart-legend">
+              <span><i className="legend-dot received" />Pesanan Masuk</span>
+              <span><i className="legend-dot completed" />Selesai</span>
+            </div>
+            <div className={`cash-chart order-chart period-${period}`} role="img" aria-label={`Grafik pesanan ${periodLabel}`}>
+              <div className="chart-scroll-inner" style={{ gridTemplateColumns: `repeat(${orderDays.length}, minmax(${period === 'month' ? 24 : 54}px, 1fr))` }}>
+                {orderDays.map((day) => (
+                  <div className="chart-day" key={day.key}>
+                    <div className="bar-area">
+                      <div className="chart-bar received" style={{ height: `${Math.max(day.received ? 8 : 0, day.received / maxOrders * 100)}%` }} title={`Masuk ${day.fullLabel}: ${day.received}`} />
+                      <div className="chart-bar completed" style={{ height: `${Math.max(day.completed ? 8 : 0, day.completed / maxOrders * 100)}%` }} title={`Selesai ${day.fullLabel}: ${day.completed}`} />
+                    </div>
+                    <strong>{day.received}/{day.completed}</strong>
+                    <span>{day.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="chart-footnote">Format angka: masuk/selesai. Angka selesai dihitung saat status Siap Diambil atau Diambil.</p>
+          </article>
+
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Posisi Status Pesanan" description={`Status seluruh pesanan pada periode ${periodLabel}.`} />
+            <div className="status-summary">
+              {statusRows.map((row) => (
+                <div className="status-line" key={row.id}>
+                  <div><span>{row.label}</span><strong>{row.count}</strong></div>
+                  <div className="status-track"><i className={row.id} style={{ width: `${row.count / statusTotal * 100}%` }} /></div>
+                </div>
+              ))}
+            </div>
+            <div className="receivable-card" style={{ marginTop: '20px' }}>
+              <span>Total Pesanan Terdaftar</span>
+              <strong>{orders.length} pesanan</strong>
+              <small>Semua pesanan tersimpan di database</small>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {chartMode === 'payments' ? (
+        <div className="analytics-grid">
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Distribusi Metode Pembayaran" description="Komposisi pembayaran yang diterima (Tunai, Transfer, QRIS)." />
+            <div className="payment-method-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+              <div className="method-stat-card" style={{ padding: '16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700 }}><Wallet size={18} /> Tunai</div>
+                <strong style={{ display: 'block', fontSize: '20px', margin: '8px 0 4px', color: '#14532d' }}>{rupiah(methodMap.Tunai.total)}</strong>
+                <small style={{ color: '#166534' }}>{methodMap.Tunai.count} transaksi ({Math.round(methodMap.Tunai.total / paymentTotalAmount * 100)}%)</small>
+              </div>
+              <div className="method-stat-card" style={{ padding: '16px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af', fontWeight: 700 }}><CreditCard size={18} /> Transfer Bank</div>
+                <strong style={{ display: 'block', fontSize: '20px', margin: '8px 0 4px', color: '#1e3a8a' }}>{rupiah(methodMap.Transfer.total)}</strong>
+                <small style={{ color: '#1e40af' }}>{methodMap.Transfer.count} transaksi ({Math.round(methodMap.Transfer.total / paymentTotalAmount * 100)}%)</small>
+              </div>
+              <div className="method-stat-card" style={{ padding: '16px', background: '#faf5ff', borderRadius: '8px', border: '1px solid #e9d5ff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b21a8', fontWeight: 700 }}><QrCode size={18} /> QRIS</div>
+                <strong style={{ display: 'block', fontSize: '20px', margin: '8px 0 4px', color: '#581c87' }}>{rupiah(methodMap.QRIS.total)}</strong>
+                <small style={{ color: '#6b21a8' }}>{methodMap.QRIS.count} transaksi ({Math.round(methodMap.QRIS.total / paymentTotalAmount * 100)}%)</small>
+              </div>
+            </div>
+
+            <div className="status-summary">
+              <div className="status-line">
+                <div><span>Tunai (Kas Fisik Toko)</span><strong>{rupiah(methodMap.Tunai.total)}</strong></div>
+                <div className="status-track"><i style={{ width: `${methodMap.Tunai.total / paymentTotalAmount * 100}%`, background: '#16a34a' }} /></div>
+              </div>
+              <div className="status-line">
+                <div><span>Transfer Bank</span><strong>{rupiah(methodMap.Transfer.total)}</strong></div>
+                <div className="status-track"><i style={{ width: `${methodMap.Transfer.total / paymentTotalAmount * 100}%`, background: '#2563eb' }} /></div>
+              </div>
+              <div className="status-line">
+                <div><span>QRIS</span><strong>{rupiah(methodMap.QRIS.total)}</strong></div>
+                <div className="status-track"><i style={{ width: `${methodMap.QRIS.total / paymentTotalAmount * 100}%`, background: '#9333ea' }} /></div>
+              </div>
+            </div>
+          </article>
+
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Keamanan Kas & Rekonsiliasi" description="Zero Leakage: sinkronisasi pembayaran pesanan ke Buku Kas." />
+            <div style={{ display: 'grid', gap: '14px', marginTop: '14px' }}>
+              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#334155' }}>Rekonsiliasi Kas Fisik</p>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Uang fisik di kasir harus sesuai nominal Tunai ({rupiah(methodMap.Tunai.total)}) pada akhir hari saat tutup toko.</p>
+              </div>
+              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#334155' }}>Rekening Digital</p>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Nominal Transfer ({rupiah(methodMap.Transfer.total)}) & QRIS ({rupiah(methodMap.QRIS.total)}) langsung diverifikasi mutasi bank.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {chartMode === 'peakdays' ? (
+        <div className="analytics-grid">
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Analisis Hari Paling Ramai (Peak Days)" description="Jumlah pesanan cucian yang masuk berdasarkan hari dalam seminggu." />
+            <div className="cash-chart period-week" role="img" aria-label="Grafik hari ramai">
+              <div className="chart-scroll-inner" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+                {peakDayCounts.map((item) => (
+                  <div className="chart-day" key={item.dayNumber}>
+                    <div className="bar-area">
+                      <div className="chart-bar received" style={{ height: `${Math.max(item.count ? 8 : 0, item.count / maxPeak * 100)}%`, background: item.name === busiestDay.name ? 'linear-gradient(180deg, #f59e0b, #fbbf24)' : undefined }} title={`${item.name}: ${item.count} pesanan`} />
+                    </div>
+                    <strong>{item.count}</strong>
+                    <span style={{ fontWeight: item.name === busiestDay.name ? 800 : undefined, color: item.name === busiestDay.name ? '#b45309' : undefined }}>{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="chart-footnote">Warna oranye menandakan hari dengan pesanan tertinggi sepanjang histori.</p>
+          </article>
+
+          <article className="wide-panel chart-panel">
+            <PanelHeader title="Rekomendasi Jadwal & Shift" description="Berdasarkan tren volume pesanan pelanggan." />
+            <div style={{ padding: '18px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', marginBottom: '16px' }}>
+              <div style={{ color: '#92400e', fontWeight: 800, fontSize: '15px' }}>
+                Hari Tersibuk: {busiestDay.name} ({busiestDay.count} pesanan)
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#78350f' }}>
+                Pastikan seluruh staf operasional cuci & setrika bertugas penuh pada hari {busiestDay.name} untuk mencegah penumpukan antrean cucian. Tim saat ini: {employees.filter((e) => e.is_active).length} staf aktif, {inventory.filter((i) => i.is_active && i.stock <= i.min_stock).length} stok bahan menipis.
+              </p>
+            </div>
+            <Checklist items={[
+              'Atur jadwal libur staf pada hari yang lebih sepi',
+              'Cek stok sabun & plastik sebelum hari puncak',
+              'Aktifkan notifikasi WhatsApp saat cucian selesai diproses',
+            ]} />
+          </article>
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
-function OrdersPanel({ orders, onUpdateOrder, onRecordPayment }: { orders: Order[]; onUpdateOrder: (order: Order, status: string) => Promise<void>; onRecordPayment: (order: Order) => Promise<void> }) {
+function OrdersPanel({ orders, onUpdateOrder, onRecordPayment, onPrintOrder, onDeleteOrder }: { orders: Order[]; onUpdateOrder: (order: Order, status: string) => Promise<void>; onRecordPayment: (order: Order) => Promise<void>; onPrintOrder: (order: Order) => void; onDeleteOrder: (order: Order) => Promise<void> }) {
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
-  const filters = [['all', 'Semua'], ['received', 'Diterima'], ['processing', 'Diproses'], ['ready', 'Siap diambil'], ['picked_up', 'Diambil']] as const
+  const filters = [['all', 'Semua'], ['received', 'Diterima'], ['processing', 'Diproses'], ['ready', 'Siap diambil'], ['picked_up', 'Diambil'], ['cancelled', 'Dibatalkan']] as const
   const shown = orders.filter((order) => filter === 'all' || order.order_status === filter)
   const pageSize = 10
   const totalPages = Math.max(1, Math.ceil(shown.length / pageSize))
   const currentPage = Math.min(page, totalPages)
-  return <article className="wide-panel orders-panel"><div className="panel-header"><div><h2>Daftar pesanan</h2><p>{shown.length} pesanan ditemukan. Ubah status dan catat pembayaran di sini.</p></div><span className="list-count">{shown.length} pesanan</span></div><div className="order-filters" role="group" aria-label="Filter status pesanan">{filters.map(([id, label]) => <button type="button" key={id} className={filter === id ? 'active' : ''} onClick={() => { setFilter(id); setPage(1) }}>{label}</button>)}</div><OrderTable orders={shown.slice((currentPage - 1) * pageSize, currentPage * pageSize)} onUpdateStatus={onUpdateOrder} onRecordPayment={onRecordPayment} /><Pagination page={currentPage} pages={totalPages} total={shown.length} onChange={setPage} /></article>
+  return <article className="wide-panel orders-panel"><div className="panel-header"><div><h2>Daftar pesanan</h2><p>{shown.length} pesanan ditemukan. Ubah status, catat pembayaran, cetak nota, dan kelola pesanan.</p></div><span className="list-count">{shown.length} pesanan</span></div><div className="order-filters" role="group" aria-label="Filter status pesanan">{filters.map(([id, label]) => <button type="button" key={id} className={filter === id ? 'active' : ''} onClick={() => { setFilter(id); setPage(1) }}>{label}</button>)}</div><OrderTable orders={shown.slice((currentPage - 1) * pageSize, currentPage * pageSize)} onUpdateStatus={onUpdateOrder} onRecordPayment={onRecordPayment} onPrintOrder={onPrintOrder} onDeleteOrder={onDeleteOrder} /><Pagination page={currentPage} pages={totalPages} total={shown.length} onChange={setPage} /></article>
 }
 
-function ApprovalPanel({ requests, loading, onReview }: { requests: EmployeeRequest[]; loading: boolean; onReview: (request: EmployeeRequest, status: 'approved' | 'rejected' | 'completed' | 'paid') => Promise<void> }) {
+function ApprovalPanel({ requests, loading, onReview, onDelete }: { requests: EmployeeRequest[]; loading: boolean; onReview: (request: EmployeeRequest, status: 'approved' | 'rejected' | 'completed' | 'paid') => Promise<void>; onDelete: (request: EmployeeRequest) => Promise<void> }) {
   const [filter, setFilter] = useState('pending')
   const shown = requests.filter((item) => filter === 'all' || item.status === filter || (filter === 'completed' && item.status === 'paid'))
-  return <section className="wide-panel"><PanelHeader title="Pusat Pengajuan" description="Semua pengajuan stok, lembur, izin, tukar shift, insentif, kasbon, dan pengeluaran ada di sini." /><div className="filter-row">{[['pending', 'Menunggu'], ['approved', 'Disetujui'], ['completed', 'Dilaksanakan'], ['rejected', 'Ditolak'], ['all', 'Semua']].map(([id, label]) => <button key={id} type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div><div className="request-stack">{shown.map((request) => <article className="approval-card" key={request.id}><div className="approval-copy"><div className="approval-title"><strong>{request.type}</strong><span>{request.employee_name} - {dateLabel(request.created_at)}</span></div><p>{request.reason}</p>{request.amount > 0 ? <b>{request.type.includes('Stok') ? `${request.amount} unit` : rupiah(request.amount)}</b> : null}{request.review_note ? <small>Catatan: {request.review_note}</small> : null}</div><div className="approval-actions"><StatusBadge label={request.status} />{request.status === 'pending' ? <><button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, 'approved')}><CheckCircle2 size={16} />Setujui</button><button className="reject" disabled={loading} type="button" onClick={() => void onReview(request, 'rejected')}><XCircle size={16} />Tolak</button></> : null}{request.status === 'approved' ? <button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, isMoneyRequest(request.type) ? 'paid' : 'completed')}><CheckCircle2 size={16} />{isMoneyRequest(request.type) ? 'Bayar' : 'Tandai Dilaksanakan'}</button> : null}</div></article>)}{!shown.length ? <div className="empty-state">Tidak ada pengajuan pada status ini.</div> : null}</div></section>
+  return <section className="wide-panel"><PanelHeader title="Pusat Pengajuan" description="Semua pengajuan stok, lembur, izin, tukar shift, insentif, kasbon, dan pengeluaran ada di sini." /><div className="filter-row">{[['pending', 'Menunggu'], ['approved', 'Disetujui'], ['completed', 'Dilaksanakan'], ['rejected', 'Ditolak'], ['all', 'Semua']].map(([id, label]) => <button key={id} type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div><div className="request-stack">{shown.map((request) => <article className="approval-card" key={request.id}><div className="approval-copy"><div className="approval-title"><strong>{request.type}</strong><span>{request.employee_name} - {dateLabel(request.created_at)}</span></div><p>{request.reason}</p>{request.amount > 0 ? <b>{request.type.includes('Stok') ? `${request.amount} unit` : rupiah(request.amount)}</b> : null}{request.review_note ? <small>Catatan: {request.review_note}</small> : null}</div><div className="approval-actions"><StatusBadge label={request.status} />{request.status === 'pending' ? <><button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, 'approved')}><CheckCircle2 size={16} />Setujui</button><button className="reject" disabled={loading} type="button" onClick={() => void onReview(request, 'rejected')}><XCircle size={16} />Tolak</button></> : null}{request.status === 'approved' ? <button className="approve" disabled={loading} type="button" onClick={() => void onReview(request, isMoneyRequest(request.type) ? 'paid' : 'completed')}><CheckCircle2 size={16} />{isMoneyRequest(request.type) ? 'Bayar' : 'Tandai Dilaksanakan'}</button> : null}<button className="icon-button reject" style={{ color: '#b42318' }} disabled={loading} type="button" title="Hapus pengajuan" onClick={() => void onDelete(request)}><Trash2 size={16} /></button></div></article>)}{!shown.length ? <div className="empty-state">Tidak ada pengajuan pada status ini.</div> : null}</div></section>
 }
 
 function CustomersPanel({ customers, onAdd, onEdit, onDelete }: { customers: Customer[]; onAdd: () => void; onEdit: (c: Customer) => void; onDelete: (c: Customer) => void }) {
@@ -775,8 +1241,8 @@ function CustomerForm({ customer, loading, onSubmit }: { customer: Customer | nu
   return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><label>Nama Pelanggan<input value={values.name} onChange={(event) => change('name', event.target.value)} required /></label><label>Nomor Telepon<input value={values.phone} onChange={(event) => change('phone', event.target.value)} /></label><label>Alamat<textarea value={values.address} onChange={(event) => change('address', event.target.value)} rows={3} /></label><button className="primary-button" disabled={loading} type="submit"><CheckCircle2 size={18} />Simpan Pelanggan</button></form>
 }
 
-function TeamPanel({ view, setView, employees, shifts, onAdd, onEdit, onAddShift, onEditShift }: { view: 'employees' | 'shifts'; setView: (value: 'employees' | 'shifts') => void; employees: Employee[]; shifts: WeeklyShift[]; onAdd: () => void; onEdit: (employee: Employee) => void; onAddShift: () => void; onEditShift: (shift: WeeklyShift) => void }) {
-  return <section><SegmentedControl value={view} items={[['employees', 'Karyawan'], ['shifts', 'Jadwal Mingguan']]} onChange={setView} /><section className="wide-panel"><PanelHeader title={view === 'employees' ? 'Karyawan & Akun' : 'Jadwal Shift Mingguan'} description={view === 'employees' ? 'Tambah akun, ubah data, dan aktifkan karyawan.' : 'Atur jam kerja atau hari libur setiap karyawan.'} action={view === 'employees' ? 'Tambah Karyawan' : 'Tambah Shift'} onAction={view === 'employees' ? onAdd : onAddShift} />{view === 'employees' ? <div className="table-list">{employees.map((employee) => <div className="table-row" key={employee.id}><div><strong>{employee.name}</strong><span>{employee.position} - {employee.phone || 'Tanpa nomor telepon'}</span></div><div className="row-meta"><StatusBadge label={employee.is_active ? 'Aktif' : 'Nonaktif'} /><button className="icon-button" type="button" title="Edit karyawan" onClick={() => onEdit(employee)}><Pencil size={16} /></button></div></div>)}</div> : <WeeklyShiftGrid shifts={shifts} onEdit={onEditShift} />}</section></section>
+function TeamPanel({ view, setView, employees, shifts, onAdd, onEdit, onDelete, onAddShift, onEditShift }: { view: 'employees' | 'shifts'; setView: (value: 'employees' | 'shifts') => void; employees: Employee[]; shifts: WeeklyShift[]; onAdd: () => void; onEdit: (employee: Employee) => void; onDelete: (employee: Employee) => void; onAddShift: () => void; onEditShift: (shift: WeeklyShift) => void }) {
+  return <section><SegmentedControl value={view} items={[['employees', 'Karyawan'], ['shifts', 'Jadwal Mingguan']]} onChange={setView} /><section className="wide-panel"><PanelHeader title={view === 'employees' ? 'Karyawan & Akun' : 'Jadwal Shift Mingguan'} description={view === 'employees' ? 'Tambah akun, ubah data, dan aktifkan karyawan.' : 'Atur jam kerja atau hari libur setiap karyawan.'} action={view === 'employees' ? 'Tambah Karyawan' : 'Tambah Shift'} onAction={view === 'employees' ? onAdd : onAddShift} />{view === 'employees' ? <div className="table-list">{employees.map((employee) => <div className="table-row" key={employee.id}><div><strong>{employee.name}</strong><span>{employee.position} - {employee.phone || 'Tanpa nomor telepon'}</span></div><div className="row-meta"><StatusBadge label={employee.is_active ? 'Aktif' : 'Nonaktif'} /><button className="icon-button" type="button" title="Edit karyawan" onClick={() => onEdit(employee)}><Pencil size={16} /></button><button className="icon-button reject" style={{ color: '#b42318' }} type="button" title="Hapus / Nonaktifkan karyawan" onClick={() => onDelete(employee)}><Trash2 size={16} /></button></div></div>)}</div> : <WeeklyShiftGrid shifts={shifts} onEdit={onEditShift} />}</section></section>
 }
 
 function WeeklyShiftGrid({ shifts, onEdit }: { shifts: WeeklyShift[]; onEdit: (shift: WeeklyShift) => void }) {
@@ -784,16 +1250,16 @@ function WeeklyShiftGrid({ shifts, onEdit }: { shifts: WeeklyShift[]; onEdit: (s
   return <div className="schedule-grid">{[1, 2, 3, 4, 5, 6, 7].map((day) => <section className="schedule-day" key={day}><strong>{dayLabel(day)}</strong>{shifts.filter((shift) => shift.day_of_week === day).map((shift) => <button type="button" key={shift.id} onClick={() => onEdit(shift)}><span>{shift.employee_name}</span><b>{shift.is_day_off ? 'Libur' : `${shortTime(shift.start_time)} - ${shortTime(shift.end_time)}`}</b></button>)}{!shifts.some((shift) => shift.day_of_week === day) ? <small>Belum dijadwalkan</small> : null}</section>)}</div>
 }
 
-function InventoryPanel({ items, movements, onAdd, onAdjust }: { items: InventoryItem[]; movements: InventoryMovement[]; onAdd: () => void; onAdjust: (item: InventoryItem) => void }) {
-  return <section className="section-grid"><article className="wide-panel"><PanelHeader title="Stok & Persediaan" description="Pantau stok minimum dan catat stok masuk atau keluar." action="Tambah Item" onAction={onAdd} /><div className="table-list">{items.map((item) => { const low = item.stock <= item.min_stock; return <div className="table-row" key={item.id}><div><strong>{item.name}</strong><span>Minimum {item.min_stock} {item.unit} - {rupiah(item.purchase_price)}</span></div><div className="row-meta">{low ? <StatusBadge label="Menipis" /> : null}<strong>{item.stock} {item.unit}</strong><button className="ghost-button" type="button" onClick={() => onAdjust(item)}>Mutasi</button></div></div> })}{!items.length ? <div className="empty-state">Belum ada item stok.</div> : null}</div></article><article className="wide-panel"><PanelHeader title="Riwayat Mutasi" description="Pergerakan stok terbaru dan catatannya." /><div className="table-list">{movements.slice(0, 12).map((movement) => <div className="table-row" key={movement.id}><div><strong>{movement.item_name}</strong><span>{movement.note || dateLabel(movement.created_at)}</span></div><strong className={movement.type === 'IN' ? 'money-in' : 'money-out'}>{movement.type === 'IN' ? '+' : '-'}{movement.quantity}</strong></div>)}{!movements.length ? <div className="empty-state">Belum ada mutasi stok.</div> : null}</div></article></section>
+function InventoryPanel({ items, movements, onAdd, onEdit, onDelete, onAdjust }: { items: InventoryItem[]; movements: InventoryMovement[]; onAdd: () => void; onEdit: (item: InventoryItem) => void; onDelete: (item: InventoryItem) => void; onAdjust: (item: InventoryItem) => void }) {
+  return <section className="section-grid"><article className="wide-panel"><PanelHeader title="Stok & Persediaan" description="Pantau stok minimum dan catat stok masuk atau keluar." action="Tambah Item" onAction={onAdd} /><div className="table-list">{items.map((item) => { const low = item.stock <= item.min_stock; return <div className="table-row" key={item.id}><div><strong>{item.name}</strong><span>Minimum {item.min_stock} {item.unit} - {rupiah(item.purchase_price)}</span></div><div className="row-meta">{low ? <StatusBadge label="Menipis" /> : null}<strong>{item.stock} {item.unit}</strong><button className="ghost-button" type="button" onClick={() => onAdjust(item)}>Mutasi</button><button className="icon-button" type="button" title="Edit item stok" onClick={() => onEdit(item)}><Pencil size={15} /></button><button className="icon-button reject" style={{ color: '#b42318' }} type="button" title="Hapus item stok" onClick={() => onDelete(item)}><Trash2 size={15} /></button></div></div> })}{!items.length ? <div className="empty-state">Belum ada item stok.</div> : null}</div></article><article className="wide-panel"><PanelHeader title="Riwayat Mutasi" description="Pergerakan stok terbaru dan catatannya." /><div className="table-list">{movements.slice(0, 12).map((movement) => <div className="table-row" key={movement.id}><div><strong>{movement.item_name}</strong><span>{movement.note || dateLabel(movement.created_at)}</span></div><strong className={movement.type === 'IN' ? 'money-in' : 'money-out'}>{movement.type === 'IN' ? '+' : '-'}{movement.quantity}</strong></div>)}{!movements.length ? <div className="empty-state">Belum ada mutasi stok.</div> : null}</div></article></section>
 }
 
-function ReportsPanel({ cash, metrics, onAddCash, onExport }: { cash: CashTransaction[]; metrics: ReturnType<typeof useDashboardMetrics>; onAddCash: () => void; onExport: () => void }) {
+function ReportsPanel({ cash, metrics, onAddCash, onExport, onEditCash, onDeleteCash }: { cash: CashTransaction[]; metrics: ReturnType<typeof useDashboardMetrics>; onAddCash: () => void; onExport: () => void; onEditCash: (entry: CashTransaction) => void; onDeleteCash: (entry: CashTransaction) => void }) {
   const [page, setPage] = useState(1)
   const pageSize = 12
   const totalPages = Math.max(1, Math.ceil(cash.length / pageSize))
   const currentPage = Math.min(page, totalPages)
-  return <section className="section-grid"><div className="metrics-grid"><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.income)}</strong><span>Pemasukan</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.out)}</strong><span>Pengeluaran</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.balance)}</strong><span>Saldo</span></article></div><article className="wide-panel"><div className="panel-header"><div><h2>Buku Kas</h2><p>Transaksi terbaru toko dan pencatatan manual.</p></div><div className="row-meta"><button className="ghost-button" type="button" onClick={onExport}>Export CSV</button><button className="primary-button" type="button" onClick={onAddCash}><Plus size={16} />Catat Kas</button></div></div><div className="table-list">{cash.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item) => <div className="table-row" key={item.id}><div><strong>{item.category}</strong><span>{item.description || dateLabel(item.created_at)}</span></div><strong className={item.type === 'IN' ? 'money-in' : 'money-out'}>{item.type === 'IN' ? '+' : '-'}{rupiah(item.amount)}</strong></div>)}</div><Pagination page={currentPage} pages={totalPages} total={cash.length} onChange={setPage} /></article></section>
+  return <section className="section-grid"><div className="metrics-grid"><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.income)}</strong><span>Pemasukan</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.out)}</strong><span>Pengeluaran</span></article><article className="metric-card"><Banknote size={20} /><strong>{rupiah(metrics.balance)}</strong><span>Saldo</span></article></div><article className="wide-panel"><div className="panel-header"><div><h2>Buku Kas</h2><p>Transaksi terbaru toko dan pencatatan manual.</p></div><div className="row-meta"><button className="ghost-button" type="button" onClick={onExport}>Export CSV</button><button className="primary-button" type="button" onClick={onAddCash}><Plus size={16} />Catat Kas</button></div></div><div className="table-list">{cash.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item) => <div className="table-row" key={item.id}><div><strong>{item.category}</strong><span>{item.description || dateLabel(item.created_at)} · {item.method || 'Tunai'}</span></div><div className="row-meta"><strong className={item.type === 'IN' ? 'money-in' : 'money-out'}>{item.type === 'IN' ? '+' : '-'}{rupiah(item.amount)}</strong>{item.reference_type === 'MANUAL' ? <><button className="icon-button" type="button" title="Edit catatan kas manual" onClick={() => onEditCash(item)}><Pencil size={15} /></button><button className="icon-button reject" style={{ color: '#b42318' }} type="button" title="Hapus catatan kas manual" onClick={() => onDeleteCash(item)}><Trash2 size={15} /></button></> : <small style={{ color: '#667085', fontSize: '11px' }}>{item.reference_type || 'Sistem'}</small>}</div></div>)}</div><Pagination page={currentPage} pages={totalPages} total={cash.length} onChange={setPage} /></article></section>
 }
 
 function SettingsPanel({ shop, loading, onSave }: { shop: Shop | null; loading: boolean; onSave: (values: ShopFormValues) => Promise<void> }) { return <section className="two-column"><article className="wide-panel"><PanelHeader title="Pengaturan Toko" description="Profil ini dipakai bersama oleh dashboard dan aplikasi Android." />{shop ? <ShopForm shop={shop} loading={loading} onSubmit={onSave} /> : <div className="empty-state">Data toko belum dimuat.</div>}</article><article className="side-panel"><PanelHeader title="Keamanan & Sinkronisasi" description="Kontrol akses Supabase." /><Checklist items={['Login Owner dan karyawan', 'Pembatasan data per shop_id', 'Notifikasi request tertarget', 'Audit perubahan operasional', 'Realtime lintas perangkat']} /></article></section> }
@@ -855,9 +1321,9 @@ function EditInventoryForm({ item, loading, onSubmit }: { item: InventoryItem; l
   return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><label>Nama item<input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} required /></label><div className="form-grid"><label>Satuan<input value={values.unit} onChange={(event) => setValues({ ...values, unit: event.target.value })} required /></label><label>Stok minimum<input type="number" min="0" value={values.min_stock} onChange={(event) => setValues({ ...values, min_stock: Number(event.target.value) })} /></label></div><label>Harga beli<input type="number" min="0" value={values.purchase_price} onChange={(event) => setValues({ ...values, purchase_price: Number(event.target.value) })} /></label><label>Catatan<textarea value={values.note} onChange={(event) => setValues({ ...values, note: event.target.value })} /></label><label className="toggle-row"><input type="checkbox" checked={values.is_active} onChange={(event) => setValues({ ...values, is_active: event.target.checked })} />Aktif</label><p>Stok aktual diubah melalui tombol Mutasi agar riwayatnya tercatat.</p><button className="primary-button" disabled={loading} type="submit">Simpan item</button></form>
 }
 
-function EditCashForm({ entry, loading, onSubmit }: { entry: CashTransaction; loading: boolean; onSubmit: (values: CashFormValues) => Promise<void> }) {
+function EditCashForm({ entry, loading, onSubmit, onDelete }: { entry: CashTransaction; loading: boolean; onSubmit: (values: CashFormValues) => Promise<void>; onDelete?: (entry: CashTransaction) => void }) {
   const [values, setValues] = useState<CashFormValues>({ type: entry.type, category: entry.category, description: entry.description, amount: entry.amount, method: entry.method || 'Tunai' })
-  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><div className="form-grid"><label>Tipe<select value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as 'IN' | 'OUT' })}><option value="IN">Pemasukan</option><option value="OUT">Pengeluaran</option></select></label><label>Kategori<input value={values.category} onChange={(event) => setValues({ ...values, category: event.target.value })} required /></label></div><label>Keterangan<textarea value={values.description} onChange={(event) => setValues({ ...values, description: event.target.value })} required /></label><div className="form-grid"><label>Nominal<input type="number" min="1" value={values.amount} onChange={(event) => setValues({ ...values, amount: Number(event.target.value) })} required /></label><label>Metode<select value={values.method} onChange={(event) => setValues({ ...values, method: event.target.value })}><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></label></div><button className="primary-button" disabled={loading} type="submit">Simpan koreksi</button></form>
+  return <form className="editor-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(values) }}><div className="form-grid"><label>Tipe<select value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as 'IN' | 'OUT' })}><option value="IN">Pemasukan</option><option value="OUT">Pengeluaran</option></select></label><label>Kategori<input value={values.category} onChange={(event) => setValues({ ...values, category: event.target.value })} required /></label></div><label>Keterangan<textarea value={values.description} onChange={(event) => setValues({ ...values, description: event.target.value })} required /></label><div className="form-grid"><label>Nominal<input type="number" min="1" value={values.amount} onChange={(event) => setValues({ ...values, amount: Number(event.target.value) })} required /></label><label>Metode<select value={values.method} onChange={(event) => setValues({ ...values, method: event.target.value })}><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></label></div><div className="form-actions"><button className="primary-button" disabled={loading} type="submit">Simpan koreksi</button>{onDelete ? <button className="reject" disabled={loading} type="button" onClick={() => onDelete(entry)}><Trash2 size={16} />Hapus</button> : null}</div></form>
 }
 
 function OwnerEditAccess<T extends { id: string }>({ title, entries, label, onEdit }: { title: string; entries: T[]; label: (entry: T) => string; onEdit: (entry: T) => void }) {
@@ -870,9 +1336,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 function SegmentedControl<T extends string>({ value, items, onChange }: { value: T; items: readonly (readonly [T, string])[]; onChange: (value: T) => void }) { return <div className="segmented-control">{items.map(([id, label]) => <button key={id} className={value === id ? 'active' : ''} type="button" onClick={() => onChange(id)}>{label}</button>)}</div> }
 function PanelHeader({ title, description, action, onAction }: { title: string; description: string; action?: string; onAction?: () => void }) { return <div className="panel-header"><div><h2>{title}</h2><p>{description}</p></div>{action ? <button className="ghost-button" type="button" onClick={onAction}><Plus size={16} />{action}</button> : null}</div> }
-function OrderTable({ orders, onUpdateStatus, onRecordPayment }: { orders: Order[]; onUpdateStatus?: (order: Order, status: string) => Promise<void>; onRecordPayment?: (order: Order) => Promise<void> }) {
+function OrderTable({ orders, onUpdateStatus, onRecordPayment, onPrintOrder, onDeleteOrder }: { orders: Order[]; onUpdateStatus?: (order: Order, status: string) => Promise<void>; onRecordPayment?: (order: Order) => Promise<void>; onPrintOrder?: (order: Order) => void; onDeleteOrder?: (order: Order) => Promise<void> }) {
   if (!orders.length) return <div className="empty-state">Belum ada pesanan pada tampilan ini.</div>
-  return <div className="order-table-wrap"><table className="order-table"><thead><tr><th>Nomor nota</th><th>Pelanggan</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Pembayaran</th>{onUpdateStatus ? <th>Tindakan</th> : null}</tr></thead><tbody>{orders.map((order) => <tr key={order.id} className={order.order_status === 'received' ? 'is-new' : ''}><td data-label="Nomor nota"><strong>{order.order_number}</strong></td><td data-label="Pelanggan">{order.customer_name_snapshot}</td><td data-label="Tanggal">{dateLabel(order.created_at)}</td><td data-label="Total"><strong>{rupiah(order.total_price)}</strong></td><td data-label="Status"><StatusBadge label={order.order_status} /></td><td data-label="Pembayaran"><StatusBadge label={order.payment_status} /></td>{onUpdateStatus ? <td data-label="Tindakan"><div className="table-actions"><select className="compact-select" aria-label={`Ubah status ${order.order_number}`} value={order.order_status} onChange={(event) => void onUpdateStatus(order, event.target.value)}><option value="received">Diterima</option><option value="processing">Diproses</option><option value="ready">Siap diambil</option><option value="picked_up">Diambil</option><option value="cancelled">Dibatalkan</option></select>{onRecordPayment && order.paid_amount < order.total_price ? <button className="table-pay-button" type="button" onClick={() => void onRecordPayment(order)}>Bayar</button> : null}</div></td> : null}</tr>)}</tbody></table></div>
+  return <div className="order-table-wrap"><table className="order-table"><thead><tr><th>Nomor nota</th><th>Pelanggan</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Pembayaran</th>{onUpdateStatus || onPrintOrder || onDeleteOrder ? <th>Tindakan</th> : null}</tr></thead><tbody>{orders.map((order) => { const remaining = Math.max(0, order.total_price - order.paid_amount); return <tr key={order.id} className={order.order_status === 'received' ? 'is-new' : ''}><td data-label="Nomor nota"><strong>{order.order_number}</strong></td><td data-label="Pelanggan">{order.customer_name_snapshot}</td><td data-label="Tanggal">{dateLabel(order.created_at)}</td><td data-label="Total"><div><strong>{rupiah(order.total_price)}</strong>{remaining > 0 ? <small style={{ display: 'block', color: '#b42318', fontSize: '11px' }}>Sisa {rupiah(remaining)}</small> : null}</div></td><td data-label="Status"><StatusBadge label={order.order_status} /></td><td data-label="Pembayaran"><StatusBadge label={order.payment_status} /></td>{onUpdateStatus || onPrintOrder || onDeleteOrder ? <td data-label="Tindakan"><div className="table-actions">{onUpdateStatus ? <select className="compact-select" aria-label={`Ubah status ${order.order_number}`} value={order.order_status} onChange={(event) => void onUpdateStatus(order, event.target.value)}><option value="received">Diterima</option><option value="processing">Diproses</option><option value="ready">Siap diambil</option><option value="picked_up">Diambil</option><option value="cancelled">Dibatalkan</option></select> : null}{onRecordPayment && remaining > 0 ? <button className="table-pay-button" type="button" onClick={() => void onRecordPayment(order)}>Bayar</button> : null}{onPrintOrder ? <button className="icon-button" type="button" title="Cetak Nota" onClick={() => onPrintOrder(order)}><Printer size={15} /></button> : null}{onDeleteOrder ? <button className="icon-button reject" style={{ color: '#b42318' }} type="button" title="Hapus / Batalkan pesanan" onClick={() => void onDeleteOrder(order)}><Trash2 size={15} /></button> : null}</div></td> : null}</tr> })}</tbody></table></div>
 }
 
 function Pagination({ page, pages, total, onChange }: { page: number; pages: number; total: number; onChange: (page: number) => void }) {
@@ -921,6 +1387,33 @@ function orderProgressForDates(orders: Order[], dates: Date[], monthly = false) 
     }
   })
 }
+function cashflowForDates(cash: CashTransaction[], dates: Date[], monthly = false) {
+  return dates.map((date) => {
+    const key = localDayKey(date)
+    const dayCash = cash.filter((c) => localDayKey(c.created_at) === key)
+    const income = dayCash.filter((c) => c.type === 'IN').reduce((sum, c) => sum + c.amount, 0)
+    const expense = dayCash.filter((c) => c.type === 'OUT').reduce((sum, c) => sum + c.amount, 0)
+    return {
+      key,
+      label: monthly ? String(date.getDate()) : new Intl.DateTimeFormat('id-ID', { weekday: 'short' }).format(date).replace('.', ''),
+      fullLabel: new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date),
+      income,
+      expense,
+      net: income - expense,
+    }
+  })
+}
+function calendarWeekCashflow(cash: CashTransaction[]) {
+  const start = new Date(); start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  return cashflowForDates(cash, Array.from({ length: 7 }, (_, index) => { const date = new Date(start); date.setDate(start.getDate() + index); return date }))
+}
+function calendarMonthCashflow(cash: CashTransaction[], selectedMonth: string) {
+  const [year, month] = selectedMonth.split('-').map(Number)
+  const days = new Date(year, month, 0).getDate()
+  return cashflowForDates(cash, Array.from({ length: days }, (_, index) => new Date(year, month - 1, index + 1)), true)
+}
+
 function calendarWeekSeries(orders: Order[]) {
   const start = new Date(); start.setHours(0, 0, 0, 0)
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
