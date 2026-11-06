@@ -1,2 +1,5 @@
 .idea/
 *.iml
+
+# Release APKs are generated artifacts; publish them outside Git.
+*.apk
