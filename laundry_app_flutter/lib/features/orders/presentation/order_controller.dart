@@ -251,6 +251,13 @@ class OrderPaymentController extends AsyncNotifier<List<PreviewPayment>> {
     ref.watch(authControllerProvider.select((session) => session.value?.user));
     _repository = ref.watch(orderRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_shopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

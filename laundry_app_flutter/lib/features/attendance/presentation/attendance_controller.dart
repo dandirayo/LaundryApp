@@ -27,10 +27,20 @@ class AttendanceController extends AsyncNotifier<List<PreviewAttendance>> {
   @override
   Future<List<PreviewAttendance>> build() async {
     _repository = ref.watch(attendanceRepositoryProvider);
+    final user = ref.watch(authControllerProvider).value?.user;
     ref.onDispose(() {
       _disposed = true;
       _removeChannel();
     });
+    if (_repository.isOnline &&
+        user != null &&
+        !user.shopId.startsWith('preview-shop')) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

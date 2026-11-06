@@ -46,6 +46,13 @@ class PayrollController extends AsyncNotifier<PayrollState> {
   Future<PayrollState> build() async {
     _repository = ref.watch(payrollRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_onlineShopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

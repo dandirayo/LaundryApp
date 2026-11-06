@@ -66,10 +66,16 @@ class PosRepository {
       });
       return;
     }
-    await _requireClient()
+    final rows = await _requireClient()
         .from('business_daily_operations')
         .update({'is_open': isOpen, 'updated_by': profileId})
-        .eq('id', existing['id'] as String);
+        .eq('id', existing['id'] as String)
+        .select('id');
+    if (rows.isEmpty) {
+      throw StateError(
+        'Status operasional tidak berubah. Muat ulang lalu coba lagi.',
+      );
+    }
   }
 
   Future<PosProduct> saveProduct({

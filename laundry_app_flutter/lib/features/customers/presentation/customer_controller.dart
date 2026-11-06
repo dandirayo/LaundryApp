@@ -48,6 +48,13 @@ class CustomerController extends AsyncNotifier<CustomerListState> {
   @override
   Future<CustomerListState> build() async {
     _registerDispose();
+    if (_onlineContext(listen: true) != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRealtimeRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(listen: true);
   }
 

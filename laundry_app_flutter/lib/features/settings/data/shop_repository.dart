@@ -41,7 +41,7 @@ class ShopRepository {
     required String phone,
     required String address,
   }) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('shops')
         .update({
           'name': name.trim(),
@@ -49,7 +49,14 @@ class ShopRepository {
           'address': address.trim(),
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
-        .eq('id', shopId);
+        .eq('id', shopId)
+        .select('id');
+    if (rows.isEmpty) {
+      throw const Failure(
+        code: 'shop-mutation-not-applied',
+        message: 'Profil toko tidak berubah. Muat ulang lalu coba lagi.',
+      );
+    }
   }
 
   SupabaseClient _requireClient() {

@@ -148,7 +148,7 @@ class EmployeeRepository {
     required bool isActive,
   }) async {
     final client = _requireClient();
-    await client
+    final employeeRows = await client
         .from('employees')
         .update({
           'name': name.trim(),
@@ -159,15 +159,30 @@ class EmployeeRepository {
           'late_tolerance_minutes': lateToleranceMinutes,
           'is_active': isActive,
         })
-        .eq('id', id);
-    await client
+        .eq('id', id)
+        .select('id');
+    if (employeeRows.isEmpty) {
+      throw const Failure(
+        code: 'employee-mutation-not-applied',
+        message: 'Data karyawan tidak berubah. Muat ulang lalu coba lagi.',
+      );
+    }
+    final profileRows = await client
         .from('profiles')
         .update({
           'full_name': name.trim(),
           'phone': phone.trim(),
           'is_active': isActive,
         })
-        .eq('employee_id', id);
+        .eq('employee_id', id)
+        .select('id');
+    if (profileRows.isEmpty) {
+      throw const Failure(
+        code: 'employee-profile-mutation-not-applied',
+        message:
+            'Profil login karyawan tidak berubah. Hubungi Owner sebelum mencoba lagi.',
+      );
+    }
   }
 
   SupabaseClient _requireClient() {

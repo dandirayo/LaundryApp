@@ -32,6 +32,11 @@ class EmployeeDirectoryController extends AsyncNotifier<List<PreviewEmployee>> {
         user.shopId.startsWith('preview-shop')) {
       return ref.read(previewDataProvider).employees;
     }
+    final timer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _queueRefresh(),
+    );
+    ref.onDispose(timer.cancel);
     _subscribe(user.shopId);
     return _repository.fetchEmployees(shopId: user.shopId);
   }

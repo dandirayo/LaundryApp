@@ -59,6 +59,36 @@ void main() {
       );
     },
   );
+
+  testWidgets('missed service Realtime event is recovered by polling', (
+    tester,
+  ) async {
+    final repository = _Services();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_Auth.new),
+        serviceRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await container.read(authControllerProvider.future);
+    (container.read(authControllerProvider.notifier) as _Auth).login();
+    expect(
+      (await container.read(serviceControllerProvider.future)).single.price,
+      12000,
+    );
+
+    repository.price = 13000;
+    // Simulate a dropped Realtime event. The periodic snapshot is authoritative.
+    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(
+      container.read(serviceControllerProvider).value!.single.price,
+      13000,
+    );
+    expect(repository.fetches, greaterThanOrEqualTo(2));
+    container.dispose();
+  });
 }
 
 class _Auth extends AuthController {
@@ -80,6 +110,8 @@ class _Auth extends AuthController {
 
 class _Services extends ServiceRepository {
   String? requestedShop;
+  int price = 12000;
+  int fetches = 0;
   final client = SupabaseClient(
     'https://example.supabase.co',
     'test-key',
@@ -90,13 +122,14 @@ class _Services extends ServiceRepository {
   @override
   Future<List<PreviewService>> fetch(String shopId) async {
     requestedShop = shopId;
-    return const [
+    fetches++;
+    return [
       PreviewService(
         id: '11111111-1111-4111-8111-111111111111',
         name: 'Cuci Setrika Kilat',
         category: 'Kiloan',
         unit: 'KG',
-        price: 12000,
+        price: price,
         estimatedHours: 12,
         isExpress: true,
         isActive: true,

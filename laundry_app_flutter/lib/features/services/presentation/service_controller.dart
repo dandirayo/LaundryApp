@@ -28,6 +28,13 @@ class ServiceController extends AsyncNotifier<List<PreviewService>> {
     ref.onDispose(_removeChannel);
     ref.watch(authControllerProvider.select((session) => session.value?.user));
     if (_repository.isOnline) await ref.watch(authControllerProvider.future);
+    if (_shopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

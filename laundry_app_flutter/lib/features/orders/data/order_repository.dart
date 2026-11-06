@@ -102,14 +102,19 @@ class OrderRepository {
     required String orderId,
     required PreviewOrderStatus status,
   }) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('orders')
         .update({
           'order_status': _statusToStorage(status),
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', orderId)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id');
+    _requireApplied(
+      rows,
+      'Status pesanan tidak berubah. Muat ulang lalu coba lagi.',
+    );
   }
 
   Future<void> updateDetails({
@@ -119,7 +124,7 @@ class OrderRepository {
     required String? employeeId,
     required String note,
   }) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('orders')
         .update({
           'order_status': _statusToStorage(status),
@@ -128,7 +133,12 @@ class OrderRepository {
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', orderId)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id');
+    _requireApplied(
+      rows,
+      'Detail pesanan tidak berubah. Muat ulang lalu coba lagi.',
+    );
   }
 
   Future<void> updateKiloServices({
@@ -156,11 +166,13 @@ class OrderRepository {
   }
 
   Future<void> delete({required String shopId, required String orderId}) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('orders')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', orderId)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id');
+    _requireApplied(rows, 'Pesanan tidak terhapus. Muat ulang lalu coba lagi.');
   }
 
   Future<void> addPayment({
@@ -270,6 +282,12 @@ class OrderRepository {
       );
     }
     return client;
+  }
+
+  void _requireApplied(List<dynamic> rows, String message) {
+    if (rows.isEmpty) {
+      throw Failure(code: 'order-mutation-not-applied', message: message);
+    }
   }
 }
 

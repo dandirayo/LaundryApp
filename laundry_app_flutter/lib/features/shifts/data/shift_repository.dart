@@ -53,7 +53,7 @@ class ShiftRepository {
     required String endTime,
     required bool isDayOff,
   }) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('weekly_shifts')
         .update({
           'employee_name': employeeName,
@@ -63,15 +63,19 @@ class ShiftRepository {
           'is_day_off': isDayOff,
         })
         .eq('id', id)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id');
+    _requireApplied(rows, 'Jadwal tidak berubah. Muat ulang lalu coba lagi.');
   }
 
   Future<void> deleteShift({required String shopId, required String id}) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('weekly_shifts')
         .delete()
         .eq('id', id)
-        .eq('shop_id', shopId);
+        .eq('shop_id', shopId)
+        .select('id');
+    _requireApplied(rows, 'Jadwal tidak terhapus. Muat ulang lalu coba lagi.');
   }
 
   RealtimeChannel subscribe({
@@ -107,6 +111,12 @@ class ShiftRepository {
       );
     }
     return client;
+  }
+
+  void _requireApplied(List<dynamic> rows, String message) {
+    if (rows.isEmpty) {
+      throw Failure(code: 'shift-mutation-not-applied', message: message);
+    }
   }
 }
 

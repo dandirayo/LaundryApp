@@ -30,6 +30,13 @@ class ShiftController extends AsyncNotifier<ShiftListState> {
   Future<ShiftListState> build() async {
     _repository = ref.watch(shiftRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_onlineContext() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

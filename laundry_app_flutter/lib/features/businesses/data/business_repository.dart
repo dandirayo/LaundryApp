@@ -77,10 +77,16 @@ class BusinessRepository {
   }
 
   Future<void> setBusinessActive(String id, bool isActive) async {
-    await _requireClient()
+    final rows = await _requireClient()
         .from('businesses')
         .update({'status': isActive ? 'active' : 'inactive'})
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
+    if (rows.isEmpty) {
+      throw StateError(
+        'Status usaha tidak berubah. Muat ulang lalu coba lagi.',
+      );
+    }
   }
 
   Future<void> setAssignment({
@@ -102,10 +108,14 @@ class BusinessRepository {
       });
       return;
     }
-    await _requireClient()
+    final rows = await _requireClient()
         .from('business_members')
         .update({'is_active': assigned})
-        .eq('id', existing['id'] as String);
+        .eq('id', existing['id'] as String)
+        .select('id');
+    if (rows.isEmpty) {
+      throw StateError('Akses usaha tidak berubah. Muat ulang lalu coba lagi.');
+    }
   }
 
   SupabaseClient _requireClient() => _client!;

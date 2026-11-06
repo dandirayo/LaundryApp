@@ -31,6 +31,13 @@ class NotificationController extends AsyncNotifier<List<PreviewNotification>> {
       _disposed = true;
       _removeChannel();
     });
+    if (_shopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 

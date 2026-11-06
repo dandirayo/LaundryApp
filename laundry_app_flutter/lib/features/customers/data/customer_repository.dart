@@ -132,11 +132,19 @@ final class CustomerRepository {
       final timestamp = DateTime.now().toUtc().toIso8601String();
       for (var start = 0; start < ids.length; start += 100) {
         final batch = ids.sublist(start, (start + 100).clamp(0, ids.length));
-        await _requireClient()
+        final updated = await _requireClient()
             .from('customers')
             .update({'deleted_at': timestamp, 'updated_at': timestamp})
             .eq('shop_id', shopId)
-            .inFilter('id', batch);
+            .inFilter('id', batch)
+            .select('id');
+        if (updated.length != batch.length) {
+          throw const Failure(
+            code: 'customer-cleanup-not-applied',
+            message:
+                'Sebagian pelanggan tidak terhapus. Muat ulang sebelum mencoba lagi.',
+          );
+        }
       }
       return ids.length;
     } on PostgrestException catch (error) {

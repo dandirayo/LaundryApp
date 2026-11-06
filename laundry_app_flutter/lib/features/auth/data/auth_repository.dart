@@ -219,10 +219,17 @@ class SupabaseAuthRepository implements AuthRepository {
           message: 'Session tidak ditemukan. Silakan login ulang.',
         );
       }
-      await _client
+      final rows = await _client
           .from('profiles')
           .update({'full_name': name.trim(), 'phone': phone.trim()})
-          .eq('id', authUser.id);
+          .eq('id', authUser.id)
+          .select('id');
+      if (rows.isEmpty) {
+        throw const Failure(
+          code: 'profile-mutation-not-applied',
+          message: 'Profil tidak berubah. Muat ulang lalu coba lagi.',
+        );
+      }
       return _loadProfile(authUser.id);
     }
 

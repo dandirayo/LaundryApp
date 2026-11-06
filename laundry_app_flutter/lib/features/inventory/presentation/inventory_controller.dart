@@ -37,6 +37,13 @@ class InventoryController extends AsyncNotifier<InventoryState> {
   Future<InventoryState> build() async {
     _repository = ref.watch(inventoryRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_onlineShopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 
@@ -120,13 +127,15 @@ class InventoryController extends AsyncNotifier<InventoryState> {
         note: note,
       );
     } else {
-      ref.read(previewDataProvider.notifier).recordInventoryPurchase(
-        itemId: itemId,
-        quantity: quantity,
-        amount: amount,
-        method: method,
-        note: note,
-      );
+      ref
+          .read(previewDataProvider.notifier)
+          .recordInventoryPurchase(
+            itemId: itemId,
+            quantity: quantity,
+            amount: amount,
+            method: method,
+            note: note,
+          );
     }
     await refresh();
   }
@@ -143,12 +152,14 @@ class InventoryController extends AsyncNotifier<InventoryState> {
         note: note,
       );
     } else {
-      ref.read(previewDataProvider.notifier).adjustStock(
-        itemId: itemId,
-        quantity: quantity,
-        type: 'OUT',
-        note: 'Pemakaian${note.trim().isEmpty ? '' : ' - ${note.trim()}'}',
-      );
+      ref
+          .read(previewDataProvider.notifier)
+          .adjustStock(
+            itemId: itemId,
+            quantity: quantity,
+            type: 'OUT',
+            note: 'Pemakaian${note.trim().isEmpty ? '' : ' - ${note.trim()}'}',
+          );
     }
     await refresh();
   }

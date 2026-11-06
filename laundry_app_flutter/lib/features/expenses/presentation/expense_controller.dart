@@ -32,6 +32,13 @@ class ExpenseController extends AsyncNotifier<ExpenseState> {
   Future<ExpenseState> build() async {
     _repository = ref.watch(expenseRepositoryProvider);
     ref.onDispose(_removeChannel);
+    if (_onlineShopId() != null) {
+      final timer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _queueRefresh(),
+      );
+      ref.onDispose(timer.cancel);
+    }
     return _load(subscribe: true);
   }
 
